@@ -36,6 +36,39 @@ window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
 
 `JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. The app also refreshes immediately after a save when the bridge returns updated CSV.
 
+Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has generated coordinates in columns R/S/T. Until then, keep the checked-in CSV as the map fallback.
+
+## 4. Generated Map Columns
+
+The bridge owns these generated columns:
+
+- Column R: `Longitude`
+- Column S: `Latitude`
+- Column T: `Site ID`
+
+When a row is edited or synced, the bridge fills `Site ID` from the venue/place text and fills missing coordinates by geocoding the row address. These columns are what the map uses as the stable spreadsheet source of truth.
+
+After pasting the latest `Code.gs`, run this once in Apps Script:
+
+1. Select `installJddmAutoFillTrigger` from the function dropdown.
+2. Click `Run`.
+3. Approve the Google permissions.
+4. Reload the spreadsheet.
+
+New or edited rows will then auto-fill columns R/S/T.
+
+For the initial migration from the checked-in map CSV, run a 5-row test from this repo after the new Apps Script deployment is live:
+
+```bash
+npm run sheet:import-coordinates -- --limit=5
+```
+
+If that looks good in the sheet, run the full import:
+
+```bash
+npm run sheet:import-coordinates
+```
+
 ## Optional Edit Token
 
 For a one-person prototype, the bridge can run without a token. If you want a light guard:
@@ -70,8 +103,9 @@ The bridge works with the current source sheet headers:
 - `Status`
 - `Yearly Booking`
 - `Notes`
-- `Latitude`
 - `Longitude`
+- `Latitude`
+- `Site ID`
 
 The map also supports normalized columns if they are added later:
 

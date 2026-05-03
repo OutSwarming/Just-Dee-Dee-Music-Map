@@ -11,7 +11,7 @@ let pendingCSV = null;
 let pendingCSVOptions = null;
 
 const CSV_COLUMNS = {
-    ID: ['id', 'venue id', 'venue_id', 'place id', 'Park ID'],
+    ID: ['id', 'site id', 'Site ID', 'venue id', 'venue_id', 'place id', 'Park ID'],
     NAME: ['venue name', 'name', 'location', 'Location', 'park name'],
     ADDRESS: ['address', 'street address', 'venue address'],
     CITY: ['city', 'town'],

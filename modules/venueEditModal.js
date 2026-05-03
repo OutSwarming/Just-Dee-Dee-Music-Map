@@ -39,8 +39,9 @@
         'Status',
         'Yearly Booking',
         'Notes',
+        'Longitude',
         'Latitude',
-        'Longitude'
+        'Site ID'
     ];
 
     let activeVenue = null;

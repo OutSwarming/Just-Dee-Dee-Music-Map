@@ -10,12 +10,25 @@
  * 6. Who has access: Anyone with the link.
  * 7. Copy the /exec URL into config/firebaseConfig.example.js as
  *    window.JDDM_SPREADSHEET_API_URL.
+ *
+ * Generated spreadsheet columns:
+ * - R: Longitude
+ * - S: Latitude
+ * - T: Site ID
  */
 
 var JDDM_BRIDGE_CONFIG = {
   SHEET_NAME: '', // Leave blank to use the first sheet.
   EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
 };
+
+var JDDM_SCHEMA_VERSION = '2026-05-03-rst-generated-columns';
+
+var GENERATED_COLUMNS = [
+  { key: 'longitude', header: 'Longitude', column: 18 }, // R
+  { key: 'latitude', header: 'Latitude', column: 19 },   // S
+  { key: 'siteId', header: 'Site ID', column: 20 }       // T
+];
 
 var OUTPUT_COLUMNS = [
   'id',
@@ -68,11 +81,34 @@ function routeRequest_(payload) {
     var action = String(payload.action || 'csv');
 
     if (action === 'health') {
-      return jsonOutput_({ ok: true, sheetName: getSheet_().getName() });
+      return jsonOutput_({
+        ok: true,
+        sheetName: getSheet_().getName(),
+        schemaVersion: JDDM_SCHEMA_VERSION,
+        generatedColumns: GENERATED_COLUMNS
+      });
+    }
+
+    if (action === 'schema') {
+      return jsonOutput_(ensureGeneratedColumns_());
     }
 
     if (action === 'csv') {
+      if (String(payload.autofill || '1') !== '0') {
+        syncGeneratedColumns_({
+          limit: Number(payload.autofillLimit || 5),
+          geocodeMissing: true
+        });
+      }
       return csvOutput_(buildNormalizedCsv_());
+    }
+
+    if (action === 'syncGeneratedColumns') {
+      return jsonOutput_(syncGeneratedColumns_(payload));
+    }
+
+    if (action === 'importCoordinates') {
+      return jsonOutput_(importCoordinates_(payload));
     }
 
     if (action === 'getVenue') {
@@ -134,6 +170,7 @@ function normalizeHeader_(header) {
 }
 
 function getSheetValues_() {
+  ensureGeneratedColumns_();
   var sheet = getSheet_();
   var values = sheet.getDataRange().getValues();
   if (!values.length) throw new Error('Spreadsheet has no header row.');
@@ -162,6 +199,87 @@ function setByHeader_(rowValues, headerMap, header, value) {
   var index = headerMap[normalizeHeader_(header)];
   if (index === undefined || index < 0) return;
   rowValues[index] = value;
+}
+
+function ensureGeneratedColumns_() {
+  var sheet = getSheet_();
+  var maxColumns = Math.max(sheet.getLastColumn(), 20);
+  var headerRange = sheet.getRange(1, 1, 1, maxColumns);
+  var headers = headerRange.getValues()[0].map(clean_);
+  var changed = [];
+
+  GENERATED_COLUMNS.forEach(function(columnSpec) {
+    var index = columnSpec.column - 1;
+    if (headers[index] !== columnSpec.header) {
+      sheet.getRange(1, columnSpec.column).setValue(columnSpec.header);
+      headers[index] = columnSpec.header;
+      changed.push(columnSpec.header);
+    }
+  });
+
+  return {
+    ok: true,
+    schemaVersion: JDDM_SCHEMA_VERSION,
+    sheetName: sheet.getName(),
+    changedHeaders: changed,
+    columns: GENERATED_COLUMNS
+  };
+}
+
+function isBlankVenueRow_(row, headerMap) {
+  return ![
+    getByHeader_(row, headerMap, 'Place'),
+    getByHeader_(row, headerMap, 'venue name'),
+    getByHeader_(row, headerMap, 'name'),
+    getByHeader_(row, headerMap, 'address'),
+    getByHeader_(row, headerMap, 'city')
+  ].filter(Boolean).length;
+}
+
+function isValidCoordinate_(value) {
+  var numberValue = Number(value);
+  return Number.isFinite(numberValue) && Math.abs(numberValue) > 0.000001;
+}
+
+function roundCoordinate_(value) {
+  var numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '';
+  return String(Math.round(numberValue * 1000000) / 1000000);
+}
+
+function buildGeocodeQuery_(row, headerMap) {
+  var parsedPlace = parsePlace_(getByHeader_(row, headerMap, 'Place'));
+  var name = getByHeader_(row, headerMap, 'venue name') || parsedPlace.name;
+  var address = getByHeader_(row, headerMap, 'address') || parsedPlace.address;
+  var city = getByHeader_(row, headerMap, 'city') || parsedPlace.city;
+  var state = getByHeader_(row, headerMap, 'state') || parsedPlace.state || 'OH';
+  var zip = getByHeader_(row, headerMap, 'zip') || parsedPlace.zip;
+  var directPlace = getByHeader_(row, headerMap, 'Place');
+
+  if (address || city || zip) {
+    return [name, address, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  }
+
+  return directPlace || name;
+}
+
+function geocodeRow_(row, headerMap) {
+  var query = buildGeocodeQuery_(row, headerMap);
+  if (!query) return null;
+
+  try {
+    var response = Maps.newGeocoder().geocode(query);
+    if (!response || response.status !== 'OK' || !response.results || !response.results.length) return null;
+    var location = response.results[0].geometry && response.results[0].geometry.location;
+    if (!location) return null;
+    return {
+      latitude: roundCoordinate_(location.lat),
+      longitude: roundCoordinate_(location.lng),
+      query: query
+    };
+  } catch (error) {
+    return null;
+  }
 }
 
 function parsePlace_(value) {
@@ -274,7 +392,7 @@ function buildNotes_(row, headerMap) {
 }
 
 function makeVenueId_(row, headerMap, rowIndex, usedIds) {
-  var explicit = getByHeader_(row, headerMap, 'id');
+  var explicit = getByHeader_(row, headerMap, 'Site ID') || getByHeader_(row, headerMap, 'id');
   var parsedPlace = parsePlace_(getByHeader_(row, headerMap, 'Place'));
   var base = explicit || [
     getByHeader_(row, headerMap, 'venue name') || parsedPlace.name,
@@ -302,6 +420,8 @@ function normalizeRow_(row, headerMap, id) {
   var venueType = normalizeCategory_(getByHeader_(row, headerMap, 'venue type') || venueName, Boolean(privateEvent));
   var notes = [getByHeader_(row, headerMap, 'notes'), buildNotes_(row, headerMap)].filter(Boolean).join('\n');
   var bookingContact = getByHeader_(row, headerMap, 'booking/contact info') || buildBookingContact_(row, headerMap);
+  var latitude = getByHeader_(row, headerMap, 'Latitude') || getByHeader_(row, headerMap, 'lat');
+  var longitude = getByHeader_(row, headerMap, 'Longitude') || getByHeader_(row, headerMap, 'lng') || getByHeader_(row, headerMap, 'long');
 
   return {
     id: id,
@@ -310,8 +430,8 @@ function normalizeRow_(row, headerMap, id) {
     city: getByHeader_(row, headerMap, 'city') || parsedPlace.city,
     state: getByHeader_(row, headerMap, 'state') || parsedPlace.state || 'OH',
     zip: getByHeader_(row, headerMap, 'zip') || parsedPlace.zip,
-    latitude: getByHeader_(row, headerMap, 'latitude'),
-    longitude: getByHeader_(row, headerMap, 'longitude'),
+    latitude: latitude,
+    longitude: longitude,
     'venue type': venueType,
     'website/social link': getByHeader_(row, headerMap, 'website/social link') || getByHeader_(row, headerMap, 'Website'),
     notes: notes,
@@ -395,6 +515,7 @@ function normalizedToClientVenue_(venue) {
 }
 
 function saveVenue_(payload) {
+  ensureGeneratedColumns_();
   var found = findVenueById_(payload.id);
   var sheet = found.data.sheet;
   var headers = found.data.headers;
@@ -408,6 +529,7 @@ function saveVenue_(payload) {
   });
 
   var venue = payload.venue || {};
+  venue.id = found.match.id;
   writeVenueFields_(rowValues, headerMap, venue, rawFields);
 
   sheet.getRange(found.match.rowNumber, 1, 1, headers.length).setValues([rowValues]);
@@ -439,8 +561,9 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   setByHeader_(rowValues, headerMap, 'city', city);
   setByHeader_(rowValues, headerMap, 'state', state);
   setByHeader_(rowValues, headerMap, 'zip', zip);
-  setByHeader_(rowValues, headerMap, 'Latitude', clean_(venue.lat));
   setByHeader_(rowValues, headerMap, 'Longitude', clean_(venue.lng));
+  setByHeader_(rowValues, headerMap, 'Latitude', clean_(venue.lat));
+  setByHeader_(rowValues, headerMap, 'Site ID', clean_(venue.id || rawFields && rawFields['Site ID']));
   setByHeader_(rowValues, headerMap, 'venue type', clean_(venue.venueType));
   setByHeader_(rowValues, headerMap, 'Website', clean_(venue.website));
   setByHeader_(rowValues, headerMap, 'website/social link', clean_(venue.website));
@@ -451,6 +574,126 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   setByHeader_(rowValues, headerMap, 'upcoming event date', clean_(venue.eventDate));
   setByHeader_(rowValues, headerMap, 'upcoming event time', clean_(venue.eventTime));
   setByHeader_(rowValues, headerMap, 'private event', venue.privateEvent ? 'TRUE' : '');
+}
+
+function syncGeneratedColumns_(payload) {
+  ensureGeneratedColumns_();
+  var data = getSheetValues_();
+  var headerMap = makeHeaderMap_(data.headers);
+  var usedIds = {};
+  var limit = Math.max(1, Math.min(Number(payload && payload.limit || 25), 200));
+  var geocodeMissing = !payload || payload.geocodeMissing !== false;
+  var startRow = Math.max(2, Number(payload && payload.startRow || 2));
+  var rowCount = Number(payload && payload.rowCount || 0);
+  var endRow = rowCount > 0 ? startRow + rowCount - 1 : Number.POSITIVE_INFINITY;
+  var changedRows = [];
+  var skippedRows = [];
+  var geocodedRows = [];
+  var rowUpdates = [];
+
+  data.rows.forEach(function(row, index) {
+    if (isBlankVenueRow_(row, headerMap)) return;
+
+    var rowValues = row.slice();
+    while (rowValues.length < data.headers.length) rowValues.push('');
+
+    var siteId = makeVenueId_(rowValues, headerMap, index, usedIds);
+    var rowNumber = index + 2;
+    if (rowNumber < startRow || rowNumber > endRow || changedRows.length >= limit) return;
+
+    var existingSiteId = getByHeader_(rowValues, headerMap, 'Site ID');
+    var longitude = getByHeader_(rowValues, headerMap, 'Longitude') || getByHeader_(rowValues, headerMap, 'lng') || getByHeader_(rowValues, headerMap, 'long');
+    var latitude = getByHeader_(rowValues, headerMap, 'Latitude') || getByHeader_(rowValues, headerMap, 'lat');
+    var changed = false;
+
+    if (existingSiteId !== siteId) {
+      setByHeader_(rowValues, headerMap, 'Site ID', siteId);
+      changed = true;
+    }
+
+    if ((!isValidCoordinate_(longitude) || !isValidCoordinate_(latitude)) && geocodeMissing) {
+      var geocoded = geocodeRow_(rowValues, headerMap);
+      if (geocoded && isValidCoordinate_(geocoded.longitude) && isValidCoordinate_(geocoded.latitude)) {
+        setByHeader_(rowValues, headerMap, 'Longitude', geocoded.longitude);
+        setByHeader_(rowValues, headerMap, 'Latitude', geocoded.latitude);
+        geocodedRows.push({ rowNumber: rowNumber, siteId: siteId, query: geocoded.query });
+        changed = true;
+      } else {
+        skippedRows.push({ rowNumber: rowNumber, siteId: siteId, reason: 'GEOCODE_FAILED' });
+      }
+    }
+
+    if (changed) {
+      rowUpdates.push({ rowNumber: rowNumber, rowValues: rowValues });
+      changedRows.push({ rowNumber: rowNumber, siteId: siteId });
+    }
+  });
+
+  rowUpdates.forEach(function(update) {
+    data.sheet.getRange(update.rowNumber, 1, 1, data.headers.length).setValues([update.rowValues]);
+  });
+
+  return {
+    ok: true,
+    schemaVersion: JDDM_SCHEMA_VERSION,
+    changedCount: changedRows.length,
+    geocodedCount: geocodedRows.length,
+    skippedCount: skippedRows.length,
+    limit: limit,
+    startRow: startRow,
+    endRow: endRow === Number.POSITIVE_INFINITY ? null : endRow,
+    changedRows: changedRows,
+    geocodedRows: geocodedRows,
+    skippedRows: skippedRows.slice(0, 25)
+  };
+}
+
+function importCoordinates_(payload) {
+  ensureGeneratedColumns_();
+  var rows = payload && Array.isArray(payload.rows) ? payload.rows : [];
+  if (!rows.length) {
+    return { ok: false, code: 'NO_ROWS', message: 'No coordinate rows were provided.' };
+  }
+
+  var data = getIndexedRows_();
+  var byId = {};
+  data.indexed.forEach(function(item) {
+    byId[item.id] = item;
+  });
+
+  var limit = Math.max(1, Math.min(Number(payload.limit || rows.length), 5000));
+  var updated = [];
+  var missing = [];
+
+  rows.slice(0, limit).forEach(function(input) {
+    var id = clean_(input.id || input.siteId || input['Site ID']);
+    var longitude = clean_(input.longitude || input.lng || input.long || input.Longitude);
+    var latitude = clean_(input.latitude || input.lat || input.Latitude);
+    if (!id || !isValidCoordinate_(longitude) || !isValidCoordinate_(latitude)) return;
+
+    var item = byId[id];
+    if (!item) {
+      missing.push(id);
+      return;
+    }
+
+    var rowValues = item.row.slice();
+    while (rowValues.length < data.headers.length) rowValues.push('');
+    setByHeader_(rowValues, data.headerMap, 'Longitude', roundCoordinate_(longitude));
+    setByHeader_(rowValues, data.headerMap, 'Latitude', roundCoordinate_(latitude));
+    setByHeader_(rowValues, data.headerMap, 'Site ID', id);
+    data.sheet.getRange(item.rowNumber, 1, 1, data.headers.length).setValues([rowValues]);
+    updated.push({ rowNumber: item.rowNumber, siteId: id });
+  });
+
+  return {
+    ok: true,
+    schemaVersion: JDDM_SCHEMA_VERSION,
+    updatedCount: updated.length,
+    missingCount: missing.length,
+    updatedRows: updated,
+    missingIds: missing.slice(0, 50)
+  };
 }
 
 function buildNormalizedCsv_() {
@@ -472,4 +715,55 @@ function csvEscape_(value) {
   var text = String(value === undefined || value === null ? '' : value);
   if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
   return text;
+}
+
+function handleJddmEditTrigger(e) {
+  try {
+    if (!e || !e.range) return;
+    var range = e.range;
+    if (range.getRow() < 2 || range.getColumn() >= 18) return;
+    syncGeneratedColumns_({
+      startRow: range.getRow(),
+      rowCount: range.getNumRows(),
+      limit: Math.min(Math.max(range.getNumRows(), 1), 25),
+      geocodeMissing: true
+    });
+  } catch (error) {
+    console.error('JDDM auto-fill failed: ' + (error && error.message ? error.message : error));
+  }
+}
+
+function onEdit(e) {
+  handleJddmEditTrigger(e);
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('JDDM Map')
+    .addItem('Fill generated map columns', 'menuSyncGeneratedColumns')
+    .addItem('Install auto-fill trigger', 'installJddmAutoFillTrigger')
+    .addToUi();
+}
+
+function menuSyncGeneratedColumns() {
+  var result = syncGeneratedColumns_({ limit: 200, geocodeMissing: true });
+  SpreadsheetApp.getUi().alert(
+    'JDDM Map columns updated',
+    'Changed rows: ' + result.changedCount + '\nGeocoded rows: ' + result.geocodedCount + '\nSkipped rows: ' + result.skippedCount,
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+function installJddmAutoFillTrigger() {
+  var spreadsheet = SpreadsheetApp.getActive();
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction && trigger.getHandlerFunction() === 'handleJddmEditTrigger') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger('handleJddmEditTrigger')
+    .forSpreadsheet(spreadsheet)
+    .onEdit()
+    .create();
+  SpreadsheetApp.getUi().alert('JDDM auto-fill trigger installed. New/edited rows will fill Longitude, Latitude, and Site ID.');
 }

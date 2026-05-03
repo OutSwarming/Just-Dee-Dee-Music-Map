@@ -3,6 +3,7 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
+    "sheet:import-coordinates": "node scripts/import-sheet-coordinates.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",
     "e2e:auth:save:manual": "node scripts/save-playwright-storage-state.js all",
     "e2e:auth:save:free": "node scripts/save-playwright-storage-state.js free",
