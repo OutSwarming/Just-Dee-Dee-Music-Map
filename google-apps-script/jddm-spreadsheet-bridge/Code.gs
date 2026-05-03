@@ -741,6 +741,7 @@ function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('JDDM Map')
+      .addItem('Set up map columns + auto-fill', 'setupJddmMapBridge')
       .addItem('Fill generated map columns', 'menuSyncGeneratedColumns')
       .addItem('Install auto-fill trigger', 'installJddmAutoFillTrigger')
       .addToUi();
@@ -759,6 +760,26 @@ function menuSyncGeneratedColumns() {
 }
 
 function installJddmAutoFillTrigger() {
+  var result = setupJddmMapBridge();
+  notifyUser_(
+    'JDDM auto-fill trigger installed. Headers changed: ' + result.schema.changedHeaders.join(', ') +
+    '. Initial changed rows: ' + result.sync.changedCount +
+    '. New/edited rows will fill Longitude, Latitude, and Site ID.'
+  );
+}
+
+function setupJddmMapBridge() {
+  var schema = ensureGeneratedColumns_();
+  installJddmAutoFillTrigger_();
+  var sync = syncGeneratedColumns_({ limit: 25, geocodeMissing: true });
+  return {
+    ok: true,
+    schema: schema,
+    sync: sync
+  };
+}
+
+function installJddmAutoFillTrigger_() {
   var spreadsheet = SpreadsheetApp.getActive();
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction && trigger.getHandlerFunction() === 'handleJddmEditTrigger') {
@@ -769,7 +790,6 @@ function installJddmAutoFillTrigger() {
     .forSpreadsheet(spreadsheet)
     .onEdit()
     .create();
-  notifyUser_('JDDM auto-fill trigger installed. New/edited rows will fill Longitude, Latitude, and Site ID.');
 }
 
 function notifyUser_(message) {
