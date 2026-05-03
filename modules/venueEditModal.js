@@ -181,6 +181,18 @@
         }, {});
     }
 
+    function mergeSourceVenue(sourceVenue) {
+        if (!sourceVenue || typeof sourceVenue !== 'object') return { ...activeVenue };
+        const merged = { ...activeVenue, ...sourceVenue };
+
+        // The live sheet may be missing coordinates while the checked-in map CSV has them.
+        // Preserve the clicked pin coordinates so Save can backfill Latitude/Longitude.
+        if (!clean(sourceVenue.lat)) merged.lat = activeVenue.lat;
+        if (!clean(sourceVenue.lng)) merged.lng = activeVenue.lng;
+
+        return merged;
+    }
+
     function renderRawFields(rawFields) {
         const container = qs('venue-edit-source-fields');
         if (!container) return;
@@ -266,10 +278,7 @@
             const result = await service.getVenue(activeVenue.id);
             if (result && result.rawFields) renderRawFields(result.rawFields);
             if (result && result.venue) {
-                fillBaseFields({
-                    ...activeVenue,
-                    ...result.venue
-                });
+                fillBaseFields(mergeSourceVenue(result.venue));
             }
             setStatus('Source spreadsheet row loaded.', 'success');
         } catch (error) {
