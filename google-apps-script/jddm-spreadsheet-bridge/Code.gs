@@ -1,0 +1,475 @@
+/**
+ * Just Dee Dee Music Map spreadsheet bridge.
+ *
+ * Install:
+ * 1. Open the Google Sheet.
+ * 2. Extensions > Apps Script.
+ * 3. Paste this file into Code.gs.
+ * 4. Deploy > New deployment > Web app.
+ * 5. Execute as: Me.
+ * 6. Who has access: Anyone with the link.
+ * 7. Copy the /exec URL into config/firebaseConfig.example.js as
+ *    window.JDDM_SPREADSHEET_API_URL.
+ */
+
+var JDDM_BRIDGE_CONFIG = {
+  SHEET_NAME: '', // Leave blank to use the first sheet.
+  EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
+};
+
+var OUTPUT_COLUMNS = [
+  'id',
+  'venue name',
+  'address',
+  'city',
+  'state',
+  'zip',
+  'latitude',
+  'longitude',
+  'venue type',
+  'website/social link',
+  'notes',
+  'booking/contact info',
+  'upcoming event date',
+  'upcoming event time',
+  'private event'
+];
+
+var CATEGORY_NAMES = [
+  'Brewery',
+  'Winery',
+  'Restaurant',
+  'Festival',
+  'Coffee Shop',
+  'Pub/Bar',
+  'Art Gallery',
+  'Farm/Farmers Market',
+  'Private Event',
+  'Other Venue'
+];
+
+function doGet(e) {
+  return routeRequest_(Object.assign({ action: 'csv' }, e && e.parameter ? e.parameter : {}));
+}
+
+function doPost(e) {
+  var payload = {};
+  try {
+    payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+  } catch (error) {
+    return jsonOutput_({ ok: false, code: 'BAD_JSON', message: 'Request JSON could not be read.' });
+  }
+  return routeRequest_(payload);
+}
+
+function routeRequest_(payload) {
+  try {
+    requireToken_(payload);
+    var action = String(payload.action || 'csv');
+
+    if (action === 'health') {
+      return jsonOutput_({ ok: true, sheetName: getSheet_().getName() });
+    }
+
+    if (action === 'csv') {
+      return csvOutput_(buildNormalizedCsv_());
+    }
+
+    if (action === 'getVenue') {
+      return jsonOutput_(getVenue_(payload.id));
+    }
+
+    if (action === 'saveVenue') {
+      return jsonOutput_(saveVenue_(payload));
+    }
+
+    return jsonOutput_({ ok: false, code: 'UNKNOWN_ACTION', message: 'Unknown spreadsheet bridge action.' });
+  } catch (error) {
+    return jsonOutput_({
+      ok: false,
+      code: error.code || 'BRIDGE_ERROR',
+      message: error.message || String(error)
+    });
+  }
+}
+
+function requireToken_(payload) {
+  if (!JDDM_BRIDGE_CONFIG.EDIT_TOKEN) return;
+  if (String(payload.token || '') !== JDDM_BRIDGE_CONFIG.EDIT_TOKEN) {
+    var error = new Error('Spreadsheet edit token did not match.');
+    error.code = 'BAD_TOKEN';
+    throw error;
+  }
+}
+
+function getSheet_() {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (JDDM_BRIDGE_CONFIG.SHEET_NAME) {
+    var namedSheet = spreadsheet.getSheetByName(JDDM_BRIDGE_CONFIG.SHEET_NAME);
+    if (!namedSheet) throw new Error('Sheet not found: ' + JDDM_BRIDGE_CONFIG.SHEET_NAME);
+    return namedSheet;
+  }
+  return spreadsheet.getSheets()[0];
+}
+
+function jsonOutput_(payload) {
+  return ContentService
+    .createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function csvOutput_(csv) {
+  return ContentService
+    .createTextOutput(csv)
+    .setMimeType(ContentService.MimeType.CSV);
+}
+
+function clean_(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function normalizeHeader_(header) {
+  return clean_(header).toLowerCase();
+}
+
+function getSheetValues_() {
+  var sheet = getSheet_();
+  var values = sheet.getDataRange().getValues();
+  if (!values.length) throw new Error('Spreadsheet has no header row.');
+  return {
+    sheet: sheet,
+    headers: values[0].map(clean_),
+    rows: values.slice(1)
+  };
+}
+
+function makeHeaderMap_(headers) {
+  var map = {};
+  headers.forEach(function(header, index) {
+    map[normalizeHeader_(header)] = index;
+  });
+  return map;
+}
+
+function getByHeader_(row, headerMap, header) {
+  var index = headerMap[normalizeHeader_(header)];
+  if (index === undefined || index < 0) return '';
+  return clean_(row[index]);
+}
+
+function setByHeader_(rowValues, headerMap, header, value) {
+  var index = headerMap[normalizeHeader_(header)];
+  if (index === undefined || index < 0) return;
+  rowValues[index] = value;
+}
+
+function parsePlace_(value) {
+  var raw = clean_(value).replace(/\s+/g, ' ');
+  if (!raw) return {};
+
+  var parts = raw.split(',').map(function(part) { return clean_(part); }).filter(Boolean);
+  var parsed = {
+    name: parts[0] || raw,
+    address: '',
+    city: '',
+    state: 'OH',
+    zip: ''
+  };
+
+  if (parts.length >= 3) {
+    var stateZip = parts[parts.length - 1].match(/\b([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/i);
+    parsed.city = parts[parts.length - 2] || '';
+    parsed.address = parts.slice(1, -2).join(', ');
+    if (stateZip) {
+      parsed.state = stateZip[1].toUpperCase();
+      parsed.zip = stateZip[2];
+    }
+    return parsed;
+  }
+
+  var inlineMatch = raw.match(/^(.*?),?\s+(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+  if (inlineMatch) {
+    parsed.name = clean_(inlineMatch[1]);
+    parsed.city = clean_(inlineMatch[2]);
+    parsed.state = inlineMatch[3].toUpperCase();
+    parsed.zip = inlineMatch[4];
+  }
+
+  return parsed;
+}
+
+function slugify_(value) {
+  return clean_(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function normalizeBoolean_(value) {
+  var lower = clean_(value).toLowerCase();
+  return ['true', 'yes', 'y', '1', 'private'].indexOf(lower) >= 0 ? 'TRUE' : '';
+}
+
+function normalizeCategory_(value, isPrivate) {
+  if (isPrivate) return 'Private Event';
+  var raw = clean_(value);
+  for (var i = 0; i < CATEGORY_NAMES.length; i++) {
+    if (CATEGORY_NAMES[i].toLowerCase() === raw.toLowerCase()) return CATEGORY_NAMES[i];
+  }
+
+  var lower = raw.toLowerCase();
+  if (lower.indexOf('golf') >= 0) return 'Other Venue';
+  if (lower.indexOf('brew') >= 0) return 'Brewery';
+  if (lower.indexOf('wine') >= 0) return 'Winery';
+  if (
+    lower.indexOf('restaurant') >= 0 ||
+    lower.indexOf('grille') >= 0 ||
+    lower.indexOf('grill') >= 0 ||
+    lower.indexOf('bistro') >= 0 ||
+    lower.indexOf('diner') >= 0 ||
+    lower.indexOf('eatery') >= 0 ||
+    lower.indexOf('dining') >= 0 ||
+    lower.indexOf('food') >= 0
+  ) return 'Restaurant';
+  if (lower.indexOf('festival') >= 0 || lower.indexOf('fair') >= 0) return 'Festival';
+  if (lower.indexOf('coffee') >= 0 || lower.indexOf('cafe') >= 0) return 'Coffee Shop';
+  if (lower.indexOf('pub') >= 0 || lower.indexOf('bar') >= 0 || lower.indexOf('tavern') >= 0) return 'Pub/Bar';
+  if (lower.indexOf('gallery') >= 0 || lower.indexOf('art') >= 0) return 'Art Gallery';
+  if (lower.indexOf('farm') >= 0 || lower.indexOf('market') >= 0) return 'Farm/Farmers Market';
+  if (lower.indexOf('private') >= 0 || lower.indexOf('wedding') >= 0 || lower.indexOf('party') >= 0) return 'Private Event';
+  return 'Other Venue';
+}
+
+function buildBookingContact_(row, headerMap) {
+  return [
+    getByHeader_(row, headerMap, 'Contact Name'),
+    getByHeader_(row, headerMap, 'Email/Contact'),
+    getByHeader_(row, headerMap, 'Phone Number'),
+    getByHeader_(row, headerMap, 'Contact Type')
+  ].filter(Boolean).join(' | ');
+}
+
+function buildNotes_(row, headerMap) {
+  var pairs = [
+    ['Rank', getByHeader_(row, headerMap, 'Rank')],
+    ['Contacted', getByHeader_(row, headerMap, 'Contacted')],
+    ['Want', getByHeader_(row, headerMap, 'Want')],
+    ['Times booked', getByHeader_(row, headerMap, '#Times')],
+    ['Card', getByHeader_(row, headerMap, 'Card')],
+    ['Played', getByHeader_(row, headerMap, 'Played')],
+    ['Music', getByHeader_(row, headerMap, 'Music')],
+    ['Days/Months', getByHeader_(row, headerMap, 'Days/Months')],
+    ['Status', getByHeader_(row, headerMap, 'Status')],
+    ['Yearly Booking', getByHeader_(row, headerMap, 'Yearly Booking')],
+    ['Notes', getByHeader_(row, headerMap, 'Notes')]
+  ];
+
+  return pairs
+    .filter(function(pair) { return pair[1]; })
+    .map(function(pair) { return pair[0] + ': ' + pair[1]; })
+    .join('\n');
+}
+
+function makeVenueId_(row, headerMap, rowIndex, usedIds) {
+  var explicit = getByHeader_(row, headerMap, 'id');
+  var parsedPlace = parsePlace_(getByHeader_(row, headerMap, 'Place'));
+  var base = explicit || [
+    getByHeader_(row, headerMap, 'venue name') || parsedPlace.name,
+    getByHeader_(row, headerMap, 'city') || parsedPlace.city,
+    getByHeader_(row, headerMap, 'state') || parsedPlace.state,
+    getByHeader_(row, headerMap, 'zip') || parsedPlace.zip
+  ].filter(Boolean).join(' ');
+  var id = slugify_(base) || ('venue-row-' + (rowIndex + 2));
+  var suffix = 2;
+  var original = id;
+
+  while (usedIds[id]) {
+    id = original + '-' + suffix;
+    suffix++;
+  }
+
+  usedIds[id] = true;
+  return id;
+}
+
+function normalizeRow_(row, headerMap, id) {
+  var parsedPlace = parsePlace_(getByHeader_(row, headerMap, 'Place'));
+  var privateEvent = normalizeBoolean_(getByHeader_(row, headerMap, 'private event'));
+  var venueName = getByHeader_(row, headerMap, 'venue name') || parsedPlace.name;
+  var venueType = normalizeCategory_(getByHeader_(row, headerMap, 'venue type') || venueName, Boolean(privateEvent));
+  var notes = [getByHeader_(row, headerMap, 'notes'), buildNotes_(row, headerMap)].filter(Boolean).join('\n');
+  var bookingContact = getByHeader_(row, headerMap, 'booking/contact info') || buildBookingContact_(row, headerMap);
+
+  return {
+    id: id,
+    'venue name': venueName,
+    address: getByHeader_(row, headerMap, 'address') || parsedPlace.address,
+    city: getByHeader_(row, headerMap, 'city') || parsedPlace.city,
+    state: getByHeader_(row, headerMap, 'state') || parsedPlace.state || 'OH',
+    zip: getByHeader_(row, headerMap, 'zip') || parsedPlace.zip,
+    latitude: getByHeader_(row, headerMap, 'latitude'),
+    longitude: getByHeader_(row, headerMap, 'longitude'),
+    'venue type': venueType,
+    'website/social link': getByHeader_(row, headerMap, 'website/social link') || getByHeader_(row, headerMap, 'Website'),
+    notes: notes,
+    'booking/contact info': bookingContact,
+    'upcoming event date': getByHeader_(row, headerMap, 'upcoming event date'),
+    'upcoming event time': getByHeader_(row, headerMap, 'upcoming event time'),
+    'private event': privateEvent
+  };
+}
+
+function getIndexedRows_() {
+  var data = getSheetValues_();
+  var headerMap = makeHeaderMap_(data.headers);
+  var usedIds = {};
+  var indexed = data.rows.map(function(row, index) {
+    var id = makeVenueId_(row, headerMap, index, usedIds);
+    return {
+      id: id,
+      rowNumber: index + 2,
+      row: row,
+      rawFields: rowToRawFields_(data.headers, row),
+      venue: normalizeRow_(row, headerMap, id)
+    };
+  });
+
+  data.headerMap = headerMap;
+  data.indexed = indexed;
+  return data;
+}
+
+function rowToRawFields_(headers, row) {
+  var fields = {};
+  headers.forEach(function(header, index) {
+    if (!header) return;
+    fields[header] = clean_(row[index]);
+  });
+  return fields;
+}
+
+function findVenueById_(id) {
+  var data = getIndexedRows_();
+  var target = clean_(id);
+  var match = data.indexed.filter(function(item) { return item.id === target; })[0];
+  if (!match) {
+    var error = new Error('Venue row was not found in the spreadsheet.');
+    error.code = 'VENUE_NOT_FOUND';
+    throw error;
+  }
+  return { data: data, match: match };
+}
+
+function getVenue_(id) {
+  var found = findVenueById_(id);
+  return {
+    ok: true,
+    id: found.match.id,
+    rowNumber: found.match.rowNumber,
+    rawFields: found.match.rawFields,
+    venue: normalizedToClientVenue_(found.match.venue)
+  };
+}
+
+function normalizedToClientVenue_(venue) {
+  return {
+    id: venue.id,
+    name: venue['venue name'],
+    address: venue.address,
+    city: venue.city,
+    state: venue.state,
+    zip: venue.zip,
+    lat: venue.latitude,
+    lng: venue.longitude,
+    venueType: venue['venue type'],
+    website: venue['website/social link'],
+    notes: venue.notes,
+    bookingContact: venue['booking/contact info'],
+    eventDate: venue['upcoming event date'],
+    eventTime: venue['upcoming event time'],
+    privateEvent: venue['private event'] === 'TRUE'
+  };
+}
+
+function saveVenue_(payload) {
+  var found = findVenueById_(payload.id);
+  var sheet = found.data.sheet;
+  var headers = found.data.headers;
+  var headerMap = found.data.headerMap;
+  var rowValues = found.match.row.slice();
+  while (rowValues.length < headers.length) rowValues.push('');
+
+  var rawFields = payload.rawFields || {};
+  Object.keys(rawFields).forEach(function(header) {
+    setByHeader_(rowValues, headerMap, header, rawFields[header]);
+  });
+
+  var venue = payload.venue || {};
+  writeVenueFields_(rowValues, headerMap, venue, rawFields);
+
+  sheet.getRange(found.match.rowNumber, 1, 1, headers.length).setValues([rowValues]);
+
+  return {
+    ok: true,
+    action: 'updated',
+    id: found.match.id,
+    rowNumber: found.match.rowNumber,
+    venue: normalizedToClientVenue_(normalizeRow_(rowValues, headerMap, found.match.id)),
+    rawFields: rowToRawFields_(headers, rowValues),
+    csv: buildNormalizedCsv_()
+  };
+}
+
+function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
+  var name = clean_(venue.name);
+  var address = clean_(venue.address);
+  var city = clean_(venue.city);
+  var state = clean_(venue.state) || 'OH';
+  var zip = clean_(venue.zip);
+
+  if (name || address || city || zip) {
+    setByHeader_(rowValues, headerMap, 'Place', [name, address, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+  }
+
+  setByHeader_(rowValues, headerMap, 'venue name', name);
+  setByHeader_(rowValues, headerMap, 'address', address);
+  setByHeader_(rowValues, headerMap, 'city', city);
+  setByHeader_(rowValues, headerMap, 'state', state);
+  setByHeader_(rowValues, headerMap, 'zip', zip);
+  setByHeader_(rowValues, headerMap, 'Latitude', clean_(venue.lat));
+  setByHeader_(rowValues, headerMap, 'Longitude', clean_(venue.lng));
+  setByHeader_(rowValues, headerMap, 'venue type', clean_(venue.venueType));
+  setByHeader_(rowValues, headerMap, 'Website', clean_(venue.website));
+  setByHeader_(rowValues, headerMap, 'website/social link', clean_(venue.website));
+  if (!rawFields || !Object.prototype.hasOwnProperty.call(rawFields, 'Notes')) {
+    setByHeader_(rowValues, headerMap, 'Notes', clean_(venue.notes));
+  }
+  setByHeader_(rowValues, headerMap, 'booking/contact info', clean_(venue.bookingContact));
+  setByHeader_(rowValues, headerMap, 'upcoming event date', clean_(venue.eventDate));
+  setByHeader_(rowValues, headerMap, 'upcoming event time', clean_(venue.eventTime));
+  setByHeader_(rowValues, headerMap, 'private event', venue.privateEvent ? 'TRUE' : '');
+}
+
+function buildNormalizedCsv_() {
+  var data = getIndexedRows_();
+  var rows = [OUTPUT_COLUMNS];
+
+  data.indexed.forEach(function(item) {
+    rows.push(OUTPUT_COLUMNS.map(function(column) {
+      return item.venue[column];
+    }));
+  });
+
+  return rows.map(function(row) {
+    return row.map(csvEscape_).join(',');
+  }).join('\n') + '\n';
+}
+
+function csvEscape_(value) {
+  var text = String(value === undefined || value === null ? '' : value);
+  if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+  return text;
+}

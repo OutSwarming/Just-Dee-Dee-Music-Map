@@ -19,7 +19,7 @@
 
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=39">
+    <link rel="stylesheet" href="styles.css?v=40">
     <link rel="stylesheet" href="styles/mapStyles.css?v=6">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
@@ -196,14 +196,14 @@
                 </button>
             </div>
 
-            <a id="suggest-edit-btn" href="mailto:booking@justdeedeemusic.com" class="glass-btn outline-btn panel-secondary-action">
+            <button id="suggest-edit-btn" type="button" class="glass-btn outline-btn panel-secondary-action">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 20h9"></path>
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
                 </svg>
-                Suggest Venue Update
-            </a>
+                Update Spreadsheet
+            </button>
 
             <!-- High-Density Quick-Info Bar -->
             <div id="panel-meta-container" class="park-meta-bar"></div>
@@ -230,6 +230,33 @@
             <!-- Command Center Sticky Footer -->
             <div id="panel-sticky-footer" class="panel-sticky-footer" style="display: none;"></div>
         </div>
+    </div>
+
+    <div id="venue-edit-modal" class="venue-edit-modal" hidden>
+        <div class="venue-edit-backdrop" data-close-venue-edit="true"></div>
+        <section class="venue-edit-card" role="dialog" aria-modal="true" aria-labelledby="venue-edit-title">
+            <div class="venue-edit-header">
+                <div>
+                    <p class="venue-edit-eyebrow">Spreadsheet Editor</p>
+                    <h2 id="venue-edit-title">Update Venue</h2>
+                </div>
+                <button type="button" class="venue-edit-close" data-close-venue-edit="true" aria-label="Close editor">&times;</button>
+            </div>
+            <p class="venue-edit-help">
+                Edit the venue fields, then save back to the Just Dee Dee Music spreadsheet.
+            </p>
+            <div id="venue-edit-status" class="venue-edit-status" data-tone="neutral"></div>
+            <div id="venue-edit-fields" class="venue-edit-grid"></div>
+            <details class="venue-edit-source-details">
+                <summary>Source spreadsheet row</summary>
+                <p class="venue-edit-help">These are the original spreadsheet columns for quick booking/contact edits.</p>
+                <div id="venue-edit-source-fields" class="venue-edit-grid"></div>
+            </details>
+            <div class="venue-edit-actions">
+                <button id="venue-edit-refresh" type="button" class="glass-btn outline-btn">Reload Row</button>
+                <button id="venue-edit-save" type="button" class="glass-btn primary-btn">Save to Spreadsheet</button>
+            </div>
+        </section>
     </div>
 
     <!-- UI Views -->
@@ -1329,6 +1356,7 @@
     <script src="services/checkinService.js?v=5" defer></script>
     <script src="services/authPremiumUi.js?v=2" defer></script>
     <script src="services/premiumService.js?v=1" defer></script>
+    <script src="services/spreadsheetService.js?v=1" defer></script>
     <script src="services/authAccountUi.js?v=1" defer></script>
     <script src="services/authService.js?v=22" defer></script>
     <script src="modules/markerLayerPolicy.js?v=2" defer></script>
@@ -1336,7 +1364,8 @@
     <script src="modules/TripLayerManager.js?v=5" defer></script>
     <script src="modules/mapEngine.js?v=1" defer></script>
     <script src="modules/renderEngine.js?v=7" defer></script>
-    <script src="renderers/panelRenderer.js?v=4" defer></script>
+    <script src="renderers/panelRenderer.js?v=5" defer></script>
+    <script src="modules/venueEditModal.js?v=1" defer></script>
     <script src="modules/searchEngine.js?v=5" defer></script>
     <script src="modules/dataService.js?v=4" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>

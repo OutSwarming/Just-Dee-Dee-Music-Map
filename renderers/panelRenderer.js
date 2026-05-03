@@ -122,9 +122,14 @@ function renderMarkerClickPanel(context) {
 
     const suggestEditBtn = document.getElementById('suggest-edit-btn');
     if (suggestEditBtn) {
-        const subject = encodeURIComponent(`Just Dee Dee Music Map Update: ${d.name}`);
-        const body = encodeURIComponent(`Venue Name: ${d.name}\nID: ${d.id}\nAddress: ${getVenueAddress(d)}\n\n--- Please describe the update below ---\n`);
-        suggestEditBtn.href = `mailto:booking@justdeedeemusic.com?subject=${subject}&body=${body}`;
+        suggestEditBtn.onclick = (event) => {
+            event.preventDefault();
+            if (window.BARK && typeof window.BARK.openVenueEditor === 'function') {
+                window.BARK.openVenueEditor(d);
+                return;
+            }
+            alert('Spreadsheet editor is still loading. Try again in a moment.');
+        };
     }
 
     // --- UPDATES & REPORTS ---

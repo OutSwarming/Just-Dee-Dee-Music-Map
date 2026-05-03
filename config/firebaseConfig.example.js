@@ -13,3 +13,9 @@ window.JDDM_FIREBASE_CONFIG = {
 
 // Optional: point the app at a published Google Sheets CSV after import testing.
 // window.JDDM_VENUE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/.../pub?output=csv";
+
+// Optional: Google Apps Script bridge for editing spreadsheet rows from marker cards.
+// After deploying the Apps Script web app, paste its /exec URL here and set
+// JDDM_VENUE_CSV_URL to `${window.JDDM_SPREADSHEET_API_URL}?action=csv`.
+// window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/.../exec";
+// window.JDDM_SPREADSHEET_EDIT_TOKEN = "";
