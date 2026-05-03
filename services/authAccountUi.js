@@ -1,7 +1,7 @@
 /**
  * authAccountUi.js - Public account UI for Google and Email/Password auth.
  *
- * Premium state remains read-only from Firestore entitlement via premiumService.
+ * Full-access state remains read-only from the local entitlement service.
  */
 (function () {
     window.BARK = window.BARK || {};
@@ -129,12 +129,9 @@
 
         const entitlement = premiumService.getEntitlement();
         if (premiumService.isPremium && premiumService.isPremium()) {
-            return entitlement.status === 'manual_active' ? 'Premium active (manual)' : 'Premium active';
+            return entitlement.status === 'manual_active' ? 'Full access (manual)' : 'Full access';
         }
-        if (entitlement.status === 'past_due') return 'Premium past due';
-        if (entitlement.status === 'expired') return 'Premium expired';
-        if (entitlement.status === 'canceled') return 'Premium canceled';
-        return 'Free';
+        return 'Full access';
     }
 
     function updateModeButtons() {

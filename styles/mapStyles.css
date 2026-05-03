@@ -1,4 +1,4 @@
-/* Fix 1: Premium Pin Styles */
+/* Venue pin styles */
 .custom-bark-marker {
     display: flex;
     justify-content: center;
@@ -21,7 +21,7 @@
     /* No base transition or GPU reservation: avoids zoom-out layer pressure. */
 }
 
-/* Hover effects stay active for premium mode */
+/* Hover effects stay active for detailed map mode */
 .enamel-pin-wrapper:hover {
     transform: scale(1.15) translateY(-2px);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -352,7 +352,7 @@ body.low-graphics .enamel-pin-wrapper:hover {
 }
 
 /* =========================================
-    PREMIUM B.A.R.K. LOGO CLUSTERS (V2)
+    Just Dee Dee Music map clusters
    ========================================= */
 
 .bark-cluster-marker {

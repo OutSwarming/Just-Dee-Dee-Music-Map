@@ -2,16 +2,16 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const shouldActivate = process.env.BARK_ORS_EMULATOR_STUB === "1" && (
+const shouldActivate = process.env.JDDM_ORS_EMULATOR_STUB === "1" && (
     process.env.FUNCTIONS_EMULATOR === "true" ||
     process.env.FUNCTION_TARGET ||
     path.basename(process.cwd()) === "functions"
 );
 
-const LOG_PATH = process.env.BARK_ORS_EMULATOR_STUB_LOG ||
-    path.join(os.tmpdir(), "bark-ranger-ors-emulator-stub.jsonl");
-const MARKER_PATH = process.env.BARK_ORS_EMULATOR_STUB_MARKER ||
-    path.join(os.tmpdir(), "bark-ranger-ors-emulator-stub-active.json");
+const LOG_PATH = process.env.JDDM_ORS_EMULATOR_STUB_LOG ||
+    path.join(os.tmpdir(), "jddm-ors-emulator-stub.jsonl");
+const MARKER_PATH = process.env.JDDM_ORS_EMULATOR_STUB_MARKER ||
+    path.join(os.tmpdir(), "jddm-ors-emulator-stub-active.json");
 
 function appendLog(entry) {
     fs.appendFileSync(LOG_PATH, `${JSON.stringify({

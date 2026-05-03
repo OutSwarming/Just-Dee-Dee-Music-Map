@@ -708,6 +708,12 @@ function initFirebase() {
 
     const loadSavedRoutes = window.BARK.loadSavedRoutes;
 
+    if (typeof window.BARK.hasValidFirebaseConfig === 'function' && !window.BARK.hasValidFirebaseConfig()) {
+        console.warn('[authService] Firebase config placeholder detected. Auth and cloud sync are disabled until config/firebaseConfig.local.js is supplied.');
+        showAuthFailureNotice('Firebase is not connected yet. Map browsing still works, but sign-in and cloud sync need the new Just Dee Dee Music Firebase config.');
+        return;
+    }
+
     try {
         firebase.initializeApp(window.BARK.firebaseConfig);
     } catch (error) {
@@ -744,7 +750,7 @@ function initFirebase() {
                     if (loginContainer) loginContainer.style.display = 'none';
                     if (offlineStatusContainer) offlineStatusContainer.style.display = 'block';
                     if (logoutBtn) logoutBtn.style.display = 'block';
-                    if (profileName) profileName.textContent = user.displayName || user.email || 'Bark Ranger';
+                    if (profileName) profileName.textContent = user.displayName || user.email || 'Venue Scout';
 
                     stopUserSnapshotSubscription();
 
@@ -901,18 +907,23 @@ function initFirebase() {
     // Email Suggestion Template
     const emailSuggestBtn = document.getElementById('email-suggest-btn');
     if (emailSuggestBtn) {
-        const subject = encodeURIComponent("B.A.R.K. Map: Suggest a New Place");
+        const subject = encodeURIComponent("Just Dee Dee Music Map: Suggest a Venue");
         const bodyTemplate = [
-            "--- B.A.R.K. Ranger Map Suggestion ---",
-            "Park Name:", "State:",
-            "Swag Available (Tag/Bandana/Certificate/Other):",
-            "Cost (Free/$$/Other):", "Park Entrance Fee:",
-            "ADA Accessibility Areas:", "Useful Info / Rules:",
-            "Official Website Link:", "",
+            "--- Just Dee Dee Music Live Map Suggestion ---",
+            "Venue Name:",
+            "Address:",
+            "City:",
+            "State:",
+            "Zip:",
+            "Venue Type:",
+            "Website or Social Link:",
+            "Booking/Contact Info:",
+            "Upcoming Event Date/Time:",
+            "Notes:", "",
             "--- IMPORTANT ---",
-            "Please attach photos of the swag, the park entrance, or any relevant signage to help us verify this location! 🐾"
+            "Please include any details that help verify this venue or event."
         ].join("\n");
-        emailSuggestBtn.href = `mailto:usbarkrangers@gmail.com?subject=${subject}&body=${encodeURIComponent(bodyTemplate)}`;
+        emailSuggestBtn.href = `mailto:booking@justdeedeemusic.com?subject=${subject}&body=${encodeURIComponent(bodyTemplate)}`;
     }
 }
 

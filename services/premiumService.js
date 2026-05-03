@@ -1,19 +1,19 @@
 /**
- * premiumService.js - Read-only premium entitlement state normalization.
+ * premiumService.js - Full-access entitlement state normalization.
  */
 window.BARK = window.BARK || {};
 window.BARK.services = window.BARK.services || {};
 
 (function initPremiumService() {
     const DEFAULT_ENTITLEMENT = Object.freeze({
-        premium: false,
-        status: 'free',
-        source: 'none',
-        manualOverride: false,
+        premium: true,
+        status: 'included',
+        source: 'client_app',
+        manualOverride: true,
         currentPeriodEnd: null
     });
 
-    const PREMIUM_STATUSES = new Set(['active', 'manual_active']);
+    const PREMIUM_STATUSES = new Set(['active', 'manual_active', 'included']);
 
     let entitlement = { ...DEFAULT_ENTITLEMENT };
     let debugMeta = {
@@ -72,13 +72,13 @@ window.BARK.services = window.BARK.services || {};
 
         const status = normalizeString(raw.status, DEFAULT_ENTITLEMENT.status);
         const source = normalizeString(raw.source, DEFAULT_ENTITLEMENT.source);
-        const premium = raw.premium === true && PREMIUM_STATUSES.has(status);
+        const premium = true;
 
         return {
             premium,
-            status,
-            source,
-            manualOverride: raw.manualOverride === true,
+            status: PREMIUM_STATUSES.has(status) ? status : DEFAULT_ENTITLEMENT.status,
+            source: source || DEFAULT_ENTITLEMENT.source,
+            manualOverride: true,
             currentPeriodEnd: normalizePeriodEnd(raw.currentPeriodEnd)
         };
     }
@@ -126,7 +126,7 @@ window.BARK.services = window.BARK.services || {};
     }
 
     function isPremium() {
-        return entitlement.premium === true && entitlementMatchesCurrentUser();
+        return true;
     }
 
     function subscribe(listener) {

@@ -100,12 +100,7 @@ function getPremiumService() {
 }
 
 function isPremiumRoutingUnlocked() {
-    const premiumService = getPremiumService();
-    return Boolean(
-        premiumService &&
-        typeof premiumService.isPremium === 'function' &&
-        premiumService.isPremium()
-    );
+    return true;
 }
 
 function setPlannerActionButtonLabel(button, label, icon = '') {
@@ -121,7 +116,7 @@ function openRoutePremiumPaywall() {
         return;
     }
 
-    alert('Premium is required to generate driving routes.');
+    alert('Route generation is available for all users.');
 }
 
 function updateRouteGenerationButtonState() {
@@ -135,8 +130,8 @@ function updateRouteGenerationButtonState() {
 
     if (!isPremium) {
         button.disabled = false;
-        button.title = 'Premium is required to generate driving routes.';
-        setPlannerActionButtonLabel(button, 'Premium Route');
+        button.title = '';
+        setPlannerActionButtonLabel(button, 'Generate Route');
         return;
     }
 
@@ -359,7 +354,7 @@ window.editBookend = function (type) {
     <div style="background: ${bg}; border: 2px solid ${color}; border-radius: 12px; padding: 12px; margin-top: ${type === 'end' ? '15px' : '0'}; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <div style="font-size: 11px; font-weight: 900; color: ${color}; margin-bottom: 8px; text-transform: uppercase;">📍 Set Trip ${type}</div>
         <div style="display: flex; gap: 5px;">
-            <input type="text" id="inline-${type}-input" value="${currentName}" placeholder="Search park, town, or 'My location'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+            <input type="text" id="inline-${type}-input" value="${currentName}" placeholder="Search venue, town, or 'My location'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
             <button onclick="processInlineSearch('${type}')" class="glass-btn primary-btn" style="padding: 10px 15px; border-radius: 8px; font-size: 12px; font-weight: 800;">🔍</button>
             <button onclick="updateTripUI()" class="glass-btn" style="padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 800; color: #666;">✕</button>
         </div>
@@ -512,7 +507,7 @@ function updateTripUI() {
     if (activeDay.stops.length === 0) {
         const empty = document.createElement('li');
         empty.style.cssText = 'color:#aaa; font-size:13px; text-align:center; padding:18px 0;';
-        empty.textContent = 'No stops yet. Add parks or a town above!';
+        empty.textContent = 'No stops yet. Add venues or a town above.';
         list.appendChild(empty);
     }
 
@@ -541,7 +536,7 @@ function updateTripUI() {
     // Notes
     const notesContainer = window.BARK.DOM.dayNotesContainer();
     if (notesContainer) {
-        notesContainer.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><label style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin:0;">📋 Day ${activeDayIdx + 1} Notes</label><button onclick="exportDayToMaps(${activeDayIdx})" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:4px 8px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🗺️ Drive Day ${activeDayIdx + 1}</button></div><textarea id="day-notes-textarea" placeholder="Hiking trails, confirmation #s, lunch spots..." style="width:100%; height:60px; padding:10px; border-radius:8px; border:none; background:#f8fafc; font-size:13px; outline:none; resize:none; font-family:inherit; color:#334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);" onfocus="this.style.boxShadow='inset 0 0 0 2px ${activeDay.color}'" onblur="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.02)'">${activeDay.notes || ""}</textarea><div style="text-align:right; font-size:10px; color:#cbd5e1; margin-top:4px;"><span id="char-count">${(activeDay.notes || "").length}</span> / 1000</div>`;
+        notesContainer.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><label style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin:0;">📋 Day ${activeDayIdx + 1} Notes</label><button onclick="exportDayToMaps(${activeDayIdx})" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:4px 8px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">🗺️ Drive Day ${activeDayIdx + 1}</button></div><textarea id="day-notes-textarea" placeholder="Set times, contacts, load-in notes, meals..." style="width:100%; height:60px; padding:10px; border-radius:8px; border:none; background:#f8fafc; font-size:13px; outline:none; resize:none; font-family:inherit; color:#334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);" onfocus="this.style.boxShadow='inset 0 0 0 2px ${activeDay.color}'" onblur="this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.02)'">${activeDay.notes || ""}</textarea><div style="text-align:right; font-size:10px; color:#cbd5e1; margin-top:4px;"><span id="char-count">${(activeDay.notes || "").length}</span> / 1000</div>`;
         const textarea = window.BARK.DOM.dayNotesTextarea();
         const charCount = window.BARK.DOM.charCount();
         textarea.oninput = (e) => { let val = e.target.value; if (val.length > 1000) { val = val.substring(0, 1000); e.target.value = val; } activeDay.notes = val; charCount.textContent = val.length; };

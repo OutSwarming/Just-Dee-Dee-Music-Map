@@ -11,20 +11,25 @@ let pendingCSV = null;
 let pendingCSVOptions = null;
 
 const CSV_COLUMNS = {
-    PARK_ID: 'Park ID',
-    LOCATION: 'Location',
-    STATE: 'State',
-    SWAG_COST: 'Swag Cost',
-    TYPE: 'Type',
-    INFO: 'Useful/Important/Other Info',
-    WEBSITE: 'Website',
-    PICS: 'Swag Pics - If available, and may not be current.',
-    VIDEO: 'Swearing-In Video. Not all sites do this, and ones that do only do it as time permits.',
-    LAT: 'lat',
-    LNG: 'lng'
+    ID: ['id', 'venue id', 'venue_id', 'place id', 'Park ID'],
+    NAME: ['venue name', 'name', 'location', 'Location', 'park name'],
+    ADDRESS: ['address', 'street address', 'venue address'],
+    CITY: ['city', 'town'],
+    STATE: ['state', 'State'],
+    ZIP: ['zip', 'zipcode', 'zip code', 'postal code'],
+    LAT: ['latitude', 'lat'],
+    LNG: ['longitude', 'lng', 'lon', 'long'],
+    VENUE_TYPE: ['venue type', 'category', 'type', 'Type'],
+    WEBSITE: ['website/social link', 'website', 'social link', 'link', 'Website'],
+    NOTES: ['notes', 'Useful/Important/Other Info', 'description'],
+    BOOKING_CONTACT: ['booking/contact info', 'booking contact', 'contact', 'email', 'phone'],
+    EVENT_DATE: ['upcoming event date', 'event date', 'date'],
+    EVENT_TIME: ['upcoming event time', 'event time', 'time'],
+    PRIVATE_EVENT: ['private event', 'private event flag', 'private']
 };
 
-const SWAG_TYPE_COLUMNS = ['Swag Type', 'Swag', 'Swag Available'];
+const DATA_CACHE_KEY = 'jddmVenueCSV';
+const DATA_CACHE_TIME_KEY = 'jddmVenueCSV_time';
 
 function cleanCSVValue(value) {
     if (value === undefined || value === null) return '';
@@ -46,42 +51,84 @@ function getFirstPresentCSVValue(row, columnNames) {
         if (row && Object.prototype.hasOwnProperty.call(row, columnName)) {
             return { found: true, value: cleanCSVValue(row[columnName]) };
         }
-        const matchingKey = row && Object.keys(row).find(key => cleanCSVValue(key) === columnName);
+        const normalizedColumnName = cleanCSVValue(columnName).toLowerCase();
+        const matchingKey = row && Object.keys(row).find(key => cleanCSVValue(key).toLowerCase() === normalizedColumnName);
         if (matchingKey) return { found: true, value: cleanCSVValue(row[matchingKey]) };
     }
     return { found: false, value: '' };
 }
 
-function normalizeSwagType(value) {
-    if (!value) return 'Other';
-    if (['Tag', 'Bandana', 'Certificate', 'Other'].includes(value)) return value;
-    return window.BARK.getSwagType(value);
+function getCSVValueFromAny(row, columnNames) {
+    const match = getFirstPresentCSVValue(row, columnNames);
+    return match.found ? match.value : '';
 }
 
-function normalizeCSVRow(rawItem) {
+function normalizeVenueType(value) {
+    return window.BARK.getParkCategory(value || 'Other Venue');
+}
+
+function normalizePrivateEvent(value) {
+    const raw = cleanCSVValue(value).toLowerCase();
+    if (!raw) return false;
+    return ['true', 'yes', 'y', '1', 'private'].includes(raw);
+}
+
+function slugifyId(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+}
+
+function getVenueId(item, rowIndex) {
+    const explicitId = cleanCSVValue(item && item.id);
+    if (explicitId) return String(explicitId);
+
+    const parts = [item.name, item.city, item.state, item.zip].filter(Boolean).join(' ');
+    const slug = slugifyId(parts);
+    return slug || `venue-row-${rowIndex + 2}`;
+}
+
+function normalizeCSVRow(rawItem, rowIndex = 0) {
     const row = rawItem && typeof rawItem === 'object' ? rawItem : {};
-    const info = getCSVValue(row, CSV_COLUMNS.INFO);
-    const explicitSwag = getFirstPresentCSVValue(row, SWAG_TYPE_COLUMNS);
+    const venueType = normalizeVenueType(getCSVValueFromAny(row, CSV_COLUMNS.VENUE_TYPE));
+    const notes = getCSVValueFromAny(row, CSV_COLUMNS.NOTES);
+    const website = getCSVValueFromAny(row, CSV_COLUMNS.WEBSITE);
+    const bookingContact = getCSVValueFromAny(row, CSV_COLUMNS.BOOKING_CONTACT);
+    const eventDate = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_DATE);
+    const eventTime = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_TIME);
+    const privateEvent = normalizePrivateEvent(getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_EVENT));
 
-    return {
-        parkId: getCSVValue(row, CSV_COLUMNS.PARK_ID),
-        name: getCSVValue(row, CSV_COLUMNS.LOCATION),
-        state: getCSVValue(row, CSV_COLUMNS.STATE),
-        cost: getCSVValue(row, CSV_COLUMNS.SWAG_COST),
-        category: getCSVValue(row, CSV_COLUMNS.TYPE),
-        info,
-        website: getCSVValue(row, CSV_COLUMNS.WEBSITE),
-        pics: getCSVValue(row, CSV_COLUMNS.PICS),
-        video: getCSVValue(row, CSV_COLUMNS.VIDEO),
-        lat: getCSVValue(row, CSV_COLUMNS.LAT),
-        lng: getCSVValue(row, CSV_COLUMNS.LNG),
-        swagType: explicitSwag.found ? normalizeSwagType(explicitSwag.value) : window.BARK.getSwagType(info)
+    const item = {
+        id: getCSVValueFromAny(row, CSV_COLUMNS.ID),
+        name: getCSVValueFromAny(row, CSV_COLUMNS.NAME),
+        address: getCSVValueFromAny(row, CSV_COLUMNS.ADDRESS),
+        city: getCSVValueFromAny(row, CSV_COLUMNS.CITY),
+        state: getCSVValueFromAny(row, CSV_COLUMNS.STATE) || 'OH',
+        zip: getCSVValueFromAny(row, CSV_COLUMNS.ZIP),
+        lat: getCSVValueFromAny(row, CSV_COLUMNS.LAT),
+        lng: getCSVValueFromAny(row, CSV_COLUMNS.LNG),
+        venueType,
+        category: venueType,
+        website,
+        notes,
+        bookingContact,
+        eventDate,
+        eventTime,
+        privateEvent,
+        info: [notes, bookingContact ? `Booking/contact: ${bookingContact}` : ''].filter(Boolean).join('\n')
     };
-}
 
-function getParkId(item) {
-    const parkId = cleanCSVValue(item && item.parkId);
-    return parkId ? String(parkId) : '';
+    item.id = getVenueId(item, rowIndex);
+    item.parkId = item.id;
+    item.cost = '';
+    item.pics = website;
+    item.video = '';
+    item.swagType = venueType;
+    item.parkCategory = venueType;
+    return item;
 }
 
 function isLegacyParkId(id) {
@@ -95,16 +142,17 @@ function isCanonicalParkId(id) {
 
 function processParsedResults(results) {
     const newAllPoints = [];
-    const seenParkIds = new Set();
-    let missingParkIdCount = 0;
-    let duplicateParkIdCount = 0;
+    const seenVenueIds = new Set();
+    let missingCoordinateCount = 0;
+    let duplicateVenueIdCount = 0;
 
     results.data.forEach((rawItem, rowIndex) => {
         try {
-            const item = normalizeCSVRow(rawItem);
+            const item = normalizeCSVRow(rawItem, rowIndex);
             const name = item.name;
+            const address = item.address;
+            const city = item.city;
             const state = item.state;
-            const cost = item.cost;
             const category = item.category;
             const info = item.info;
             const website = item.website;
@@ -113,42 +161,56 @@ function processParsedResults(results) {
             let lat = item.lat;
             let lng = item.lng;
 
-            if (name && name.includes('War in the Pacific')) {
-                lat = 13.402746;
-                lng = 144.6632005;
-            }
-
-            if (!lat || !lng) return;
-
-            const swagType = item.swagType;
-            const parkCategory = window.BARK.getParkCategory(category);
-
-            const id = getParkId(item);
-            if (!id) {
-                missingParkIdCount++;
+            if (!lat || !lng) {
+                missingCoordinateCount++;
                 return;
             }
-            if (!isCanonicalParkId(id)) {
-                missingParkIdCount++;
+
+            const id = item.id;
+            if (!id || !isCanonicalParkId(id)) {
+                missingCoordinateCount++;
                 return;
             }
-            if (seenParkIds.has(id)) {
-                duplicateParkIdCount++;
-                console.warn('[dataService] Skipped duplicate Park ID row. Production data must have one row per UUID.', {
+            if (seenVenueIds.has(id)) {
+                duplicateVenueIdCount++;
+                console.warn('[dataService] Skipped duplicate venue id row. Production data must have one row per venue id.', {
                     rowNumber: rowIndex + 2,
                     id,
                     name
                 });
                 return;
             }
-            seenParkIds.add(id);
+            seenVenueIds.add(id);
 
-            const parkData = { id, name, state, cost, swagType, info, website, pics, video, lat, lng, parkCategory };
+            const venueType = item.venueType || category || 'Other Venue';
+            const parkData = {
+                id,
+                name,
+                address,
+                city,
+                state,
+                zip: item.zip,
+                cost: '',
+                swagType: venueType,
+                venueType,
+                category: venueType,
+                info,
+                notes: item.notes,
+                website,
+                pics,
+                video,
+                bookingContact: item.bookingContact,
+                eventDate: item.eventDate,
+                eventTime: item.eventTime,
+                privateEvent: item.privateEvent,
+                lat,
+                lng,
+                parkCategory: venueType
+            };
 
             // v25: Pre-Normalized Name
             parkData._cachedNormalizedName = window.BARK.normalizeText(name);
 
-            parkData.category = parkCategory;
             newAllPoints.push(parkData);
         } catch (error) {
             console.error('[dataService] Failed to process CSV row; skipping row.', {
@@ -159,11 +221,11 @@ function processParsedResults(results) {
         }
     });
 
-    if (missingParkIdCount > 0) {
-        console.warn(`[dataService] Skipped ${missingParkIdCount} row(s) without Park ID. Production data must be UUID-only.`);
+    if (missingCoordinateCount > 0) {
+        console.warn(`[dataService] Skipped ${missingCoordinateCount} row(s) without usable venue coordinates or ids. Geocode missing lat/lng before publishing.`);
     }
-    if (duplicateParkIdCount > 0) {
-        console.warn(`[dataService] Skipped ${duplicateParkIdCount} duplicate Park ID row(s). Check the sheet before publishing.`);
+    if (duplicateVenueIdCount > 0) {
+        console.warn(`[dataService] Skipped ${duplicateVenueIdCount} duplicate venue id row(s). Check the sheet before publishing.`);
     }
 
     const parkRepo = window.BARK.repos && window.BARK.repos.ParkRepo;
@@ -191,8 +253,8 @@ function processParsedResults(results) {
 
 function commitCSVCache(csvString, options = {}) {
     if (!options.cacheTime) return;
-    localStorage.setItem('barkCSV', csvString);
-    localStorage.setItem('barkCSV_time', String(options.cacheTime));
+    localStorage.setItem(DATA_CACHE_KEY, csvString);
+    localStorage.setItem(DATA_CACHE_TIME_KEY, String(options.cacheTime));
 }
 
 function parseCSVString(csvString, options = {}) {
@@ -290,12 +352,15 @@ function pollForUpdates() {
     pollInFlight = true;
     lastDataPollStartedAt = Date.now();
 
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMM2ZRU5lmT-ncrsil4W3qhrbo8NBxnQ-xC877TNkhLYOpTlnCocYA9gNg-dPRyaQr_8e0CWZ0WB2F/pub?output=csv';
+    const csvUrl = window.BARK.config && window.BARK.config.VENUE_CSV_URL
+        ? window.BARK.config.VENUE_CSV_URL
+        : 'assets/data/jddm-venues.csv';
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    return fetch(csvUrl + '&t=' + Date.now() + '&r=' + Math.random(), {
+    const cacheBustSeparator = csvUrl.includes('?') ? '&' : '?';
+    return fetch(`${csvUrl}${cacheBustSeparator}t=${Date.now()}&r=${Math.random()}`, {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' },
         signal: controller.signal
@@ -425,8 +490,8 @@ function clearMarkerLayersSafely() {
 }
 
 function loadData() {
-    const cachedCsv = localStorage.getItem('barkCSV');
-    const cachedTime = localStorage.getItem('barkCSV_time');
+    const cachedCsv = localStorage.getItem(DATA_CACHE_KEY);
+    const cachedTime = localStorage.getItem(DATA_CACHE_TIME_KEY);
 
     if (cachedCsv) {
         lastDataHash = quickHash(cachedCsv);
@@ -448,7 +513,7 @@ function loadData() {
             premiumService.isPremium()
         );
         if (!isPremium && !cachedCsv) {
-            alert('Network disconnected. Log in via the Profile tab to enable Premium Offline Mode.');
+            alert('Network disconnected. Cached venue data is unavailable on this device.');
             clearMarkerLayersSafely();
         }
         return;
@@ -496,7 +561,7 @@ async function checkForUpdates() {
 
     const data = await res.json();
     const remoteVersion = parseInt(data.version);
-    const seenVersion = parseInt(localStorage.getItem('bark_seen_version') || '0');
+    const seenVersion = parseInt(localStorage.getItem('jddm_seen_version') || '0');
 
     const versionLabel = document.getElementById('settings-app-version');
     if (versionLabel) versionLabel.textContent = remoteVersion;
@@ -505,7 +570,7 @@ async function checkForUpdates() {
         const toast = document.getElementById('update-toast');
         if (toast) toast.classList.add('show');
 
-        localStorage.setItem('bark_seen_version', remoteVersion);
+        localStorage.setItem('jddm_seen_version', remoteVersion);
         window.BARK.setAppVersion(remoteVersion);
     }
 }

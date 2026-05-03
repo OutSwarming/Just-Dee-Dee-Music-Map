@@ -18,15 +18,15 @@ const {
     httpsCallable
 } = require("firebase/functions");
 
-const PROJECT_ID = process.env.GCLOUD_PROJECT || "demo-bark-ranger-callable-test";
+const PROJECT_ID = process.env.GCLOUD_PROJECT || "demo-jddm-callable-test";
 const REGION = "us-central1";
 const AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 const FUNCTIONS_EMULATOR_HOST = "127.0.0.1";
 const FUNCTIONS_EMULATOR_PORT = 5001;
-const ORS_LOG_PATH = process.env.BARK_ORS_EMULATOR_STUB_LOG ||
-    path.join(os.tmpdir(), "bark-ranger-ors-emulator-stub.jsonl");
-const ORS_MARKER_PATH = process.env.BARK_ORS_EMULATOR_STUB_MARKER ||
-    path.join(os.tmpdir(), "bark-ranger-ors-emulator-stub-active.json");
+const ORS_LOG_PATH = process.env.JDDM_ORS_EMULATOR_STUB_LOG ||
+    path.join(os.tmpdir(), "jddm-ors-emulator-stub.jsonl");
+const ORS_MARKER_PATH = process.env.JDDM_ORS_EMULATOR_STUB_MARKER ||
+    path.join(os.tmpdir(), "jddm-ors-emulator-stub-active.json");
 const PASSWORD = "Callable-emulator-test-12345";
 const CALLABLE_TIMEOUT_MS = 15000;
 
@@ -170,7 +170,7 @@ const routePayload = {
 
 describe("ORS callable emulator entitlement enforcement", { concurrency: false }, () => {
     before(async () => {
-        assert.equal(process.env.BARK_ORS_EMULATOR_STUB, "1");
+        assert.equal(process.env.JDDM_ORS_EMULATOR_STUB, "1");
         assert.equal(process.env.ORS_API_KEY, "emulator-test-key");
         assert.ok(
             PROJECT_ID.startsWith("demo-"),

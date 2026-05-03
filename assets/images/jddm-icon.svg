@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Just Dee Dee Music map icon</title>
+  <desc id="desc">Stage-dark app icon with a warm music note and map pin.</desc>
+  <rect width="512" height="512" rx="96" fill="#111827"/>
+  <circle cx="256" cy="256" r="184" fill="#1f2937" stroke="#b45309" stroke-width="18"/>
+  <path d="M302 110v210c0 52-41 86-92 72-32-9-53-34-47-62 7-34 45-51 86-39V160l118-24v60l-65 14z" fill="#fbbf24"/>
+  <path d="M172 392c22 40 84 88 84 88s84-65 84-142c0-47-38-85-84-85s-84 38-84 85c0 20 6 38 16 54z" fill="#b45309" opacity=".95"/>
+  <circle cx="256" cy="338" r="33" fill="#fff7ed"/>
+</svg>

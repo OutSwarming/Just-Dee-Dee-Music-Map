@@ -45,7 +45,7 @@
       "**/*.md",
       "package.json",
       "package-lock.json",
-      "BarkRangerMap Auth.json",
+      "config/firebaseConfig.local.js",
       "*Service Account*.json",
       "*service-account*.json",
       "*service_account*.json",

@@ -270,12 +270,12 @@ async function evaluateAchievements(visitedPlacesMap) {
     const fractionEl = document.getElementById('rank-progress-fraction');
 
     if (titleEl) {
-        const oldTitle = window._lastKnownRank || titleEl.textContent || 'B.A.R.K. Trainee';
+        const oldTitle = window._lastKnownRank || titleEl.textContent || 'Venue Scout';
         const newTitle = achievements.title;
         const isAuth = typeof firebase !== 'undefined' && firebase.auth().currentUser;
         const isSecurelyHydrated = window._serverPayloadSettled;
 
-        if (isAuth && isSecurelyHydrated && window._lastKnownRank && oldTitle !== newTitle && newTitle !== 'B.A.R.K. Trainee') {
+        if (isAuth && isSecurelyHydrated && window._lastKnownRank && oldTitle !== newTitle && newTitle !== 'Venue Scout') {
             showRankUpCelebration(oldTitle, newTitle);
         }
 
@@ -526,7 +526,7 @@ function updateStatsUI() {
     const pbBar = document.getElementById('reward-progress-bar');
     if (pbTitle && pbStatus && pbBar) {
         if (level === 4) {
-            pbTitle.textContent = "🏆 B.A.R.K. Master!";
+            pbTitle.textContent = "Map Headliner";
             pbStatus.textContent = totalScore + " Pts";
             pbBar.style.width = "100%";
         } else {

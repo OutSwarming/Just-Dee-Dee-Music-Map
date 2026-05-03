@@ -18,7 +18,7 @@ const {
     updateDoc
 } = require('firebase/firestore');
 
-const PROJECT_ID = process.env.GCLOUD_PROJECT || 'demo-bark-ranger-rules-test';
+const PROJECT_ID = process.env.GCLOUD_PROJECT || 'demo-jddm-rules-test';
 const RULES_PATH = path.resolve(__dirname, '../../firestore.rules');
 
 let testEnv;

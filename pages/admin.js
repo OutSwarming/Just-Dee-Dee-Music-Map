@@ -1,13 +1,17 @@
 // admin.js
-const firebaseConfig = {
-    apiKey: "AIzaSyDcBn2YQCAFrAjN27gIM9lBiu0PZsComO4",
-    authDomain: "barkrangermap-auth.firebaseapp.com",
-    projectId: "barkrangermap-auth",
-    storageBucket: "barkrangermap-auth.firebasestorage.app",
-    messagingSenderId: "564465144962",
-    appId: "1:564465144962:web:9e43dbc993b93a33d5d09b",
-    measurementId: "G-V2QCN2MFBZ"
-};
+const JDDM_ADMIN_TOOLS_ENABLED = false;
+
+if (!JDDM_ADMIN_TOOLS_ENABLED) {
+    document.body.innerHTML = '<main style="max-width: 720px; margin: 80px auto; font-family: Inter, sans-serif; color: #1e293b;"><h1>Admin paused</h1><p>The old BARK refinery tools are disabled in this fork until they are rebuilt for Just Dee Dee Music venues.</p></main>';
+    throw new Error('Just Dee Dee Music admin tools are paused during rebrand.');
+}
+
+const firebaseConfig = window.JDDM_FIREBASE_CONFIG;
+
+if (!firebaseConfig || String(firebaseConfig.apiKey || '').startsWith('REPLACE_WITH_')) {
+    document.body.innerHTML = '<main style="max-width: 720px; margin: 80px auto; font-family: Inter, sans-serif; color: #1e293b;"><h1>Admin disabled</h1><p>Copy config/firebaseConfig.example.js to config/firebaseConfig.local.js and paste the new Just Dee Dee Music Firebase web config before using admin tools.</p></main>';
+    throw new Error('Missing Just Dee Dee Music Firebase config.');
+}
 
 // Initialize Firebase
 if (!firebase.apps.length) {
@@ -63,10 +67,10 @@ auth.onAuthStateChanged(async (user) => {
     initAdminSetPoints();
 });
 
-// 2. Fetch and Parse BARK Master List.csv
+// 2. Fetch and Parse the Just Dee Dee venue list when admin tools are rebuilt.
 async function loadMasterCSV() {
     try {
-        const response = await fetch('../BARK Master List.csv');
+        const response = await fetch('../assets/data/jddm-venues.csv');
         const csvText = await response.text();
         
         Papa.parse(csvText, {
@@ -75,7 +79,7 @@ async function loadMasterCSV() {
             complete: (results) => {
                 masterParks = results.data;
                 const options = {
-                    keys: ['name'],
+                    keys: ['venue name', 'city', 'venue type'],
                     threshold: 0.3
                 };
                 fuse = new Fuse(masterParks, options);

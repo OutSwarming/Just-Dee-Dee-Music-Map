@@ -108,12 +108,7 @@ window.BARK.initSettings = function initSettings() {
     };
 
     const isPremiumEntitlementActive = () => {
-        const premiumService = window.BARK.services && window.BARK.services.premium;
-        return Boolean(
-            premiumService &&
-            typeof premiumService.isPremium === 'function' &&
-            premiumService.isPremium()
-        );
+        return true;
     };
 
     const isPremiumOnlySettingLocked = (key) => (
@@ -206,14 +201,14 @@ window.BARK.initSettings = function initSettings() {
             return;
         }
 
-        alert('Cloud settings sync is a Premium feature. Local settings still save on this device.');
+        alert('Cloud settings sync is available after sign-in. Local settings still save on this device.');
     };
 
     const saveSettingsToCloud = async () => {
         const context = getCloudSettingsSaveContext();
         if (!context) throw new Error('You must be logged in.');
         if (!context.isPremium) {
-            const error = new Error('Cloud settings sync is a Premium feature.');
+            const error = new Error('Cloud settings sync is available for signed-in users.');
             error.code = 'premium-required';
             throw error;
         }
@@ -282,21 +277,21 @@ window.BARK.initSettings = function initSettings() {
 
         if (isPremium) {
             saveSettingsBtn.textContent = '☁️ Save Settings to Cloud';
-            saveSettingsBtn.dataset.mode = 'premium';
-            saveSettingsBtn.title = 'Sync these settings to your Premium account.';
+            saveSettingsBtn.dataset.mode = 'included';
+            saveSettingsBtn.title = 'Sync these settings to your account.';
             if (cloudCopy) cloudCopy.textContent = 'Syncs your current preferences across all devices.';
             return;
         }
 
-        saveSettingsBtn.textContent = signedIn ? '☁️ Premium Cloud Sync' : '☁️ Sign In for Cloud Sync';
+        saveSettingsBtn.textContent = signedIn ? '☁️ Cloud Sync' : '☁️ Sign In for Cloud Sync';
         saveSettingsBtn.dataset.mode = signedIn ? 'free' : 'signed-out';
         saveSettingsBtn.title = signedIn
-            ? 'Cloud settings sync is a Premium feature.'
-            : 'Sign in before upgrading to cloud settings sync.';
+            ? 'Cloud settings sync is included for signed-in users.'
+            : 'Sign in before using cloud settings sync.';
         if (cloudCopy) {
             cloudCopy.textContent = signedIn
-                ? 'Local settings save automatically on this device. Cloud settings sync is a Premium feature.'
-                : 'Local settings save automatically on this device. Sign in to attach Premium cloud sync to your account.';
+                ? 'Local settings save automatically on this device. Cloud sync is included for signed-in users.'
+                : 'Local settings save automatically on this device. Sign in to attach cloud sync to your account.';
         }
     };
 

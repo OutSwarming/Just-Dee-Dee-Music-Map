@@ -23,13 +23,22 @@ class MarkerLayerManager {
         return [
             parkData.id,
             parkData.name,
+            parkData.address,
+            parkData.city,
             parkData.state,
+            parkData.zip,
             parkData.cost,
             parkData.swagType,
+            parkData.venueType,
             parkData.info,
+            parkData.notes,
             parkData.website,
             parkData.pics,
             parkData.video,
+            parkData.bookingContact,
+            parkData.eventDate,
+            parkData.eventTime,
+            parkData.privateEvent,
             parkData.lat,
             parkData.lng,
             parkData.parkCategory,
@@ -110,6 +119,7 @@ class MarkerLayerManager {
         const style = MapMarkerConfig.getPinStyle(marker._parkData, isVisited);
         marker._icon.classList.toggle('cat-national', style.categoryClass === 'cat-national');
         marker._icon.classList.toggle('cat-state', style.categoryClass === 'cat-state');
+        marker._icon.classList.toggle('cat-venue', style.categoryClass === 'cat-venue');
         marker._icon.classList.toggle('visited-pin', Boolean(isVisited));
         marker._icon.classList.toggle('visited-marker', Boolean(isVisited));
         marker._icon.classList.toggle('unvisited-marker', !isVisited);

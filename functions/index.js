@@ -87,7 +87,7 @@ function requireAuthCallable(context) {
     return uid;
 }
 
-const PREMIUM_ENTITLEMENT_STATUSES = new Set(["active", "manual_active"]);
+const PREMIUM_ENTITLEMENT_STATUSES = new Set(["active", "manual_active", "included"]);
 
 function normalizeEntitlement(raw) {
     const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
@@ -114,31 +114,16 @@ function isEffectivePremium(raw) {
 
 async function requirePremiumCallable(context, action, options = {}) {
     const uid = requireAuthCallable(context);
-    const db = options.firestore || admin.firestore();
-
-    let userDoc;
-    try {
-        userDoc = await db.collection("users").doc(uid).get();
-    } catch (error) {
-        console.error(`[premium] Entitlement lookup failed for ${action || "premium callable"}.`, {
-            uid,
-            message: error && error.message ? error.message : String(error)
-        });
-        throw new functions.https.HttpsError("internal", "Premium entitlement could not be verified.");
-    }
-
-    const userData = userDoc && userDoc.exists && typeof userDoc.data === "function" ? userDoc.data() : {};
-    const entitlement = normalizeEntitlement(userData && userData.entitlement);
-    if (!entitlement.premium) {
-        console.warn(`[premium] Premium callable denied for ${action || "premium callable"}.`, {
-            uid,
-            status: entitlement.status,
-            source: entitlement.source
-        });
-        throw new functions.https.HttpsError("permission-denied", "Premium entitlement is required.");
-    }
-
-    return { uid, entitlement };
+    return {
+        uid,
+        entitlement: {
+            premium: true,
+            status: "included",
+            source: "client_app",
+            manualOverride: true,
+            currentPeriodEnd: null
+        }
+    };
 }
 
 function throwHttpsError(error, fallbackMessage) {
@@ -174,7 +159,7 @@ const LEMONSQUEEZY_API_ORIGIN = "https://api.lemonsqueezy.com";
 const LEMONSQUEEZY_CHECKOUTS_URL = `${LEMONSQUEEZY_API_ORIGIN}/v1/checkouts`;
 const DEFAULT_LEMONSQUEEZY_STORE_ID = "363425";
 const DEFAULT_LEMONSQUEEZY_ANNUAL_VARIANT_ID = "1604336";
-const DEFAULT_APP_BASE_URL = "https://outswarming.github.io/bark-ranger-map/";
+const DEFAULT_APP_BASE_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/";
 const LEMONSQUEEZY_SUPPORTED_EVENTS = new Set([
     "subscription_created",
     "subscription_updated",
@@ -192,6 +177,35 @@ function cleanOptionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function isAllowedAppBaseUrl(url) {
+    if (url.protocol === "https:") return true;
+    if (url.protocol !== "http:") return false;
+
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "::1";
+}
+
+function getConfiguredAppBaseUrl(options = {}) {
+    const env = options.env || process.env;
+    const configured = cleanOptionalString(options.appBaseUrl) || cleanOptionalString(env.APP_BASE_URL);
+    const rawBaseUrl = configured || DEFAULT_APP_BASE_URL;
+
+    let url;
+    try {
+        url = new URL(rawBaseUrl);
+    } catch (_error) {
+        throw new functions.https.HttpsError("failed-precondition", "Checkout return URL is not configured correctly.");
+    }
+
+    if (!isAllowedAppBaseUrl(url)) {
+        throw new functions.https.HttpsError("failed-precondition", "Checkout return URL is not allowed.");
+    }
+
+    return url.toString();
+}
+
 function getLemonSqueezyConfig(options = {}) {
     const env = options.env || process.env;
     const apiKey = cleanOptionalString(options.apiKey) || cleanOptionalString(env.LEMONSQUEEZY_API_KEY);
@@ -204,7 +218,7 @@ function getLemonSqueezyConfig(options = {}) {
         apiKey,
         storeId: DEFAULT_LEMONSQUEEZY_STORE_ID,
         annualVariantId: DEFAULT_LEMONSQUEEZY_ANNUAL_VARIANT_ID,
-        appBaseUrl: DEFAULT_APP_BASE_URL
+        appBaseUrl: getConfiguredAppBaseUrl(options)
     };
 }
 
@@ -223,8 +237,8 @@ function buildLemonSqueezyCheckoutPayload({ uid, token = {}, config }) {
     const checkoutData = {
         custom: {
             firebase_uid: uid,
-            source: "bark_ranger_map",
-            plan: "annual",
+            source: "just_dee_dee_music_map",
+            plan: "included",
             cancel_url: cancelUrl
         }
     };
@@ -240,7 +254,7 @@ function buildLemonSqueezyCheckoutPayload({ uid, token = {}, config }) {
                 product_options: {
                     enabled_variants: [Number(config.annualVariantId)],
                     redirect_url: successUrl,
-                    receipt_button_text: "Return to BARK Ranger Map",
+                    receipt_button_text: "Return to Just Dee Dee Music Live Map",
                     receipt_link_url: successUrl
                 },
                 checkout_data: checkoutData
@@ -278,6 +292,9 @@ function extractLemonSqueezyCheckoutUrl(response) {
 }
 
 async function handleCreateCheckoutSession(requestOrData, context, options = {}) {
+    requireAuthCallable(context);
+    throw new functions.https.HttpsError("failed-precondition", "Paid checkout is disabled. Full access is included for this app.");
+    /*
     const uid = requireAuthCallable(context);
     const config = getLemonSqueezyConfig(options);
     const token = context && context.auth && context.auth.token ? context.auth.token : {};
@@ -305,6 +322,7 @@ async function handleCreateCheckoutSession(requestOrData, context, options = {})
         });
         throw new functions.https.HttpsError("internal", "Unable to create checkout session.");
     }
+    */
 }
 
 function getHeaderValue(req, name) {
@@ -648,15 +666,13 @@ exports.getPremiumGeocode = functions
     });
 
 exports.createCheckoutSession = functions
-    .runWith({ secrets: ["LEMONSQUEEZY_API_KEY"] })
     .https.onCall(async (requestOrData, context) => {
         return handleCreateCheckoutSession(requestOrData, context);
     });
 
 exports.lemonSqueezyWebhook = functions
-    .runWith({ secrets: ["LEMONSQUEEZY_WEBHOOK_SECRET"] })
     .https.onRequest(async (req, res) => {
-        return handleLemonSqueezyWebhook(req, res);
+        return res.status(410).json({ ok: false, error: "paywall_disabled" });
     });
 
 if (process.env.NODE_ENV === "test") {
@@ -717,6 +733,7 @@ exports.extractParkData = functions
     .runWith({ ...ADMIN_CALLABLE_OPTIONS, secrets: ["GEMINI_API_KEY", "GEMINI_PAID_API_KEY"], memory: '1GB' })
     .https.onCall(async (data, context) => {
         await requireAdminCallable(context, "extractParkData");
+        throw new functions.https.HttpsError("failed-precondition", "Legacy BARK admin extraction is disabled in the Just Dee Dee Music fork.");
 
         try {
             const payload = data || {};
@@ -838,6 +855,7 @@ exports.syncToSpreadsheet = functions
     .runWith(ADMIN_CALLABLE_OPTIONS)
     .https.onCall(async (data, context) => {
         await requireAdminCallable(context, "syncToSpreadsheet");
+        throw new functions.https.HttpsError("failed-precondition", "Legacy BARK spreadsheet sync is disabled in the Just Dee Dee Music fork.");
 
         try {
             const auth = new google.auth.GoogleAuth({

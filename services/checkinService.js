@@ -4,7 +4,7 @@
 window.BARK = window.BARK || {};
 window.BARK.services = window.BARK.services || {};
 
-const FREE_VISIT_LIMIT = 20;
+const FREE_VISIT_LIMIT = Infinity;
 
 function getLocationCoords(userLocation) {
     const source = userLocation && userLocation.coords ? userLocation.coords : userLocation;
@@ -131,6 +131,8 @@ function getCurrentVisitCount() {
 }
 
 function getFreeVisitLimitBlock(visitedEntries) {
+    return null;
+    /*
     if (!getCurrentFirebaseUser()) return null;
     if (isCurrentUserPremium()) return null;
     if (Array.isArray(visitedEntries) && visitedEntries.length > 0) return null;
@@ -144,6 +146,7 @@ function getFreeVisitLimitBlock(visitedEntries) {
         limit: FREE_VISIT_LIMIT,
         currentCount
     };
+    */
 }
 
 function createVisitRecord(parkData, verified) {

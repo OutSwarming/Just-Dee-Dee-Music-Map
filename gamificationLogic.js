@@ -172,14 +172,14 @@ class GamificationEngine {
     }
 
     calculateTitle(score) {
-        if (score >= 500) return 'Legendary Ranger';
-        if (score >= 300) return 'National Treasure';
-        if (score >= 200) return 'Apex Ranger';
-        if (score >= 100) return 'Trail Legend';
-        if (score >= 50)  return 'B.A.R.K. Master';
-        if (score >= 25)  return 'Trail Blazer';
-        if (score >= 10)  return 'B.A.R.K. Ranger';
-        return 'B.A.R.K. Trainee';
+        if (score >= 500) return 'Northeast Ohio Legend';
+        if (score >= 300) return 'Map Headliner';
+        if (score >= 200) return 'Tour Planner';
+        if (score >= 100) return 'Gig Regular';
+        if (score >= 50)  return 'Route Builder';
+        if (score >= 25)  return 'Venue Scout';
+        if (score >= 10)  return 'Music Map Regular';
+        return 'Venue Scout';
     }
 
     calculatePaws(totalVisits, verifiedCount) {

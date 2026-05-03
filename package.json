@@ -2,6 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
+    "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",
     "e2e:auth:save:manual": "node scripts/save-playwright-storage-state.js all",
     "e2e:auth:save:free": "node scripts/save-playwright-storage-state.js free",
@@ -16,12 +17,12 @@
     "test:e2e:profile-manage": "playwright test tests/playwright/phase3a-profile-manage-smoke.spec.js --reporter=list",
     "test:e2e:trip-visited": "playwright test tests/playwright/phase3a-trip-planner-visited-smoke.spec.js --reporter=list",
     "test:e2e:settings": "playwright test tests/playwright/phase3a-settings-persistence-smoke.spec.js --reporter=list",
-    "test:e2e:smoke": "playwright test tests/playwright/phase1b-visited-smoke.spec.js tests/playwright/bug015-free-visited-limit-smoke.spec.js tests/playwright/bug016-route-generation-gating-smoke.spec.js tests/playwright/bug017-product-rules-audit-smoke.spec.js tests/playwright/bug021-route-upgrade-prompt-smoke.spec.js tests/playwright/bug022-settings-cloud-sync-policy-smoke.spec.js tests/playwright/phase3a-premium-gating-smoke.spec.js tests/playwright/phase3a-account-switch-smoke.spec.js tests/playwright/phase3a-settings-persistence-smoke.spec.js tests/playwright/phase3a-profile-manage-smoke.spec.js tests/playwright/phase3a-trip-planner-visited-smoke.spec.js --workers=1 --reporter=list",
-    "test:e2e:premium": "playwright test tests/playwright/phase3a-premium-gating-smoke.spec.js --reporter=list",
+    "test:e2e:smoke": "playwright test tests/playwright/phase1b-visited-smoke.spec.js tests/playwright/phase3a-account-switch-smoke.spec.js tests/playwright/phase3a-settings-persistence-smoke.spec.js tests/playwright/phase3a-profile-manage-smoke.spec.js tests/playwright/phase3a-trip-planner-visited-smoke.spec.js --workers=1 --reporter=list",
+    "test:e2e:premium": "node -e \"console.log('Premium/paywall E2E retired: Just Dee Dee Music includes full access for every user.')\"",
     "test:e2e:entitlement": "playwright test tests/playwright/phase4c-premium-entitlement-smoke.spec.js --reporter=list",
     "test:e2e:global-search": "playwright test tests/playwright/phase4c-global-search-entitlement-smoke.spec.js --reporter=list",
-    "test:rules": "PATH=\"${BARK_NODE20_BIN:-$HOME/.nvm/versions/node/v20.20.2/bin}:$PATH\" firebase emulators:exec --only firestore \"node --test tests/rules/firestore-entitlement.rules.test.js\"",
-    "test:functions:emulator": "PATH=\"${BARK_NODE20_BIN:-$HOME/.nvm/versions/node/v20.20.2/bin}:$PATH\" BARK_ORS_EMULATOR_STUB=1 ORS_API_KEY=emulator-test-key NODE_OPTIONS=\"--require=$PWD/functions/tests/ors-emulator-http-stub.js\" sh -c 'backup=\"\"; if [ -e functions/.secret.local ]; then backup=\"$(mktemp)\"; cp functions/.secret.local \"$backup\"; fi; cleanup() { if [ -n \"$backup\" ]; then cp \"$backup\" functions/.secret.local; rm -f \"$backup\"; else rm -f functions/.secret.local; fi; }; trap cleanup EXIT; printf \"ORS_API_KEY=emulator-test-key\\n\" > functions/.secret.local; firebase emulators:exec --project demo-bark-ranger-callable-test --only auth,firestore,functions \"node --test functions/tests/ors-callable-emulator.test.js\"'"
+    "test:rules": "PATH=\"${JDDM_NODE20_BIN:-$HOME/.nvm/versions/node/v20.20.2/bin}:$PATH\" firebase emulators:exec --only firestore \"node --test tests/rules/firestore-entitlement.rules.test.js\"",
+    "test:functions:emulator": "PATH=\"${JDDM_NODE20_BIN:-$HOME/.nvm/versions/node/v20.20.2/bin}:$PATH\" JDDM_ORS_EMULATOR_STUB=1 ORS_API_KEY=emulator-test-key NODE_OPTIONS=\"--require=$PWD/functions/tests/ors-emulator-http-stub.js\" sh -c 'backup=\"\"; if [ -e functions/.secret.local ]; then backup=\"$(mktemp)\"; cp functions/.secret.local \"$backup\"; fi; cleanup() { if [ -n \"$backup\" ]; then cp \"$backup\" functions/.secret.local; rm -f \"$backup\"; else rm -f functions/.secret.local; fi; }; trap cleanup EXIT; printf \"ORS_API_KEY=emulator-test-key\\n\" > functions/.secret.local; firebase emulators:exec --project demo-jddm-callable-test --only auth,firestore,functions \"node --test functions/tests/ors-callable-emulator.test.js\"'"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

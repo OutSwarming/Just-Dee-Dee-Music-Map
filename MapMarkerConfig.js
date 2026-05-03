@@ -1,34 +1,38 @@
 /**
  * MapMarkerConfig.js
- * Exposes a generator function for creating Leaflet divIcons that adopt the premium 3D CSS.
+ * Exposes a generator function for creating Leaflet divIcons.
  */
 
 class MapMarkerConfig {
     static getPinStyle(parkData, isVisited = false) {
+        const venueType = parkData.venueType || parkData.category || parkData.parkCategory || 'Other Venue';
+        const categoryColor = window.BARK && typeof window.BARK.getColor === 'function'
+            ? window.BARK.getColor(venueType)
+            : '#b45309';
+
         if (isVisited) {
             return {
-                iconUrl: (parkData.parkCategory === 'National') ? 'assets/images/bark-logo.jpeg' : 'assets/images/bark-tag.jpeg',
-                ringColor: '#4CAF50',
-                pinColor: '#4CAF50',
-                pinShadowColor: '#4CAF50',
-                categoryClass: (parkData.parkCategory === 'National') ? 'cat-national' : 'cat-state'
+                iconUrl: 'assets/images/jddm-icon.svg',
+                ringColor: '#16a34a',
+                pinColor: '#16a34a',
+                pinShadowColor: 'rgba(22, 163, 74, 0.4)',
+                categoryClass: 'cat-venue'
             };
         }
 
-        const isNational = (parkData.parkCategory === 'National');
         return {
-            iconUrl: isNational ? 'assets/images/bark-logo.jpeg' : 'assets/images/bark-tag.jpeg',
-            ringColor: isNational ? '#000' : '#2196F3',
-            pinColor: isNational ? '#000' : '#2196F3',
-            pinShadowColor: isNational ? 'rgba(0, 0, 0, 0.4)' : 'rgba(33, 150, 243, 0.4)',
-            categoryClass: isNational ? 'cat-national' : 'cat-state'
+            iconUrl: 'assets/images/jddm-icon.svg',
+            ringColor: categoryColor,
+            pinColor: categoryColor,
+            pinShadowColor: `${categoryColor}66`,
+            categoryClass: 'cat-venue'
         };
     }
 
     /**
      * Generates a Leaflet L.marker with appropriate HTML structure and classes for CSS binding.
-     * @param {Object} parkData - Data payload for the park (needs lat, lng, and parkCategory)
-     * @param {Boolean} isVisited - True if the user has visited this park
+     * @param {Object} parkData - Data payload for the venue (needs lat and lng)
+     * @param {Boolean} isVisited - True if the user has marked this venue visited
      * @returns {L.marker} The constructed Leaflet marker instance
      */
     static createCustomMarker(parkData, isVisited) {
@@ -37,7 +41,7 @@ class MapMarkerConfig {
         const stateClass = isVisited ? 'visited-marker visited-pin' : 'unvisited-marker';
         const catClass = style.categoryClass;
 
-        const markerHtml = `<div class="enamel-pin-wrapper"><img src="${style.iconUrl}" alt="Park Pin" loading="lazy" /></div>`;
+        const markerHtml = `<div class="enamel-pin-wrapper"><img src="${style.iconUrl}" alt="Venue Pin" loading="lazy" /></div>`;
 
         // Initialize Leaflet divIcon
         const divIcon = L.divIcon({
@@ -51,7 +55,7 @@ class MapMarkerConfig {
         // Initialize and return the L.marker
         const marker = L.marker([parkData.lat, parkData.lng], { icon: divIcon });
 
-        // Keep parkData securely bound for UI handlers downstream
+        // Keep the venue payload bound for UI handlers downstream.
         marker._parkData = parkData;
 
         return marker;

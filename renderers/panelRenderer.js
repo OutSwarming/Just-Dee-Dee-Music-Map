@@ -58,6 +58,27 @@ function getPanelVisitEntry(place) {
     return null;
 }
 
+function escapeHtml(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getVenueAddress(d) {
+    const street = d.address || '';
+    const cityStateZip = [d.city, d.state, d.zip].filter(Boolean).join(' ');
+    return [street, cityStateZip].filter(Boolean).join(', ');
+}
+
+function getVenueEventLabel(d) {
+    const dateTime = [d.eventDate, d.eventTime].filter(Boolean).join(' ');
+    if (dateTime) return dateTime;
+    return d.privateEvent ? 'Private event' : '';
+}
+
 function renderMarkerClickPanel(context) {
     const marker = context.marker;
     const slidePanel = context.slidePanel;
@@ -84,22 +105,26 @@ function renderMarkerClickPanel(context) {
     if (!refreshOnly) document.getElementById('filter-panel').classList.add('collapsed');
 
     const d = marker._parkData;
-    if (titleEl) titleEl.textContent = d.name || 'Unknown Park';
+    if (titleEl) titleEl.textContent = d.name || 'Unknown Venue';
 
     const metaContainer = document.getElementById('panel-meta-container');
     if (metaContainer) {
+        const address = getVenueAddress(d) || d.state || 'Northeast Ohio';
+        const venueType = d.venueType || d.category || d.swagType || 'Other Venue';
+        const eventLabel = getVenueEventLabel(d);
+        const eventPill = eventLabel ? `<div class="meta-pill">Date ${escapeHtml(eventLabel)}</div>` : '';
         metaContainer.innerHTML = `
-            <div class="meta-pill">📍 ${d.state || 'N/A'}</div>
-            <div class="meta-pill">🏷️ ${d.swagType}</div>
-            <div class="meta-pill">💰 ${d.cost || 'Free'}</div>
+            <div class="meta-pill">Location ${escapeHtml(address)}</div>
+            <div class="meta-pill">Type ${escapeHtml(venueType)}</div>
+            ${eventPill}
         `;
     }
 
     const suggestEditBtn = document.getElementById('suggest-edit-btn');
     if (suggestEditBtn) {
-        const subject = encodeURIComponent(`B.A.R.K. Map Edit: ${d.name}`);
-        const body = encodeURIComponent(`Park Name: ${d.name}\nID: ${d.id}\n\n--- Please describe the update below ---\n`);
-        suggestEditBtn.href = `mailto:usbarkrangers@gmail.com?subject=${subject}&body=${body}`;
+        const subject = encodeURIComponent(`Just Dee Dee Music Map Update: ${d.name}`);
+        const body = encodeURIComponent(`Venue Name: ${d.name}\nID: ${d.id}\nAddress: ${getVenueAddress(d)}\n\n--- Please describe the update below ---\n`);
+        suggestEditBtn.href = `mailto:booking@justdeedeemusic.com?subject=${subject}&body=${body}`;
     }
 
     // --- UPDATES & REPORTS ---
@@ -107,7 +132,7 @@ function renderMarkerClickPanel(context) {
         if (infoSection) infoSection.style.display = 'block';
         const container = document.getElementById('panel-info-container');
         const showMoreBtn = document.getElementById('show-more-info');
-        if (infoEl) infoEl.innerHTML = d.info.replace(/\n/g, '<br>');
+        if (infoEl) infoEl.innerHTML = escapeHtml(d.info).replace(/\n/g, '<br>');
 
         const hasManyLines = (infoEl.innerHTML.match(/<br>/g) || []).length > 4;
 
@@ -158,7 +183,7 @@ function renderMarkerClickPanel(context) {
                     link.href = url.replace(/['",]+$/, '');
                     link.target = '_blank';
                     link.className = 'website-btn';
-                    link.textContent = urls.length > 1 ? `Website ${index + 1}` : 'Official Website';
+                    link.textContent = urls.length > 1 ? `Venue Link ${index + 1}` : 'Venue Website';
                     websitesContainer.appendChild(link);
                 });
             } else {
@@ -176,7 +201,7 @@ function renderMarkerClickPanel(context) {
         stickyFooter.innerHTML = `
             <a href="https://www.google.com/maps/search/?api=1&query=${d.lat},${d.lng}" target="_blank" class="dir-btn">🗺️ Google</a>
             <a href="http://maps.apple.com/?q=${encodeURIComponent(d.name)}&ll=${d.lat},${d.lng}" target="_blank" class="dir-btn">🧭 Apple</a>
-            <button class="glass-btn btn-trip">➕ Add to Trip</button>
+            <button class="glass-btn btn-trip">Add to Route</button>
         `;
 
         const btnTrip = stickyFooter.querySelector('.btn-trip');
@@ -185,12 +210,12 @@ function renderMarkerClickPanel(context) {
             const syncPopupUI = () => {
                 const inTripDay = Array.from(tripDays).findIndex(day => day.stops.some(s => s.id === d.id));
                 if (inTripDay > -1) {
-                    btnTrip.innerHTML = `✓ In Trip (Day ${inTripDay + 1})`;
+                    btnTrip.innerHTML = `In Route (Day ${inTripDay + 1})`;
                     btnTrip.style.background = '#e8f5e9';
                     btnTrip.style.borderColor = '#4CAF50';
                     btnTrip.style.color = '#2E7D32';
                 } else {
-                    btnTrip.innerHTML = `➕ Add to Trip`;
+                    btnTrip.innerHTML = `Add to Route`;
                     btnTrip.style.background = '#fff';
                     btnTrip.style.borderColor = '#cbd5e1';
                     btnTrip.style.color = '#333';
@@ -224,7 +249,7 @@ function renderMarkerClickPanel(context) {
                 const cachedObj = visitedEntry.record;
 
                 markVisitedBtn.classList.add('visited');
-                markVisitedText.textContent = '✓ Visited';
+                markVisitedText.textContent = 'Visited Venue';
 
                 if (cachedObj.verified) {
                     markVisitedBtn.disabled = true;
@@ -238,8 +263,8 @@ function renderMarkerClickPanel(context) {
 
                 if (window.allowUncheck && !cachedObj.verified) {
                     markVisitedBtn.style.background = '#4CAF50';
-                    markVisitedBtn.onmouseenter = () => markVisitedText.textContent = '✖ Remove Check-in';
-                    markVisitedBtn.onmouseleave = () => markVisitedText.textContent = '✓ Visited';
+                    markVisitedBtn.onmouseenter = () => markVisitedText.textContent = 'Remove Visit';
+                    markVisitedBtn.onmouseleave = () => markVisitedText.textContent = 'Visited Venue';
                 } else {
                     markVisitedBtn.onmouseenter = null;
                     markVisitedBtn.onmouseleave = null;
@@ -247,20 +272,20 @@ function renderMarkerClickPanel(context) {
 
                 if (cachedObj.verified) {
                     verifyBtn.style.background = '#4CAF50';
-                    verifyBtnText.textContent = '🐾 Verified & Secured';
+                    verifyBtnText.textContent = 'Verified Stop';
                     verifyBtn.disabled = true;
                     verifyBtn.style.cursor = 'default';
                     verifyBtn.style.opacity = '0.7';
                 } else {
                     verifyBtn.style.background = '#FF9800';
-                    verifyBtnText.textContent = '🐾 Verified Check-In';
+                    verifyBtnText.textContent = 'Verify Stop';
                     verifyBtn.disabled = false;
                     verifyBtn.style.cursor = 'pointer';
                     verifyBtn.style.opacity = '1';
                 }
             } else {
                 markVisitedBtn.classList.remove('visited');
-                markVisitedText.textContent = 'Mark as Visited';
+                markVisitedText.textContent = 'Mark Venue Visited';
                 markVisitedBtn.disabled = false;
                 markVisitedBtn.style.cursor = 'pointer';
                 markVisitedBtn.style.opacity = '1';
@@ -268,7 +293,7 @@ function renderMarkerClickPanel(context) {
                 markVisitedBtn.onmouseleave = null;
 
                 verifyBtn.style.background = '#FF9800';
-                verifyBtnText.textContent = '🐾 Verified Check-In';
+                verifyBtnText.textContent = 'Verify Stop';
                 verifyBtn.disabled = false;
                 verifyBtn.style.cursor = 'pointer';
                 verifyBtn.style.opacity = '1';
@@ -284,16 +309,16 @@ function renderMarkerClickPanel(context) {
                 try {
                     const checkinResult = await checkinService.verifyGpsCheckin(d);
                     if (checkinResult.success) {
-                        alert(`Check-in Verified! You earned 2 points.`);
+                        alert(`Venue check-in verified. You earned 2 points.`);
 
                         verifyBtn.style.background = '#4CAF50';
-                        verifyBtnText.textContent = '🐾 Verified & Secured';
+                        verifyBtnText.textContent = 'Verified Stop';
                         verifyBtn.disabled = true;
                         verifyBtn.style.cursor = 'default';
                         verifyBtn.style.opacity = '0.7';
 
                         markVisitedBtn.classList.add('visited');
-                        markVisitedText.textContent = '✓ Visited';
+                        markVisitedText.textContent = 'Visited Venue';
                         markVisitedBtn.disabled = true;
                         markVisitedBtn.style.cursor = 'default';
                         markVisitedBtn.style.opacity = '0.7';
@@ -312,16 +337,16 @@ function renderMarkerClickPanel(context) {
                             alert("Failed to get location. Try again later.");
                         } else if (checkinResult.error === 'FREE_VISIT_LIMIT') {
                             const limit = checkinResult.limit || 20;
-                            alert(`Free plan limit reached. Free users can mark up to ${limit} parks visited. Unmark a park or upgrade to keep adding visited parks.`);
+                            alert(`Visit limit reached at ${limit} venues. Full access should be enabled; refresh and try again.`);
                         } else {
                             alert("Check-in could not be verified. Try again later.");
                         }
-                        verifyBtnText.textContent = '🐾 Verified Check-In';
+                        verifyBtnText.textContent = 'Verify Stop';
                     }
                 } catch (error) {
                     console.error("[panelRenderer] verify check-in failed:", error);
                     alert("Failed to get location. Try again later.");
-                    verifyBtnText.textContent = '🐾 Verified Check-In';
+                    verifyBtnText.textContent = 'Verify Stop';
                 }
             };
 
@@ -335,10 +360,10 @@ function renderMarkerClickPanel(context) {
                     const visitResult = await checkinService.markAsVisited(d);
                     if (!visitResult.success) {
                         if (visitResult.error === 'UNCHECK_LOCKED') {
-                            alert("🛡️ Data Safety Lock Active\n\nTo prevent you from accidentally losing your 'Date Visited' history, unchecking parks is disabled by default.\n\nYou can turn off this safety feature by opening Settings (⚙️) and enabling 'Allow Uncheck Visited'.");
+                            alert("Data Safety Lock Active\n\nTo prevent you from accidentally losing visit history, unchecking venues is disabled by default.\n\nYou can turn off this safety feature in Settings by enabling 'Allow Uncheck Visited'.");
                         } else if (visitResult.error === 'FREE_VISIT_LIMIT') {
                             const limit = visitResult.limit || 20;
-                            alert(`Free plan limit reached. Free users can mark up to ${limit} parks visited. Unmark a park or upgrade to keep adding visited parks.`);
+                            alert(`Visit limit reached at ${limit} venues. Full access should be enabled; refresh and try again.`);
                         } else if (visitResult.error !== 'ALREADY_VERIFIED') {
                             alert("Check-in service is unavailable. Try again later.");
                         }
@@ -347,7 +372,7 @@ function renderMarkerClickPanel(context) {
 
                     if (visitResult.action === 'removed') {
                         markVisitedBtn.classList.remove('visited');
-                        markVisitedText.textContent = 'Mark as Visited';
+                        markVisitedText.textContent = 'Mark Venue Visited';
                         markVisitedBtn.onmouseenter = null;
                         markVisitedBtn.onmouseleave = null;
 
@@ -356,7 +381,7 @@ function renderMarkerClickPanel(context) {
                     }
 
                     markVisitedBtn.classList.add('visited');
-                    markVisitedText.textContent = '✓ Visited';
+                    markVisitedText.textContent = 'Visited Venue';
                     markVisitedBtn.disabled = false;
                     markVisitedBtn.style.cursor = 'pointer';
                     markVisitedBtn.style.opacity = '1';

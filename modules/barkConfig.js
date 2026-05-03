@@ -6,36 +6,60 @@ window.BARK = window.BARK || {};
 
 // ====== SEARCH NORMALIZATION DICTIONARY ======
 window.BARK.normalizationDict = {
-    'ft': 'fort',
-    'mt': 'mount',
     'st': 'saint',
-    'natl': 'national',
-    'np': 'national park',
-    'sp': 'state park',
-    'nf': 'national forest',
-    'nwr': 'national wildlife refuge',
-    'mem': 'memorial',
-    'rec': 'recreation',
-    'hist': 'historic'
+    'bar': 'pub bar',
+    'pub': 'pub bar',
+    'brewery': 'brewery',
+    'winery': 'winery',
+    'restaurant': 'restaurant',
+    'coffee': 'coffee shop',
+    'cafe': 'coffee shop',
+    'farmers': 'farm farmers market',
+    'market': 'farm farmers market'
 };
 
 // ====== FIREBASE CONFIG ======
-window.BARK.firebaseConfig = {
-    apiKey: "AIzaSyDcBn2YQCAFrAjN27gIM9lBiu0PZsComO4",
-    authDomain: "barkrangermap-auth.firebaseapp.com",
-    projectId: "barkrangermap-auth",
-    storageBucket: "barkrangermap-auth.firebasestorage.app",
-    messagingSenderId: "564465144962",
-    appId: "1:564465144962:web:9e43dbc993b93a33d5d09b",
-    measurementId: "G-V2QCN2MFBZ"
+window.BARK.firebaseConfig = window.JDDM_FIREBASE_CONFIG || {
+    apiKey: "REPLACE_WITH_JDDM_FIREBASE_API_KEY",
+    authDomain: "REPLACE_WITH_JDDM_FIREBASE_AUTH_DOMAIN",
+    projectId: "REPLACE_WITH_JDDM_FIREBASE_PROJECT_ID",
+    storageBucket: "REPLACE_WITH_JDDM_FIREBASE_STORAGE_BUCKET",
+    messagingSenderId: "REPLACE_WITH_JDDM_FIREBASE_MESSAGING_SENDER_ID",
+    appId: "REPLACE_WITH_JDDM_FIREBASE_APP_ID",
+    measurementId: "REPLACE_WITH_JDDM_FIREBASE_MEASUREMENT_ID"
+};
+
+window.BARK.hasValidFirebaseConfig = function hasValidFirebaseConfig() {
+    const config = window.BARK.firebaseConfig || {};
+    return Boolean(
+        config.apiKey &&
+        config.authDomain &&
+        config.projectId &&
+        config.appId &&
+        !String(config.apiKey).startsWith('REPLACE_WITH_') &&
+        !String(config.projectId).startsWith('REPLACE_WITH_')
+    );
 };
 
 // ====== SERVICE CONFIG ======
-// ORS access is proxied through Firebase callables (getPremiumRoute,
-// getPremiumGeocode). The key is held server-side as a Firebase secret;
-// the client must never carry it. See services/orsService.js.
+// ORS access is proxied through Firebase callables. The key is held
+// server-side as a Firebase secret; the client must never carry it.
+// See services/orsService.js.
 window.BARK.config = window.BARK.config || {};
 window.BARK.config.CHECKIN_RADIUS_KM = 25;
+window.BARK.config.VENUE_CSV_URL = window.JDDM_VENUE_CSV_URL || 'assets/data/jddm-venues.csv';
+window.BARK.VENUE_CATEGORIES = Object.freeze([
+    'Brewery',
+    'Winery',
+    'Restaurant',
+    'Festival',
+    'Coffee Shop',
+    'Pub/Bar',
+    'Art Gallery',
+    'Farm/Farmers Market',
+    'Private Event',
+    'Other Venue'
+]);
 
 // ====== VIRTUAL EXPEDITION TRAILS ======
 window.BARK.TOP_10_TRAILS = [

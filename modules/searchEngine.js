@@ -86,13 +86,7 @@ function scoreSearchItem(item, queryNorm) {
 }
 
 function isPremiumGlobalSearchUnlocked() {
-    return Boolean(
-        window.BARK &&
-        window.BARK.services &&
-        window.BARK.services.premium &&
-        typeof window.BARK.services.premium.isPremium === 'function' &&
-        window.BARK.services.premium.isPremium()
-    );
+    return true;
 }
 
 function isSignedInForGlobalSearchPrompt() {
@@ -110,14 +104,14 @@ function isSignedInForGlobalSearchPrompt() {
 function getGlobalSearchLockCopy() {
     if (isSignedInForGlobalSearchPrompt()) {
         return {
-            hint: 'Upgrade to unlock global search',
-            alert: 'Searching for custom towns and locations is a Premium feature. Upgrade to unlock global search.'
+            hint: 'Global search is included',
+            alert: 'Global search is included. If it fails, connect Firebase Functions and the route/geocode secret first.'
         };
     }
 
     return {
-        hint: 'Sign in to unlock global search',
-        alert: 'Searching for custom towns and locations is a Premium feature. Please sign in via the Profile tab.'
+        hint: 'Global search is included',
+        alert: 'Global search is included. If it fails, connect Firebase Functions and the route/geocode secret first.'
     };
 }
 

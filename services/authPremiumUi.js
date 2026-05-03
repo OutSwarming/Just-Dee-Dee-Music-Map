@@ -1,5 +1,5 @@
 /**
- * authPremiumUi.js - Premium control gating for entitlement state changes.
+ * authPremiumUi.js - Full-access control state for formerly premium tools.
  */
 window.BARK = window.BARK || {};
 
@@ -12,12 +12,7 @@ window.BARK = window.BARK || {};
     const PREMIUM_VISITED_FILTERS = new Set(['visited', 'unvisited']);
 
     function isPremiumActive() {
-        const premiumService = window.BARK && window.BARK.services && window.BARK.services.premium;
-        return Boolean(
-            premiumService &&
-            typeof premiumService.isPremium === 'function' &&
-            premiumService.isPremium()
-        );
+        return true;
     }
 
     function getAllowedMapStyle(style) {
@@ -31,10 +26,7 @@ window.BARK = window.BARK || {};
     }
 
     function openPremiumPrompt(source) {
-        const paywall = window.BARK && window.BARK.paywall;
-        if (paywall && typeof paywall.openPaywall === 'function') {
-            paywall.openPaywall({ source });
-        }
+        console.info('[authPremiumUi] Full access is included; paywall prompt skipped.', { source });
     }
 
     function persistLocalValue(key, value) {
@@ -88,6 +80,7 @@ window.BARK = window.BARK || {};
 
     function applyPremiumGating(isPremium, options = {}) {
         try {
+            isPremium = true;
             const premiumWrap = document.getElementById('premium-filters-wrap');
             const visitedSelect = document.getElementById('visited-filter');
             const mapStyleSelectF = document.getElementById('map-style-select');
@@ -95,7 +88,7 @@ window.BARK = window.BARK || {};
                 document.getElementById('toggle-virtual-trail'),
                 document.getElementById('toggle-completed-trails')
             ].filter(Boolean);
-            const trailsUnlocked = options.trailsUnlocked === undefined ? isPremium : options.trailsUnlocked === true;
+            const trailsUnlocked = true;
 
             if (premiumWrap) {
                 if (isPremium) {

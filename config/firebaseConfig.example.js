@@ -1,0 +1,15 @@
+// Public browser Firebase config for the Just Dee Dee Music Map prototype.
+// This file is safe to serve from GitHub Pages. Never put service-account
+// private keys, admin credentials, or backend secrets in browser config.
+window.JDDM_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyB-1Q_QQ2HataLA6usf9H8WAQP0rAhILr0",
+    authDomain: "just-dee-dee-music-map.firebaseapp.com",
+    projectId: "just-dee-dee-music-map",
+    storageBucket: "just-dee-dee-music-map.firebasestorage.app",
+    messagingSenderId: "460609469410",
+    appId: "1:460609469410:web:6c53d1c196f1ceeaf197bb",
+    measurementId: "G-KHN5ZF1G54"
+};
+
+// Optional: point the app at a published Google Sheets CSV after import testing.
+// window.JDDM_VENUE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/.../pub?output=csv";

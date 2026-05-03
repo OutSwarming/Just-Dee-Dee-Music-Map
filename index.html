@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>US BARK Rangers</title>
+    <title>Just Dee Dee Music Live Map</title>
+    <meta name="description"
+        content="Find live music stops, venues, and upcoming Just Dee Dee Music locations across Northeast Ohio.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -28,9 +30,9 @@
     <!-- iOS PWA Enhancements -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="US BARK Rangers">
-    <link rel="apple-touch-icon" href="assets/images/bark-logo.jpeg">
-    <link rel="icon" type="image/jpeg" href="assets/images/bark-logo.jpeg">
+    <meta name="apple-mobile-web-app-title" content="JDDM Map">
+    <link rel="apple-touch-icon" href="assets/images/jddm-icon.svg">
+    <link rel="icon" type="image/svg+xml" href="assets/images/jddm-icon.svg">
 
     <!-- GoatCounter Analytics -->
     <script>
@@ -46,8 +48,8 @@
 
 <body>
     <div id="bark-loader">
-        <div class="dog-spinner">🐾</div>
-        <p>US BARK Rangers Loading...</p>
+        <div class="dog-spinner">♪</div>
+        <p>Just Dee Dee Music Live Map loading...</p>
     </div>
     <div id="map"></div>
     <div id="map-unavailable-message" class="map-unavailable-notice" role="alert" aria-live="assertive" hidden>
@@ -69,10 +71,10 @@
 
     <div id="filter-panel" class="glass-panel collapsed">
         <div class="panel-header" id="panel-header" style="text-align: center; width: 100%; cursor: default;">
-            <h1 style="margin-bottom: 12px; font-size: 18px;">US BARK RANGERS&reg;</h1>
+            <h1 style="margin-bottom: 12px; font-size: 18px;">Just Dee Dee Music Live Map</h1>
             <div class="search-bar-row" style="display: flex; gap: 10px; width: 100%; align-items: center;">
                 <div class="search-container" style="flex: 1; position: relative; display: flex; align-items: center;">
-                    <input type="text" id="park-search" placeholder="Search by name (e.g. 'Acadia')..."
+                    <input type="text" id="park-search" placeholder="Search venues, cities, or music stops..."
                         style="padding-right: 35px;">
                     <button id="clear-search-btn" aria-label="Clear Search"
                         style="display: none; position: absolute; right: 10px; background: none; border: none; font-size: 18px; color: #888; cursor: pointer; padding: 5px;">&times;</button>
@@ -93,67 +95,74 @@
 
             <div class="filter-group">
                 <select id="type-filter">
-                    <option value="all">All Park Types</option>
-                    <option value="National">National Parks/Sites</option>
-                    <option value="State">State Parks/Forests</option>
-                    <option value="Other">Local/Other</option>
+                    <option value="all">All Venue Types</option>
+                    <option value="Brewery">Breweries</option>
+                    <option value="Winery">Wineries</option>
+                    <option value="Restaurant">Restaurants</option>
+                    <option value="Festival">Festivals</option>
+                    <option value="Coffee Shop">Coffee Shops</option>
+                    <option value="Pub/Bar">Pubs & Bars</option>
+                    <option value="Art Gallery">Art Galleries</option>
+                    <option value="Farm/Farmers Market">Farms & Markets</option>
+                    <option value="Private Event">Private Events</option>
+                    <option value="Other Venue">Other Venues</option>
                 </select>
             </div>
 
             <div class="filter-toggles">
-                <button class="filter-btn" data-filter="Tag">
-                    <span class="dot blue"></span> Tags
+                <button class="filter-btn" data-filter="Brewery">
+                    <span class="dot blue"></span> Breweries
                 </button>
-                <button class="filter-btn" data-filter="Bandana">
-                    <span class="dot orange"></span> Bandanas
+                <button class="filter-btn" data-filter="Restaurant">
+                    <span class="dot orange"></span> Restaurants
                 </button>
-                <button class="filter-btn" data-filter="Certificate">
-                    <span class="dot green"></span> Certificates
+                <button class="filter-btn" data-filter="Pub/Bar">
+                    <span class="dot green"></span> Pubs & Bars
                 </button>
-                <button class="filter-btn" data-filter="Other">
-                    <span class="dot gray"></span> Other
+                <button class="filter-btn" data-filter="Festival">
+                    <span class="dot gray"></span> Festivals
                 </button>
             </div>
 
-            <div class="premium-filters-section premium-locked" id="premium-filters-wrap">
+            <div class="premium-filters-section premium-unlocked" id="premium-filters-wrap">
                 <div class="filter-divider"></div>
 
                 <div class="premium-label">
-                    <span>Premium Map Tools</span>
-                    <span id="premium-lock-icon">🔒</span>
+                    <span>Client Map Tools</span>
+                    <span id="premium-lock-icon">✓</span>
                 </div>
 
-                <div class="premium-trail-controls">
+                <div class="premium-trail-controls" hidden>
                     <button class="filter-btn premium-trail-btn" data-filter="VirtualTrail" id="toggle-virtual-trail"
-                        disabled aria-disabled="true">
+                        aria-disabled="false">
                         <span class="dot green" style="background: linear-gradient(90deg, #22c55e, #fee2e2);"></span>
-                        Active Trail
+                        Upcoming Route
                     </button>
                     <button class="filter-btn premium-trail-btn" data-filter="CompletedTrails"
-                        id="toggle-completed-trails" disabled aria-disabled="true">
+                        id="toggle-completed-trails" aria-disabled="false">
                         <span class="dot green"
                             style="background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.6);"></span>
-                        Conquered Trails
+                        Completed Stops
                     </button>
                 </div>
 
-                <div id="premium-trail-login-notice" class="premium-login-notice">
-                    Tracking your virtual trail is a premium feature.
+                <div id="premium-trail-login-notice" class="premium-login-notice" hidden>
+                    Route and history sync are client tools.
                     <button type="button" id="premium-login-jump">Log in</button>
                 </div>
 
-                <button type="button" id="premium-upgrade-btn" class="premium-upgrade-btn">
-                    Upgrade to Premium
+                <button type="button" id="premium-upgrade-btn" class="premium-upgrade-btn" hidden>
+                    Client Tools
                 </button>
 
                 <div class="premium-controls">
-                    <select id="visited-filter" class="premium-select" disabled>
-                        <option value="all">Show All Places</option>
-                        <option value="visited">Only Visited Places</option>
-                        <option value="unvisited">Only Unvisited Places</option>
+                    <select id="visited-filter" class="premium-select">
+                        <option value="all">Show All Venues</option>
+                        <option value="visited">Only Visited Venues</option>
+                        <option value="unvisited">Only Unvisited Venues</option>
                     </select>
 
-                    <select id="map-style-select" class="premium-select" disabled>
+                    <select id="map-style-select" class="premium-select">
                         <option value="default">Default (OpenStreetMap)</option>
                         <option value="terrain">Terrain (TopoMap)</option>
                         <option value="satellite">Satellite (Esri)</option>
@@ -169,12 +178,12 @@
     <div id="slide-panel">
         <button id="close-slide-panel" aria-label="Close" class="close-btn">&times;</button>
         <div class="panel-content">
-            <h2 id="panel-title" style="margin-bottom: 20px;">Park Name</h2>
+            <h2 id="panel-title" style="margin-bottom: 20px;">Venue Name</h2>
 
             <div class="panel-section" id="panel-visited-section" style="display: none;">
                 <button id="verify-checkin-btn" class="glass-btn panel-visit-action">
-                    <span class="panel-action-icon">🐾</span>
-                    <span id="verify-checkin-text">Verified Check-In</span>
+                    <span class="panel-action-icon">✓</span>
+                    <span id="verify-checkin-text">Verified Stop</span>
                 </button>
                 <button id="mark-visited-btn" class="glass-btn panel-visit-action">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -187,25 +196,25 @@
                 </button>
             </div>
 
-            <a id="suggest-edit-btn" href="mailto:usbarkrangers@gmail.com" class="glass-btn outline-btn panel-secondary-action">
+            <a id="suggest-edit-btn" href="mailto:booking@justdeedeemusic.com" class="glass-btn outline-btn panel-secondary-action">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 20h9"></path>
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
                 </svg>
-                Suggest an Edit
+                Suggest Venue Update
             </a>
 
             <!-- High-Density Quick-Info Bar -->
             <div id="panel-meta-container" class="park-meta-bar"></div>
 
             <div class="panel-section" id="panel-info-section" style="display: none;">
-                <div class="panel-label">Updates & Reports</div>
+                <div class="panel-label">Venue Notes</div>
                 <div id="panel-info-container" class="report-container">
                     <div id="panel-info" class="panel-value">Details...</div>
                     <div class="report-fade-overlay"></div>
                 </div>
-                <button id="show-more-info" class="show-more-btn" style="display: none;">Show Full Reports ▾</button>
+                <button id="show-more-info" class="show-more-btn" style="display: none;">Show Full Notes ▾</button>
             </div>
 
             <div id="media-links" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
@@ -226,17 +235,18 @@
     <!-- UI Views -->
     <div id="home-view" class="ui-view">
         <div class="view-content glass-panel">
-            <h2>Welcome to #USBarkRangers!</h2>
-            <p>Join our community of nearly 50,000 members as we inspire amazing travel adventures with our best
-                friends. Remember the B.A.R.K. principles: Bag your pet's waste, Always keep your pet on a leash,
-                Respect the wildlife, and Know where you can go.</p>
+            <h2>Just Dee Dee Music Live Map</h2>
+            <p>Find live music stops, venue opportunities, and upcoming Just Dee Dee Music locations across Northeast
+                Ohio. This map keeps booking leads, show history, and gig routes in one place.</p>
 
             <hr class="view-divider">
 
-            <h3>Watermark Your Swag Photo</h3>
-            <p class="tool-desc">Upload a photo to add the B.A.R.K. Ranger logo!</p>
+            <h3>Acoustic Rock, Pop, Country, and Folk Covers</h3>
+            <p class="tool-desc">Solo and duo live music for breweries, wineries, restaurants, festivals, coffee shops,
+                private events, and listening rooms.</p>
 
-            <div class="watermark-tool">
+            <!-- TODO: Re-enable this photo tool after replacing BARK watermark assets with Just Dee Dee Music artwork. -->
+            <div class="watermark-tool" hidden>
                 <input type="file" id="wm-upload" accept="image/*" class="custom-file-input" hidden>
                 <label for="wm-upload" class="glass-btn primary-btn">Select Photo</label>
                 <div class="canvas-preview-container" id="wm-preview-container"
@@ -268,82 +278,77 @@
                 </div>
 
                 <button id="wm-download" class="glass-btn primary-btn" style="display:none; margin-top: 15px;">Download
-                    Watermarked Image</button>
+                    Branded Image</button>
             </div>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
-            <h3>What is a B.A.R.K. Ranger?</h3>
-            <p style="font-size: 15px; line-height: 1.6;">If you take your pup to a park and follow the principles, they
-                can join the ranks of the #USBarkRangers! Many park sites have an actual program where you and your pup
-                complete fun activities to earn a badge, tag, or bandana. Some will even swear your dog in! Whether they
-                have a full program or just sell the tags, it is a ton of fun and you'll make great memories.</p>
+            <h3>About the Live Map</h3>
+            <p style="font-size: 15px; line-height: 1.6;">Use the map to review venues, plan efficient gig routes, track
+                places visited, and keep Northeast Ohio live music opportunities easy to scan.</p>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
-            <h3>The B.A.R.K. Principles</h3>
+            <h3>Venue Mix</h3>
             <div
                 style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-top: 15px; text-align: center;">
                 <div class="glass-btn" style="padding: 15px; cursor: default;">
-                    <div style="font-size: 28px; font-weight: 800; color: #4CAF50; margin-bottom: 5px;">B</div>
-                    <div style="font-size: 13px; font-weight: 500;">Bag the poo and dispose of it</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #b45309; margin-bottom: 5px;">B</div>
+                    <div style="font-size: 13px; font-weight: 500;">Breweries & Pubs</div>
                 </div>
                 <div class="glass-btn" style="padding: 15px; cursor: default;">
-                    <div style="font-size: 28px; font-weight: 800; color: #4CAF50; margin-bottom: 5px;">A</div>
-                    <div style="font-size: 13px; font-weight: 500;">Always on leash</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #b45309; margin-bottom: 5px;">W</div>
+                    <div style="font-size: 13px; font-weight: 500;">Wineries & Bistros</div>
                 </div>
                 <div class="glass-btn" style="padding: 15px; cursor: default;">
-                    <div style="font-size: 28px; font-weight: 800; color: #4CAF50; margin-bottom: 5px;">R</div>
-                    <div style="font-size: 13px; font-weight: 500;">Respect the wildlife</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #b45309; margin-bottom: 5px;">F</div>
+                    <div style="font-size: 13px; font-weight: 500;">Festivals & Markets</div>
                 </div>
                 <div class="glass-btn" style="padding: 15px; cursor: default;">
-                    <div style="font-size: 28px; font-weight: 800; color: #4CAF50; margin-bottom: 5px;">K</div>
-                    <div style="font-size: 13px; font-weight: 500;">Know where they can go</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #b45309; margin-bottom: 5px;">P</div>
+                    <div style="font-size: 13px; font-weight: 500;">Private Events</div>
                 </div>
             </div>
-            <p style="font-size: 14px; text-align: center; margin-top: 15px; color: #666;">Following these rules
-                preserves the environment and keeps your pup safe!</p>
+            <p style="font-size: 14px; text-align: center; margin-top: 15px; color: #666;">Venue categories will update
+                when the Just Dee Dee Music spreadsheet is imported.</p>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
-            <h3>Official B.A.R.K. Swag</h3>
-            <p>Show off your B.A.R.K. Ranger pride! Grab high-quality vinyl stickers, magnets, dye-sublimated patches,
-                beautiful collar tags, and durable bandanas. Always Free Shipping!</p>
-            <a href="https://www.ebay.com/itm/404632413543" target="_blank" class="glass-btn primary-btn"
-                style="text-decoration: none; display: inline-block; width: fit-content; margin-top: 10px;">Shop the
-                Store</a>
+            <h3>Booking & Song Requests</h3>
+            <p>Just Dee Dee Music performs a crafted mix of acoustic rock, pop, country, and folk covers with powerful
+                vocals and flexible energy for the room.</p>
+            <a href="https://www.justdeedeemusic.com/contact/" target="_blank" class="glass-btn primary-btn"
+                style="text-decoration: none; display: inline-block; width: fit-content; margin-top: 10px;">Booking
+                Contact</a>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
-            <h3>Community Resources</h3>
+            <h3>Just Dee Dee Music</h3>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-                <a href="https://usbarkrangers.com/safety-tips" target="_blank" class="glass-btn"
-                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">Safety
-                    Tips</a>
-                <a href="https://usbarkrangers.com/meet-the-team-1" target="_blank" class="glass-btn"
-                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">Meet
-                    the Team</a>
-                <a href="https://www.alltrails.com/plans?irclickid=1tU2C52IjxyZR2xVwpx5t3kRUkuw%3Alzpz0vIzo0&sharedid=&irpid=5451289&utm_source=affiliate&utm_medium=impact&irmpgroupname=%22Affiliate%22%2C%22Hiking%22%2C%22Pets%22%2C%22Social+Content%22&irgwc=1&afsrc=1&k=explorenow"
-                    target="_blank" class="glass-btn"
-                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">AllTrails
-                    Trial</a>
+                <a href="https://www.justdeedeemusic.com/" target="_blank" class="glass-btn"
+                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">Website</a>
+                <a href="https://www.justdeedeemusic.com/contact/" target="_blank" class="glass-btn"
+                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">Booking</a>
+                <a href="https://www.justdeedeemusic.com/songs/" target="_blank" class="glass-btn"
+                    style="flex: 1; min-width: 120px; text-align: center; padding: 10px; text-decoration: none;">Song
+                    Requests</a>
             </div>
-            <p style="font-size: 14px; text-align: center; margin-top: 15px; color: #666;">Plan dog-friendly hikes with
-                our partner.</p>
+            <p style="font-size: 14px; text-align: center; margin-top: 15px; color: #666;">Covering Northeast Ohio with
+                live music since 2020.</p>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
-            <h3>Join the Community</h3>
+            <h3>Follow & Share</h3>
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 15px;">
-                <a href="https://www.facebook.com/share/g/1NEaDxEURR/" target="_blank" class="social-link glass-btn"
-                    aria-label="Facebook Group">
+                <a href="https://www.justdeedeemusic.com/" target="_blank" class="social-link glass-btn"
+                    aria-label="Just Dee Dee Music website">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                     </svg>
                 </a>
-                <a href="https://www.instagram.com/usbarkrangers/" target="_blank" class="social-link glass-btn"
-                    aria-label="Instagram">
+                <a href="https://www.justdeedeemusic.com/contact/" target="_blank" class="social-link glass-btn"
+                    aria-label="Booking contact">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
                         stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -351,8 +356,8 @@
                         <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
                     </svg>
                 </a>
-                <a href="https://www.youtube.com/channel/UCxSm2WLFRaQYCdZSeHTI02w" target="_blank"
-                    class="social-link glass-btn" aria-label="YouTube">
+                <a href="https://www.justdeedeemusic.com/songs/" target="_blank"
+                    class="social-link glass-btn" aria-label="Song requests">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path
@@ -361,8 +366,7 @@
                         <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
                     </svg>
                 </a>
-                <a href="https://www.tiktok.com/@usbarkrangers?_r=1&_t=ZP-95DaSKf76sQ" target="_blank"
-                    class="social-link glass-btn" aria-label="TikTok">
+                <a href="mailto:JustDeeDeeMusic@gmail.com" class="social-link glass-btn" aria-label="Email Just Dee Dee Music">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round" class="tiktok-icon">
                         <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
@@ -372,13 +376,12 @@
 
             <div id="share-portal"
                 style="margin-top: 30px; background: white; padding: 15px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.03); box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
-                <h4 style="margin-bottom: 15px; color: #333; font-size: 15px;">🔗 Share the Adventure</h4>
+                <h4 style="margin-bottom: 15px; color: #333; font-size: 15px;">Share Just Dee Dee Music</h4>
                 <select id="share-link-select"
                     style="display: block; width: 100%; padding: 12px; border: 1px solid rgba(0,0,0,0.2); border-radius: 8px; background: rgba(255,255,255,0.8); margin-bottom: 20px; font-weight: 600;">
-                    <option value="https://usbarkrangers.github.io/USBarkRangers/">The Map</option>
-                    <option value="https://facebook.com/groups/usbarkrangers">Facebook Group</option>
-                    <option value="https://instagram.com/usbarkrangers">Instagram</option>
-                    <option value="https://youtube.com/usbarkrangers">YouTube</option>
+                    <option value="https://www.justdeedeemusic.com/">Website</option>
+                    <option value="https://www.justdeedeemusic.com/contact/">Booking Contact</option>
+                    <option value="https://www.justdeedeemusic.com/songs/">Song Requests</option>
                 </select>
                 <div
                     style="background: white; border-radius: 12px; padding: 15px; display: inline-block; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px;">
@@ -504,7 +507,7 @@
             <button id="settings-gear-btn"
                 style="position: fixed; top: 12px; right: 15px; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.08); font-size: 22px; cursor: pointer; padding: 6px 8px; border-radius: 50%; transition: transform 0.2s, background 0.3s; z-index: 1001; line-height: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">⚙️</button>
 
-            <!-- Premium Settings Modal Overlay (Fixed standard) -->
+            <!-- Settings Modal Overlay -->
             <div id="settings-overlay" class="modal-overlay">
                 <div id="settings-modal" class="modal-card">
                     <div class="modal-header">
@@ -650,7 +653,7 @@
 
                         <div data-cluster-setting="premium" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
                             <div style="flex: 1;">
-                                <div style="font-size: 15px; font-weight: 800; color: #1e293b;">Premium Bubble Mode</div>
+                                <div style="font-size: 15px; font-weight: 800; color: #1e293b;">Detailed Bubble Mode</div>
                                 <div style="font-size: 12px; color: #64748b; font-weight: 500; margin-top: 4px; line-height: 1.4;">
                                     Semantic Zooming: Explodes clusters as you zoom in. Keeps high-level map clean.
                                 </div>
@@ -696,10 +699,10 @@
                         <div style="border-top: 1px solid rgba(0,0,0,0.1); margin: 25px 0 15px 0;"></div>
                         <div style="text-align: center; margin-bottom: 25px;">
                             <button id="save-settings-cloud-btn" style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3); width: 100%;">
-                                ☁️ Premium Cloud Sync
+                                Cloud Sync
                             </button>
                             <div id="save-settings-cloud-copy" style="font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; font-weight: 500;">
-                                Local settings save automatically on this device. Cloud settings sync is a Premium feature.
+                                Local settings save automatically on this device. Signed-in accounts can sync settings across devices.
                             </div>
                         </div>
 
@@ -717,7 +720,7 @@
 
                         <p
                             style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid #f1f5f9; padding-top: 15px; margin: 0;">
-                            US BARK Ranger © v<span id="settings-app-version">12</span>
+                            Just Dee Dee Music Live Map v<span id="settings-app-version">12</span>
                         </p>
 
                     </div>
@@ -750,31 +753,31 @@
                             <div id="stat-score" style="font-size: 26px; font-weight: 900; color: #10b981;">0</div>
                             <div
                                 style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px;">
-                                Total Score</div>
+                                Map Score</div>
                         </div>
                         <div
                             style="background: #f8fafc; border-radius: 12px; padding: 15px 5px; border: 1px solid #f1f5f9; position: relative; overflow: hidden;">
                             <span
-                                style="position: absolute; right: -5px; bottom: -10px; font-size: 40px; opacity: 0.05; pointer-events: none;">🐾</span>
+                                style="position: absolute; right: -5px; bottom: -10px; font-size: 40px; opacity: 0.05; pointer-events: none;">♪</span>
                             <div id="stat-verified"
                                 style="font-size: 26px; font-weight: 900; color: #f59e0b; position: relative;">0</div>
                             <div
                                 style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px; position: relative;">
-                                🐾 Verified</div>
+                                Verified Stops</div>
                         </div>
                         <div
                             style="background: #f8fafc; border-radius: 12px; padding: 15px 5px; border: 1px solid #f1f5f9;">
                             <div id="stat-regular" style="font-size: 26px; font-weight: 900; color: #3b82f6;">0</div>
                             <div
                                 style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px;">
-                                Regular Vis.</div>
+                                Venues Visited</div>
                         </div>
                         <div
                             style="background: #f8fafc; border-radius: 12px; padding: 15px 5px; border: 1px solid #f1f5f9;">
                             <div id="stat-states" style="font-size: 26px; font-weight: 900; color: #a855f7;">0</div>
                             <div
                                 style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px;">
-                                States</div>
+                                Areas</div>
                         </div>
                     </div>
 
@@ -792,8 +795,8 @@
                                             Info</button>
                                     </div>
                                     <h2 id="current-title-label"
-                                        style="font-size: 20px; font-weight: 900; color: #1e293b; margin: 0;">B.A.R.K.
-                                        Trainee</h2>
+                                        style="font-size: 20px; font-weight: 900; color: #1e293b; margin: 0;">Venue
+                                        Scout</h2>
                                 </div>
                             </div>
                             <div style="text-align: right; margin-bottom: 6px;">
@@ -810,26 +813,9 @@
                     </div>
                 </div>
 
-                <div id="profile-premium-card" class="profile-section-card paywall-profile-card">
-                    <div class="paywall-profile-card-header">
-                        <div>
-                            <div id="profile-premium-eyebrow" class="paywall-card-eyebrow">Premium map tools</div>
-                            <h3 id="profile-premium-status">Free plan</h3>
-                        </div>
-                        <div id="profile-premium-price" class="paywall-card-price">$9.99/year</div>
-                    </div>
-                    <p id="profile-premium-copy">
-                        Upgrade for visited-aware filters, map styles, trail controls, and global search.
-                    </p>
-                    <button type="button" id="profile-premium-action" class="glass-btn paywall-card-action">
-                        Upgrade
-                    </button>
-                    <div class="paywall-card-note">Use the same account when returning from checkout.</div>
-                </div>
-
                 <!-- 3. Gamification: Vault -->
-                <div class="profile-section-card"
-                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
+                <div class="profile-section-card" id="achievement-vault-card"
+                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #1e293b;">🏆 Achievement Vault
@@ -862,7 +848,7 @@
 
                 <!-- Unified Virtual Basecamp Module -->
                 <div class="profile-section-card" id="virtual-basecamp-module"
-                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
+                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
 
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1002,7 +988,7 @@
 
                 <!-- Digital Trophy Case (Expedition Rewards) -->
                 <div class="profile-section-card" id="expedition-trophy-case"
-                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px; overflow: hidden; display: none;">
+                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px; overflow: hidden;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3
@@ -1023,8 +1009,8 @@
                 </div>
 
                 <!-- 4. Gamification: Dossier -->
-                <div class="profile-section-card"
-                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
+                <div class="profile-section-card" id="mystery-dossier-card"
+                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
                     <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 900; color: #1e293b;">👁️ Classified
                         Dossier</h3>
                     <p style="margin: 0 0 16px 0; font-size: 11px; color: #64748b;">Rumors gathered from the field.</p>
@@ -1036,7 +1022,7 @@
 
                 <!-- 5. Gamification: Leaderboard -->
                 <div class="profile-section-card" id="leaderboard-container"
-                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
+                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #1e293b;">🏆 Global Leaderboard
@@ -1160,7 +1146,7 @@
                             <dd id="account-display-provider">Loading</dd>
                         </div>
                     </dl>
-                    <p class="account-security-copy">Premium is attached to the account you are signed into.</p>
+                    <p class="account-security-copy">Full access is included for this client app.</p>
                     <div class="account-actions">
                         <button type="button" id="account-switch-btn" class="account-secondary-btn">Switch account</button>
                         <button type="button" id="account-signout-btn" class="account-danger-btn">Sign out</button>
@@ -1176,7 +1162,7 @@
             <div id="login-container" style="margin-top: 20px;">
                 <div class="account-auth-card" id="account-auth-card">
                     <h2>Unlock Your Profile</h2>
-                    <p class="account-auth-copy">Sign in to track your park visits, climb the global leaderboard, earn achievements, and back up road trip itineraries.</p>
+                    <p class="account-auth-copy">Sign in to track venues visited, back up routes, and keep show planning details synced.</p>
 
                     <button id="google-login-btn" class="google-login-btn" type="button">
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"
@@ -1219,7 +1205,7 @@
                         <button type="button" id="account-inline-create-btn" class="account-link-btn">Need a new account?</button>
                     </form>
 
-                    <p class="account-auth-footnote">Premium is attached to the account you are signed into.</p>
+                    <p class="account-auth-footnote">No paid upgrade is required.</p>
                 </div>
             </div>
 
@@ -1249,7 +1235,7 @@
                 style="background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
                 <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 16px; font-weight: 800;">Suggest an
                     Improvement</h4>
-                <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">Tell us how we can make BarkRangerMap
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">Tell us how we can make the Just Dee Dee Music map
                     better...</p>
                 <textarea id="feedback-text" placeholder="Your ideas..."
                     style="width: 100%; height: 80px; padding: 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); margin-bottom: 12px; font-family: inherit; font-size: 14px; resize: vertical; box-sizing: border-box; background: #f8fafc; outline: none;"></textarea>
@@ -1283,7 +1269,7 @@
                 <line x1="8" y1="2" x2="8" y2="18"></line>
                 <line x1="16" y1="6" x2="16" y2="22"></line>
             </svg>
-            <span>USBarkRangers</span>
+            <span>Live Map</span>
         </button>
         <button class="nav-item" data-target="planner-view" style="position: relative;">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
@@ -1312,41 +1298,6 @@
         <button id="refresh-btn">Refresh</button>
     </div>
 
-    <div id="paywall-overlay" class="paywall-overlay" aria-hidden="true">
-        <div class="paywall-modal" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
-            <button type="button" id="paywall-close-btn" class="paywall-close-btn" aria-label="Close paywall">
-                &times;
-            </button>
-            <div id="paywall-eyebrow" class="paywall-eyebrow">Annual plan</div>
-            <h2 id="paywall-title">Upgrade to BARK Ranger Premium</h2>
-            <div id="paywall-price" class="paywall-price">$9.99/year</div>
-            <p id="paywall-body" class="paywall-body-copy">
-                Unlock the premium map tools for one annual plan.
-            </p>
-            <ul class="paywall-feature-list">
-                <li>Visited-aware map filters</li>
-                <li>Advanced map styles</li>
-                <li>Virtual and completed trail controls</li>
-                <li>Global search and premium routing tools</li>
-            </ul>
-            <div class="paywall-actions">
-                <button type="button" id="paywall-primary-btn" class="paywall-primary-btn">
-                    Continue to secure checkout
-                </button>
-                <button type="button" id="paywall-secondary-btn" class="paywall-secondary-btn">
-                    Maybe later
-                </button>
-            </div>
-            <button type="button" id="paywall-clear-url-btn" class="paywall-clear-url-btn" hidden>
-                Clear checkout message
-            </button>
-            <p class="paywall-support-copy">
-                Payment is handled securely by Lemon Squeezy. Premium is attached to the account you are signed into. Use the same account when returning from checkout.
-            </p>
-            <div id="paywall-source" class="paywall-source">Opened from manual</div>
-        </div>
-    </div>
-
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -1365,7 +1316,8 @@
     <script src="repos/ParkRepo.js?v=1" defer></script>
     <script src="repos/VaultRepo.js?v=3" defer></script>
     <script src="modules/barkState.js?v=5" defer></script>
-    <script src="modules/barkConfig.js?v=2" defer></script>
+    <script src="config/firebaseConfig.local.js?v=1" defer></script>
+    <script src="modules/barkConfig.js?v=3" defer></script>
     <script src="config/domRefs.js?v=1" defer></script>
     <script src="state/settingsStore.js?v=4" defer></script>
     <script src="state/appState.js?v=4" defer></script>
@@ -1378,7 +1330,6 @@
     <script src="services/authPremiumUi.js?v=2" defer></script>
     <script src="services/premiumService.js?v=1" defer></script>
     <script src="services/authAccountUi.js?v=1" defer></script>
-    <script src="modules/paywallController.js?v=1" defer></script>
     <script src="services/authService.js?v=22" defer></script>
     <script src="modules/markerLayerPolicy.js?v=2" defer></script>
     <script src="modules/MarkerLayerManager.js?v=8" defer></script>
@@ -1402,7 +1353,7 @@
     <div id="scoring-modal" class="scoring-modal-overlay">
         <div class="scoring-modal-card">
             <div class="modal-header">
-                <h3>🛡️ B.A.R.K. PROTOCOL</h3>
+                <h3>Show Tracking</h3>
                 <button id="close-scoring-modal" class="modal-close-btn">&times; Close</button>
             </div>
 
@@ -1417,7 +1368,7 @@
                         </div>
                     </div>
                     <div class="protocol-item">
-                        <span class="p-icon">🐾</span>
+                        <span class="p-icon">◎</span>
                         <div class="protocol-item-details">
                             <strong>Verified (GPS)</strong>
                             <p>2 PTS + Unlocks Gold Badges</p>
@@ -1430,12 +1381,12 @@
                 <h4 class="section-title">THE STATUS LADDER</h4>
                 <div class="ladder-list">
                     <div class="ladder-step"><span>0-9</span> <strong>Trainee</strong></div>
-                    <div class="ladder-step"><span>10-24</span> <strong>Ranger</strong></div>
-                    <div class="ladder-step"><span>25-49</span> <strong>Trail Blazer</strong></div>
-                    <div class="ladder-step"><span>50-99</span> <strong>B.A.R.K. Master</strong></div>
-                    <div class="ladder-step"><span>100-199</span> <strong>Trail Legend</strong></div>
-                    <div class="ladder-step"><span>200-299</span> <strong>Apex Ranger</strong></div>
-                    <div class="ladder-step"><span>300+</span> <strong>National Treasure</strong></div>
+                    <div class="ladder-step"><span>10-24</span> <strong>Venue Scout</strong></div>
+                    <div class="ladder-step"><span>25-49</span> <strong>Route Builder</strong></div>
+                    <div class="ladder-step"><span>50-99</span> <strong>Gig Regular</strong></div>
+                    <div class="ladder-step"><span>100-199</span> <strong>Tour Planner</strong></div>
+                    <div class="ladder-step"><span>200-299</span> <strong>Map Headliner</strong></div>
+                    <div class="ladder-step"><span>300+</span> <strong>Northeast Ohio Legend</strong></div>
                 </div>
             </div>
         </div>
@@ -1511,7 +1462,7 @@
         style='position: absolute; left: -9999px; top: 0; width: 1080px; height: 1080px; background: radial-gradient(circle at top, #1e293b, #0f172a); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: "Inter", sans-serif; box-sizing: border-box; padding: 60px;'>
         <div
             style='font-size: 24px; font-weight: 900; letter-spacing: 6px; color: #f59e0b; margin-bottom: 20px; text-transform: uppercase;'>
-            B.A.R.K. RANGER MAP</div>
+            JUST DEE DEE MUSIC</div>
         <h1 id="export-title"
             style="font-size: 80px; font-weight: 900; margin: 0 0 20px 0; color: #f8fafc; text-shadow: 0 10px 20px rgba(0,0,0,0.8);">
             Trail Legend</h1>
@@ -1524,7 +1475,7 @@
         <div id='export-badges-container' style='display: flex; gap: 40px; justify-content: center; width: 100%;'></div>
         <div
             style='position: absolute; bottom: 40px; font-size: 20px; font-weight: 800; color: #475569; letter-spacing: 2px;'>
-            START YOUR JOURNEY AT USBARKRANGERS.COM</div>
+            JUSTDEEDEEMUSIC.COM</div>
     </div>
 
     <!-- SINGLE MILESTONE FLEX ENGINE -->
@@ -1536,7 +1487,7 @@
         <div id="single-export-card-container"></div>
         <div
             style="position: absolute; bottom: 60px; font-size: 24px; font-weight: 800; color: #475569; letter-spacing: 3px;">
-            TRACK YOUR PARKS AT USBARKRANGERS.COM</div>
+            JUSTDEEDEEMUSIC.COM</div>
     </div>
 </body>
 

@@ -24,12 +24,70 @@ function hasRenderVisitedPlace(placeOrId) {
 
 // ====== MARKER HELPER FUNCTIONS ======
 function getColor(type) {
-    if (type === 'Tag') return '#2196F3';
-    if (type === 'Bandana') return '#FF9800';
-    if (type === 'Certificate') return '#4CAF50';
-    return '#9E9E9E';
+    if (type === 'Brewery') return '#2563eb';
+    if (type === 'Winery') return '#a21caf';
+    if (type === 'Restaurant') return '#b45309';
+    if (type === 'Festival') return '#dc2626';
+    if (type === 'Coffee Shop') return '#0f766e';
+    if (type === 'Pub/Bar') return '#16a34a';
+    if (type === 'Art Gallery') return '#7c3aed';
+    if (type === 'Farm/Farmers Market') return '#65a30d';
+    if (type === 'Private Event') return '#475569';
+    return '#78716c';
 }
 
+function getBadgeClass(type) {
+    if (!type) return 'other';
+    return String(type).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'other';
+}
+
+function normalizeVenueCategory(typeString) {
+    if (!typeString) return 'Other Venue';
+    const categories = window.BARK.VENUE_CATEGORIES || [];
+    const raw = String(typeString).trim();
+    const direct = categories.find(category => category.toLowerCase() === raw.toLowerCase());
+    if (direct) return direct;
+
+    const t = raw.toLowerCase();
+    if (t.includes('brew')) return 'Brewery';
+    if (t.includes('wine')) return 'Winery';
+    if (t.includes('restaurant') || t.includes('dining') || t.includes('food')) return 'Restaurant';
+    if (t.includes('festival') || t.includes('fair')) return 'Festival';
+    if (t.includes('coffee') || t.includes('cafe')) return 'Coffee Shop';
+    if (t.includes('pub') || t.includes('bar') || t.includes('tavern')) return 'Pub/Bar';
+    if (t.includes('gallery') || t.includes('art')) return 'Art Gallery';
+    if (t.includes('farm') || t.includes('market')) return 'Farm/Farmers Market';
+    if (t.includes('private') || t.includes('wedding') || t.includes('party')) return 'Private Event';
+    return 'Other Venue';
+}
+
+function getParkCategory(typeString) {
+    return normalizeVenueCategory(typeString);
+}
+
+function getSwagType(info) {
+    return normalizeVenueCategory(info);
+}
+
+function formatSwagLinks(text) {
+    if (!text) return '';
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = text.match(urlRegex);
+    if (!urls) return text;
+
+    let resultHTML = '';
+    urls.forEach((url, index) => {
+        resultHTML += `<a href="${url}" target="_blank" class="swag-link-btn">Link ${index + 1}</a> `;
+    });
+    return resultHTML.trim();
+}
+
+/*
+ * Legacy function names remain exported because downstream modules still call
+ * them. Their behavior now describes live music venue categories.
+ */
+
+/*
 function getBadgeClass(type) {
     if (type === 'Tag') return 'tag';
     if (type === 'Bandana') return 'bandana';
@@ -66,6 +124,7 @@ function formatSwagLinks(text) {
     });
     return resultHTML.trim();
 }
+*/
 
 window.BARK.getColor = getColor;
 window.BARK.getBadgeClass = getBadgeClass;

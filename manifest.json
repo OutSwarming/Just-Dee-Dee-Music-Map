@@ -1,15 +1,15 @@
 {
-  "name": "US BARK Rangers",
-  "short_name": "US BARK Rangers",
+  "name": "Just Dee Dee Music Live Map",
+  "short_name": "JDDM Map",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#e5e5e5",
-  "theme_color": "#e5e5e5",
+  "background_color": "#111827",
+  "theme_color": "#b45309",
   "icons": [
     {
-      "src": "assets/images/bark-logo.jpeg",
+      "src": "assets/images/jddm-icon.svg",
       "sizes": "192x192 512x512",
-      "type": "image/jpeg",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

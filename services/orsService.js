@@ -2,10 +2,10 @@
  * orsService.js - OpenRouteService transport boundary.
  *
  * All ORS access goes through Firebase Cloud Functions callables so the
- * paid API key never ships to the browser. The client only authenticates
+ * private API key never ships to the browser. The client only authenticates
  * with Firebase; the callable enforces signed-in user and holds the secret.
  *
- * Callables: getPremiumRoute (directions), getPremiumGeocode (geocode).
+ * Callables keep their legacy names: getPremiumRoute and getPremiumGeocode.
  */
 (function () {
     window.BARK = window.BARK || {};

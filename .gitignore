@@ -1,8 +1,14 @@
 node_modules/
 functions/node_modules/
 .DS_Store
-Bark Ranger Map Auth Service Account.json
-BarkRangerMap Auth.json
+.env
+.env.local
+.env.*
+!.env.example
+config/firebaseConfig.local.js
+firebase-debug.log
+firebase-debug.*.log
+*.log
 *Service Account*.json
 *service-account*.json
 *service_account*.json
