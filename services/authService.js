@@ -354,10 +354,10 @@ function refreshActivePinVisitedButton() {
 
     if (isVisited) {
         btn.classList.add('visited');
-        if (btnText) btnText.textContent = 'Visited!';
+        if (btnText) btnText.textContent = 'Played Venue';
     } else {
         btn.classList.remove('visited');
-        if (btnText) btnText.textContent = 'Mark as Visited';
+        if (btnText) btnText.textContent = 'Mark as Played';
     }
 }
 

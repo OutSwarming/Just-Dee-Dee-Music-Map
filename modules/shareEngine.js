@@ -291,7 +291,7 @@ function initCSVExport() {
                     "Private Event": data.privateEvent ? 1 : 0,
                     Latitude: data.lat,
                     Longitude: data.lng,
-                    Visited: isVisited ? 1 : 0
+                    Played: isVisited ? 1 : 0
                 };
             });
             const csvString = Papa.unparse(exportData);

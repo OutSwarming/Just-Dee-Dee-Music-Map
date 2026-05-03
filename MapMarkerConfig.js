@@ -5,26 +5,21 @@
 
 class MapMarkerConfig {
     static getPinStyle(parkData, isVisited = false) {
-        const venueType = parkData.venueType || parkData.category || parkData.parkCategory || 'Other Venue';
-        const categoryColor = window.BARK && typeof window.BARK.getColor === 'function'
-            ? window.BARK.getColor(venueType)
-            : '#b45309';
-
         if (isVisited) {
             return {
-                iconUrl: 'assets/images/jddm-icon.svg',
-                ringColor: '#16a34a',
-                pinColor: '#16a34a',
-                pinShadowColor: 'rgba(22, 163, 74, 0.4)',
+                iconUrl: 'assets/images/jddm-played.jpg',
+                ringColor: '#2563eb',
+                pinColor: '#2563eb',
+                pinShadowColor: 'rgba(37, 99, 235, 0.45)',
                 categoryClass: 'cat-venue'
             };
         }
 
         return {
-            iconUrl: 'assets/images/jddm-icon.svg',
-            ringColor: categoryColor,
-            pinColor: categoryColor,
-            pinShadowColor: `${categoryColor}66`,
+            iconUrl: 'assets/images/jddm-not-played.jpg',
+            ringColor: '#111827',
+            pinColor: '#111827',
+            pinShadowColor: 'rgba(17, 24, 39, 0.45)',
             categoryClass: 'cat-venue'
         };
     }

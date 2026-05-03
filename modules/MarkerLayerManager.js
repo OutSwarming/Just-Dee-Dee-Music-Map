@@ -39,6 +39,8 @@ class MarkerLayerManager {
             parkData.eventDate,
             parkData.eventTime,
             parkData.privateEvent,
+            parkData.played,
+            parkData.visited,
             parkData.lat,
             parkData.lng,
             parkData.parkCategory,
@@ -131,6 +133,11 @@ class MarkerLayerManager {
         marker._icon.style.setProperty('--pin-color', style.pinColor);
         marker._icon.style.setProperty('--ring-color', style.ringColor);
         marker._icon.style.setProperty('--pin-shadow-color', style.pinShadowColor);
+
+        const markerImage = marker._icon.querySelector('img');
+        if (markerImage && markerImage.getAttribute('src') !== style.iconUrl) {
+            markerImage.setAttribute('src', style.iconUrl);
+        }
     }
 
     refreshTripStopClasses(parkIds) {

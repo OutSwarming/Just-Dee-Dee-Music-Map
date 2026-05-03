@@ -25,7 +25,8 @@ const CSV_COLUMNS = {
     BOOKING_CONTACT: ['booking/contact info', 'booking contact', 'contact', 'email', 'phone'],
     EVENT_DATE: ['upcoming event date', 'event date', 'date'],
     EVENT_TIME: ['upcoming event time', 'event time', 'time'],
-    PRIVATE_EVENT: ['private event', 'private event flag', 'private']
+    PRIVATE_EVENT: ['private event', 'private event flag', 'private'],
+    PLAYED: ['played', 'Played', 'visited', 'Visited']
 };
 
 const DATA_CACHE_KEY = 'jddmVenueCSV';
@@ -68,9 +69,15 @@ function normalizeVenueType(value) {
 }
 
 function normalizePrivateEvent(value) {
-    const raw = cleanCSVValue(value).toLowerCase();
+    const raw = String(cleanCSVValue(value)).toLowerCase();
     if (!raw) return false;
     return ['true', 'yes', 'y', '1', 'private'].includes(raw);
+}
+
+function normalizePlayed(value) {
+    const raw = String(cleanCSVValue(value)).toLowerCase();
+    if (!raw) return false;
+    return ['true', 'yes', 'y', '1', 'played', 'visited'].includes(raw);
 }
 
 function slugifyId(value) {
@@ -100,6 +107,7 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     const eventDate = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_DATE);
     const eventTime = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_TIME);
     const privateEvent = normalizePrivateEvent(getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_EVENT));
+    const played = normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
 
     const item = {
         id: getCSVValueFromAny(row, CSV_COLUMNS.ID),
@@ -118,6 +126,8 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
         eventDate,
         eventTime,
         privateEvent,
+        played,
+        visited: played,
         info: [notes, bookingContact ? `Booking/contact: ${bookingContact}` : ''].filter(Boolean).join('\n')
     };
 
@@ -203,6 +213,8 @@ function processParsedResults(results) {
                 eventDate: item.eventDate,
                 eventTime: item.eventTime,
                 privateEvent: item.privateEvent,
+                played: item.played,
+                visited: item.played,
                 lat,
                 lng,
                 parkCategory: venueType
@@ -533,6 +545,9 @@ function loadData() {
 window.BARK.loadData = loadData;
 window.BARK.safeDataPoll = safeDataPoll;
 window.BARK.clearMarkerLayersSafely = clearMarkerLayersSafely;
+window.BARK.isVenuePlayed = function (place) {
+    return Boolean(place && normalizePlayed(place.played !== undefined ? place.played : place.visited));
+};
 
 // ====== VERSION CHECK ======
 let pollErrorCount = 0;

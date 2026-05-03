@@ -45,7 +45,8 @@ var OUTPUT_COLUMNS = [
   'booking/contact info',
   'upcoming event date',
   'upcoming event time',
-  'private event'
+  'private event',
+  'played'
 ];
 
 var CATEGORY_NAMES = [
@@ -117,6 +118,10 @@ function routeRequest_(payload) {
 
     if (action === 'saveVenue') {
       return jsonOutput_(saveVenue_(payload));
+    }
+
+    if (action === 'setPlayed') {
+      return jsonOutput_(setPlayed_(payload));
     }
 
     return jsonOutput_({ ok: false, code: 'UNKNOWN_ACTION', message: 'Unknown spreadsheet bridge action.' });
@@ -331,6 +336,15 @@ function normalizeBoolean_(value) {
   return ['true', 'yes', 'y', '1', 'private'].indexOf(lower) >= 0 ? 'TRUE' : '';
 }
 
+function normalizePlayed_(value) {
+  var lower = clean_(value).toLowerCase();
+  return ['true', 'yes', 'y', '1', 'played', 'visited'].indexOf(lower) >= 0;
+}
+
+function playedText_(value) {
+  return normalizePlayed_(value) ? 'Yes' : 'No';
+}
+
 function normalizeCategory_(value, isPrivate) {
   if (isPrivate) return 'Private Event';
   var raw = clean_(value);
@@ -422,6 +436,7 @@ function normalizeRow_(row, headerMap, id) {
   var bookingContact = getByHeader_(row, headerMap, 'booking/contact info') || buildBookingContact_(row, headerMap);
   var latitude = getByHeader_(row, headerMap, 'Latitude') || getByHeader_(row, headerMap, 'lat');
   var longitude = getByHeader_(row, headerMap, 'Longitude') || getByHeader_(row, headerMap, 'lng') || getByHeader_(row, headerMap, 'long');
+  var played = playedText_(getByHeader_(row, headerMap, 'Played'));
 
   return {
     id: id,
@@ -438,7 +453,8 @@ function normalizeRow_(row, headerMap, id) {
     'booking/contact info': bookingContact,
     'upcoming event date': getByHeader_(row, headerMap, 'upcoming event date'),
     'upcoming event time': getByHeader_(row, headerMap, 'upcoming event time'),
-    'private event': privateEvent
+    'private event': privateEvent,
+    played: played
   };
 }
 
@@ -510,7 +526,8 @@ function normalizedToClientVenue_(venue) {
     bookingContact: venue['booking/contact info'],
     eventDate: venue['upcoming event date'],
     eventTime: venue['upcoming event time'],
-    privateEvent: venue['private event'] === 'TRUE'
+    privateEvent: venue['private event'] === 'TRUE',
+    played: normalizePlayed_(venue.played)
   };
 }
 
@@ -574,6 +591,34 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   setByHeader_(rowValues, headerMap, 'upcoming event date', clean_(venue.eventDate));
   setByHeader_(rowValues, headerMap, 'upcoming event time', clean_(venue.eventTime));
   setByHeader_(rowValues, headerMap, 'private event', venue.privateEvent ? 'TRUE' : '');
+  if (Object.prototype.hasOwnProperty.call(venue, 'played')) {
+    setByHeader_(rowValues, headerMap, 'Played', playedText_(venue.played));
+  }
+}
+
+function setPlayed_(payload) {
+  ensureGeneratedColumns_();
+  var found = findVenueById_(payload.id);
+  var sheet = found.data.sheet;
+  var headers = found.data.headers;
+  var headerMap = found.data.headerMap;
+  var rowValues = found.match.row.slice();
+  while (rowValues.length < headers.length) rowValues.push('');
+
+  var nextPlayed = playedText_(payload.played);
+  setByHeader_(rowValues, headerMap, 'Played', nextPlayed);
+  sheet.getRange(found.match.rowNumber, 1, 1, headers.length).setValues([rowValues]);
+
+  return {
+    ok: true,
+    action: 'setPlayed',
+    id: found.match.id,
+    rowNumber: found.match.rowNumber,
+    played: normalizePlayed_(nextPlayed),
+    venue: normalizedToClientVenue_(normalizeRow_(rowValues, headerMap, found.match.id)),
+    rawFields: rowToRawFields_(headers, rowValues),
+    csv: buildNormalizedCsv_()
+  };
 }
 
 function syncGeneratedColumns_(payload) {

@@ -58,6 +58,54 @@ function getPanelVisitEntry(place) {
     return null;
 }
 
+function getPanelPlayedState(place) {
+    if (place && Object.prototype.hasOwnProperty.call(place, 'played') && typeof window.BARK.isVenuePlayed === 'function') {
+        return window.BARK.isVenuePlayed(place);
+    }
+    if (typeof window.BARK.isParkVisited === 'function') {
+        return window.BARK.isParkVisited(place);
+    }
+    return Boolean(getPanelVisitEntry(place));
+}
+
+function getSpreadsheetService() {
+    return window.BARK.services && window.BARK.services.spreadsheet;
+}
+
+function canSetSpreadsheetPlayed() {
+    const spreadsheetService = getSpreadsheetService();
+    return Boolean(
+        spreadsheetService &&
+        typeof spreadsheetService.isConfigured === 'function' &&
+        spreadsheetService.isConfigured() &&
+        typeof spreadsheetService.setPlayed === 'function'
+    );
+}
+
+function applyLocalPlayedState(place, played) {
+    if (!place) return;
+    place.played = Boolean(played);
+    place.visited = Boolean(played);
+    if (window.BARK.activePinMarker && window.BARK.activePinMarker._parkData) {
+        window.BARK.activePinMarker._parkData.played = Boolean(played);
+        window.BARK.activePinMarker._parkData.visited = Boolean(played);
+    }
+}
+
+async function saveSpreadsheetPlayedState(place, played) {
+    const spreadsheetService = getSpreadsheetService();
+    const result = await spreadsheetService.setPlayed(place.id, played);
+    applyLocalPlayedState(place, played);
+
+    if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
+        window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
+    } else if (typeof window.syncState === 'function') {
+        window.syncState();
+    }
+
+    return result;
+}
+
 function escapeHtml(value) {
     return String(value === undefined || value === null ? '' : value)
         .replace(/&/g, '&amp;')
@@ -236,7 +284,7 @@ function renderMarkerClickPanel(context) {
         }
     }
 
-    // --- VISITED SECTION ---
+    // --- PLAYED SECTION ---
     const visitedSection = document.getElementById('panel-visited-section');
     const markVisitedBtn = document.getElementById('mark-visited-btn');
     const markVisitedText = document.getElementById('mark-visited-text');
@@ -245,18 +293,21 @@ function renderMarkerClickPanel(context) {
     const checkinService = window.BARK.services && window.BARK.services.checkin;
 
     if (visitedSection && markVisitedBtn && markVisitedText && verifyBtn) {
-        if (firebaseService && firebaseService.getCurrentUser()) {
+        const signedInUser = Boolean(firebaseService && firebaseService.getCurrentUser());
+        const spreadsheetPlayedEnabled = canSetSpreadsheetPlayed();
+
+        if (signedInUser || spreadsheetPlayedEnabled) {
             visitedSection.style.display = 'grid';
 
             const visitedEntry = getPanelVisitEntry(d);
+            const isPlayed = getPanelPlayedState(d);
+            const cachedObj = visitedEntry && visitedEntry.record;
 
-            if (visitedEntry) {
-                const cachedObj = visitedEntry.record;
-
+            if (isPlayed) {
                 markVisitedBtn.classList.add('visited');
-                markVisitedText.textContent = 'Visited Venue';
+                markVisitedText.textContent = 'Played Venue';
 
-                if (cachedObj.verified) {
+                if (cachedObj && cachedObj.verified && !spreadsheetPlayedEnabled) {
                     markVisitedBtn.disabled = true;
                     markVisitedBtn.style.cursor = 'default';
                     markVisitedBtn.style.opacity = '0.7';
@@ -266,16 +317,15 @@ function renderMarkerClickPanel(context) {
                     markVisitedBtn.style.opacity = '1';
                 }
 
-                if (window.allowUncheck && !cachedObj.verified) {
-                    markVisitedBtn.style.background = '#4CAF50';
-                    markVisitedBtn.onmouseenter = () => markVisitedText.textContent = 'Remove Visit';
-                    markVisitedBtn.onmouseleave = () => markVisitedText.textContent = 'Visited Venue';
+                if (spreadsheetPlayedEnabled || (window.allowUncheck && !(cachedObj && cachedObj.verified))) {
+                    markVisitedBtn.onmouseenter = () => markVisitedText.textContent = 'Mark as Not Played';
+                    markVisitedBtn.onmouseleave = () => markVisitedText.textContent = 'Played Venue';
                 } else {
                     markVisitedBtn.onmouseenter = null;
                     markVisitedBtn.onmouseleave = null;
                 }
 
-                if (cachedObj.verified) {
+                if (signedInUser && cachedObj && cachedObj.verified) {
                     verifyBtn.style.background = '#4CAF50';
                     verifyBtnText.textContent = 'Verified Stop';
                     verifyBtn.disabled = true;
@@ -290,7 +340,7 @@ function renderMarkerClickPanel(context) {
                 }
             } else {
                 markVisitedBtn.classList.remove('visited');
-                markVisitedText.textContent = 'Mark Venue Visited';
+                markVisitedText.textContent = 'Mark as Played';
                 markVisitedBtn.disabled = false;
                 markVisitedBtn.style.cursor = 'pointer';
                 markVisitedBtn.style.opacity = '1';
@@ -304,6 +354,7 @@ function renderMarkerClickPanel(context) {
                 verifyBtn.style.opacity = '1';
             }
 
+            verifyBtn.style.display = signedInUser ? '' : 'none';
             verifyBtn.onclick = async () => {
                 if (!checkinService || typeof checkinService.verifyGpsCheckin !== 'function') {
                     alert("Check-in service is unavailable. Try again later.");
@@ -323,10 +374,12 @@ function renderMarkerClickPanel(context) {
                         verifyBtn.style.opacity = '0.7';
 
                         markVisitedBtn.classList.add('visited');
-                        markVisitedText.textContent = 'Visited Venue';
-                        markVisitedBtn.disabled = true;
-                        markVisitedBtn.style.cursor = 'default';
-                        markVisitedBtn.style.opacity = '0.7';
+                        markVisitedText.textContent = 'Played Venue';
+                        if (!spreadsheetPlayedEnabled) {
+                            markVisitedBtn.disabled = true;
+                            markVisitedBtn.style.cursor = 'default';
+                            markVisitedBtn.style.opacity = '0.7';
+                        }
 
                         window.syncState();
                         window.BARK.updateStatsUI();
@@ -356,6 +409,29 @@ function renderMarkerClickPanel(context) {
             };
 
             markVisitedBtn.onclick = async () => {
+                if (spreadsheetPlayedEnabled) {
+                    const nextPlayed = !getPanelPlayedState(d);
+                    const pendingText = nextPlayed ? 'Saving Played...' : 'Saving Not Played...';
+                    markVisitedBtn.disabled = true;
+                    markVisitedText.textContent = pendingText;
+
+                    try {
+                        await saveSpreadsheetPlayedState(d, nextPlayed);
+                        markVisitedBtn.disabled = false;
+                        markVisitedBtn.style.cursor = 'pointer';
+                        markVisitedBtn.style.opacity = '1';
+                        markVisitedBtn.classList.toggle('visited', nextPlayed);
+                        markVisitedText.textContent = nextPlayed ? 'Played Venue' : 'Mark as Played';
+                        if (typeof window.BARK.updateStatsUI === 'function') window.BARK.updateStatsUI();
+                    } catch (error) {
+                        console.error("[panelRenderer] save played state failed:", error);
+                        markVisitedBtn.disabled = false;
+                        markVisitedText.textContent = getPanelPlayedState(d) ? 'Played Venue' : 'Mark as Played';
+                        alert("Spreadsheet update failed. Try again after the sheet bridge redeploy finishes.");
+                    }
+                    return;
+                }
+
                 if (!checkinService || typeof checkinService.markAsVisited !== 'function') {
                     alert("Check-in service is unavailable. Try again later.");
                     return;
@@ -365,7 +441,7 @@ function renderMarkerClickPanel(context) {
                     const visitResult = await checkinService.markAsVisited(d);
                     if (!visitResult.success) {
                         if (visitResult.error === 'UNCHECK_LOCKED') {
-                            alert("Data Safety Lock Active\n\nTo prevent you from accidentally losing visit history, unchecking venues is disabled by default.\n\nYou can turn off this safety feature in Settings by enabling 'Allow Uncheck Visited'.");
+                            alert("Data Safety Lock Active\n\nTo prevent you from accidentally losing played history, marking venues not played is disabled by default.\n\nYou can turn off this safety feature in Settings by enabling 'Allow Marking Not Played'.");
                         } else if (visitResult.error === 'FREE_VISIT_LIMIT') {
                             const limit = visitResult.limit || 20;
                             alert(`Visit limit reached at ${limit} venues. Full access should be enabled; refresh and try again.`);
@@ -377,7 +453,7 @@ function renderMarkerClickPanel(context) {
 
                     if (visitResult.action === 'removed') {
                         markVisitedBtn.classList.remove('visited');
-                        markVisitedText.textContent = 'Mark Venue Visited';
+                        markVisitedText.textContent = 'Mark as Played';
                         markVisitedBtn.onmouseenter = null;
                         markVisitedBtn.onmouseleave = null;
 
@@ -386,7 +462,7 @@ function renderMarkerClickPanel(context) {
                     }
 
                     markVisitedBtn.classList.add('visited');
-                    markVisitedText.textContent = 'Visited Venue';
+                    markVisitedText.textContent = 'Played Venue';
                     markVisitedBtn.disabled = false;
                     markVisitedBtn.style.cursor = 'pointer';
                     markVisitedBtn.style.opacity = '1';

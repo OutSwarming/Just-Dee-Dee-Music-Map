@@ -1354,9 +1354,9 @@ body.app-tab-active #slide-panel {
 }
 
 .visited-pin {
-    --ring-color: #16a34a !important;
-    --pin-color: #16a34a !important;
-    --pin-shadow-color: rgba(22, 163, 74, 0.5) !important;
+    --ring-color: #2563eb !important;
+    --pin-color: #2563eb !important;
+    --pin-shadow-color: rgba(37, 99, 235, 0.5) !important;
     filter: none !important;
     z-index: 500 !important;
 }
@@ -1367,7 +1367,7 @@ body.app-tab-active #slide-panel {
 }
 
 .visited-pin img {
-    border: 3px solid var(--ring-color, #4CAF50) !important;
+    border: 3px solid var(--ring-color, #2563eb) !important;
     border-radius: 50%;
     box-sizing: border-box;
 }
@@ -1407,11 +1407,11 @@ body.app-tab-active #slide-panel {
 }
 
 #mark-visited-btn {
-    background-color: #b45309 !important;
+    background-color: #111827 !important;
     color: white !important;
     border: none;
     padding: 12px 20px;
-    box-shadow: 0 4px 10px rgba(180, 83, 9, 0.3);
+    box-shadow: 0 4px 10px rgba(17, 24, 39, 0.3);
     transition: all 0.2s ease-in-out;
 }
 
@@ -1420,10 +1420,10 @@ body.app-tab-active #slide-panel {
 }
 
 #mark-visited-btn.visited {
-    background-color: #4CAF50 !important;
+    background-color: #2563eb !important;
     color: white !important;
     border: none;
-    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
 }
 
 #mark-visited-btn.visited .heart-icon {

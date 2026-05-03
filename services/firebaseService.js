@@ -196,6 +196,14 @@ function getVisitedPlaceEntry(placeOrId) {
 }
 
 function isParkVisited(placeOrId) {
+    if (
+        placeOrId &&
+        typeof placeOrId === 'object' &&
+        Object.prototype.hasOwnProperty.call(placeOrId, 'played') &&
+        typeof window.BARK.isVenuePlayed === 'function'
+    ) {
+        return window.BARK.isVenuePlayed(placeOrId);
+    }
     return getVisitedPlaceEntries(placeOrId).length > 0;
 }
 

@@ -93,10 +93,15 @@
         return request('saveVenue', { id, venue, rawFields });
     }
 
+    async function setPlayed(id, played) {
+        return request('setPlayed', { id, played: Boolean(played) });
+    }
+
     window.BARK.services.spreadsheet = {
         isConfigured,
         getConfigStatus,
         getVenue,
-        saveVenue
+        saveVenue,
+        setPlayed
     };
 })();
