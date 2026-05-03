@@ -4,23 +4,6 @@
 (function () {
     window.BARK = window.BARK || {};
 
-    const BASE_FIELDS = [
-        { key: 'name', label: 'Venue name', required: true },
-        { key: 'address', label: 'Address' },
-        { key: 'city', label: 'City' },
-        { key: 'state', label: 'State' },
-        { key: 'zip', label: 'ZIP' },
-        { key: 'lat', label: 'Latitude', type: 'number', step: 'any', required: true },
-        { key: 'lng', label: 'Longitude', type: 'number', step: 'any', required: true },
-        { key: 'venueType', label: 'Venue type', type: 'select' },
-        { key: 'website', label: 'Website/social link' },
-        { key: 'bookingContact', label: 'Booking/contact info', type: 'textarea' },
-        { key: 'eventDate', label: 'Upcoming event date' },
-        { key: 'eventTime', label: 'Upcoming event time' },
-        { key: 'privateEvent', label: 'Private event', type: 'checkbox' },
-        { key: 'notes', label: 'Notes', type: 'textarea' }
-    ];
-
     const SOURCE_FIELD_ORDER = [
         'Place',
         'Rank',
@@ -68,21 +51,6 @@
         return window.BARK.services && window.BARK.services.spreadsheet;
     }
 
-    function getVenueCategories() {
-        return window.BARK.VENUE_CATEGORIES || [
-            'Brewery',
-            'Winery',
-            'Restaurant',
-            'Festival',
-            'Coffee Shop',
-            'Pub/Bar',
-            'Art Gallery',
-            'Farm/Farmers Market',
-            'Private Event',
-            'Other Venue'
-        ];
-    }
-
     function setStatus(message, tone = 'neutral') {
         const status = qs('venue-edit-status');
         if (!status) return;
@@ -113,85 +81,6 @@
         document.body.classList.remove('venue-edit-open');
         activeVenue = null;
         activeRawFields = {};
-    }
-
-    function getInputId(fieldKey) {
-        return `venue-edit-${fieldKey}`;
-    }
-
-    function renderBaseFields() {
-        const container = qs('venue-edit-fields');
-        if (!container) return;
-
-        container.innerHTML = BASE_FIELDS.map(field => {
-            const id = getInputId(field.key);
-            const label = `<label for="${id}">${escapeHtml(field.label)}</label>`;
-
-            if (field.type === 'textarea') {
-                return `<div class="venue-edit-field venue-edit-field--wide">${label}<textarea id="${id}" rows="3"></textarea></div>`;
-            }
-
-            if (field.type === 'select') {
-                const options = getVenueCategories()
-                    .map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
-                    .join('');
-                return `<div class="venue-edit-field">${label}<select id="${id}">${options}</select></div>`;
-            }
-
-            if (field.type === 'checkbox') {
-                return `
-                    <div class="venue-edit-field venue-edit-checkbox">
-                        <input id="${id}" type="checkbox">
-                        <label for="${id}">${escapeHtml(field.label)}</label>
-                    </div>
-                `;
-            }
-
-            const type = field.type || 'text';
-            const step = field.step ? ` step="${escapeHtml(field.step)}"` : '';
-            const required = field.required ? ' required' : '';
-            return `<div class="venue-edit-field">${label}<input id="${id}" type="${type}"${step}${required}></div>`;
-        }).join('');
-    }
-
-    function fillBaseFields(venue) {
-        BASE_FIELDS.forEach(field => {
-            const input = qs(getInputId(field.key));
-            if (!input) return;
-
-            if (field.key === 'venueType') {
-                input.value = venue.venueType || venue.category || venue.swagType || 'Other Venue';
-                return;
-            }
-
-            if (field.key === 'privateEvent') {
-                input.checked = Boolean(venue.privateEvent);
-                return;
-            }
-
-            input.value = venue[field.key] === undefined || venue[field.key] === null ? '' : venue[field.key];
-        });
-    }
-
-    function collectBaseFields() {
-        return BASE_FIELDS.reduce((fields, field) => {
-            const input = qs(getInputId(field.key));
-            if (!input) return fields;
-            fields[field.key] = field.type === 'checkbox' ? input.checked : input.value;
-            return fields;
-        }, {});
-    }
-
-    function mergeSourceVenue(sourceVenue) {
-        if (!sourceVenue || typeof sourceVenue !== 'object') return { ...activeVenue };
-        const merged = { ...activeVenue, ...sourceVenue };
-
-        // The live sheet may be missing coordinates while the checked-in map CSV has them.
-        // Preserve the clicked pin coordinates so Save can backfill Latitude/Longitude.
-        if (!clean(sourceVenue.lat)) merged.lat = activeVenue.lat;
-        if (!clean(sourceVenue.lng)) merged.lng = activeVenue.lng;
-
-        return merged;
     }
 
     function renderRawFields(rawFields) {
@@ -228,6 +117,85 @@
             fields[input.dataset.sourceHeader] = input.value;
             return fields;
         }, {});
+    }
+
+    function getRawField(rawFields, headers) {
+        for (const header of headers) {
+            if (Object.prototype.hasOwnProperty.call(rawFields, header) && clean(rawFields[header])) {
+                return clean(rawFields[header]);
+            }
+
+            const normalized = header.toLowerCase();
+            const match = Object.keys(rawFields).find(key => key.toLowerCase() === normalized && clean(rawFields[key]));
+            if (match) return clean(rawFields[match]);
+        }
+        return '';
+    }
+
+    function parsePlace(value) {
+        const raw = clean(value).replace(/\s+/g, ' ');
+        if (!raw) return {};
+
+        const parts = raw.split(',').map(part => clean(part)).filter(Boolean);
+        const parsed = {
+            name: parts[0] || raw,
+            address: '',
+            city: '',
+            state: 'OH',
+            zip: ''
+        };
+
+        if (parts.length >= 3) {
+            const stateZip = parts[parts.length - 1].match(/\b([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/i);
+            parsed.city = parts[parts.length - 2] || '';
+            parsed.address = parts.slice(1, -2).join(', ');
+            if (stateZip) {
+                parsed.state = stateZip[1].toUpperCase();
+                parsed.zip = stateZip[2];
+            }
+        }
+
+        return parsed;
+    }
+
+    function normalizeBoolean(value) {
+        const raw = clean(value).toLowerCase();
+        return ['true', 'yes', 'y', '1', 'private'].includes(raw);
+    }
+
+    function normalizePlayed(value) {
+        const raw = clean(value).toLowerCase();
+        return ['true', 'yes', 'y', '1', 'played', 'visited'].includes(raw);
+    }
+
+    function buildVenueFromRawFields(rawFields) {
+        const parsedPlace = parsePlace(getRawField(rawFields, ['Place']));
+        const name = getRawField(rawFields, ['venue name', 'name', 'Location']) || parsedPlace.name || activeVenue.name;
+        const contactBits = [
+            getRawField(rawFields, ['Contact Name']),
+            getRawField(rawFields, ['Email/Contact']),
+            getRawField(rawFields, ['Phone Number']),
+            getRawField(rawFields, ['Contact Type'])
+        ].filter(Boolean);
+
+        return {
+            id: getRawField(rawFields, ['Site ID', 'id']) || activeVenue.id,
+            name,
+            address: getRawField(rawFields, ['address']) || parsedPlace.address || activeVenue.address,
+            city: getRawField(rawFields, ['city']) || parsedPlace.city || activeVenue.city,
+            state: getRawField(rawFields, ['state']) || parsedPlace.state || activeVenue.state || 'OH',
+            zip: getRawField(rawFields, ['zip', 'zipcode', 'zip code']) || parsedPlace.zip || activeVenue.zip,
+            lat: getRawField(rawFields, ['Latitude', 'lat']) || activeVenue.lat,
+            lng: getRawField(rawFields, ['Longitude', 'lng', 'long']) || activeVenue.lng,
+            venueType: getRawField(rawFields, ['venue type', 'type']) || activeVenue.venueType || activeVenue.category || 'Other Venue',
+            website: getRawField(rawFields, ['Website', 'website/social link']) || activeVenue.website,
+            bookingContact: getRawField(rawFields, ['booking/contact info']) || contactBits.join(' | ') || activeVenue.bookingContact,
+            eventDate: getRawField(rawFields, ['upcoming event date']) || activeVenue.eventDate,
+            eventTime: getRawField(rawFields, ['upcoming event time']) || activeVenue.eventTime,
+            privateEvent: normalizeBoolean(getRawField(rawFields, ['private event'])) || Boolean(activeVenue.privateEvent),
+            notes: getRawField(rawFields, ['Notes', 'notes']) || activeVenue.notes,
+            played: normalizePlayed(getRawField(rawFields, ['Played', 'played'])) || Boolean(activeVenue.played)
+        };
     }
 
     function applyLocalVenueUpdate(id, fields) {
@@ -278,9 +246,6 @@
         try {
             const result = await service.getVenue(activeVenue.id);
             if (result && result.rawFields) renderRawFields(result.rawFields);
-            if (result && result.venue) {
-                fillBaseFields(mergeSourceVenue(result.venue));
-            }
             setStatus('Source spreadsheet row loaded.', 'success');
         } catch (error) {
             console.error('[venueEditModal] failed to load source row:', error);
@@ -297,9 +262,10 @@
             return;
         }
 
-        const fields = collectBaseFields();
+        const rawFields = collectRawFields();
+        const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name) || !clean(fields.lat) || !clean(fields.lng)) {
-            setStatus('Venue name, latitude, and longitude are required.', 'error');
+            setStatus('Venue name, latitude, and longitude are required. Fill them in the spreadsheet fields before saving.', 'error');
             return;
         }
 
@@ -310,7 +276,7 @@
             const result = await service.saveVenue({
                 id: activeVenue.id,
                 venue: fields,
-                rawFields: collectRawFields()
+                rawFields
             });
 
             if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
@@ -366,8 +332,6 @@
         }
 
         activeVenue = { ...venue };
-        renderBaseFields();
-        fillBaseFields(activeVenue);
         renderRawFields({});
         bindModalEvents();
         setStatus('', 'neutral');

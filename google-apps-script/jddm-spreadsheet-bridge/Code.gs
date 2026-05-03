@@ -546,8 +546,10 @@ function saveVenue_(payload) {
   });
 
   var venue = payload.venue || {};
-  venue.id = found.match.id;
-  writeVenueFields_(rowValues, headerMap, venue, rawFields);
+  if (Object.keys(venue).length > 0) {
+    venue.id = found.match.id;
+    writeVenueFields_(rowValues, headerMap, venue, rawFields);
+  }
 
   sheet.getRange(found.match.rowNumber, 1, 1, headers.length).setValues([rowValues]);
 
