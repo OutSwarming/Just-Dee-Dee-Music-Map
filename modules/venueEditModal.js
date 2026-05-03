@@ -312,17 +312,20 @@
                 rawFields: collectRawFields()
             });
 
-            if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
+            if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
                 window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
             } else {
                 applyLocalVenueUpdate(activeVenue.id, fields);
             }
 
-            if (typeof window.BARK.loadData === 'function') {
+            if (window.JDDM_VENUE_CSV_URL && typeof window.BARK.loadData === 'function') {
                 setTimeout(() => window.BARK.loadData(), 800);
             }
 
-            setStatus('Saved to spreadsheet. The map is refreshing from the latest sheet data.', 'success');
+            const syncMessage = window.JDDM_VENUE_CSV_URL
+                ? 'Saved to spreadsheet. The map is refreshing from the latest sheet data.'
+                : 'Saved to spreadsheet. This pin is updated locally; full sheet sync can be enabled after the live sheet has coordinates.';
+            setStatus(syncMessage, 'success');
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
             setStatus(error.message || 'Save failed. Check the Apps Script deployment and try again.', 'error');
