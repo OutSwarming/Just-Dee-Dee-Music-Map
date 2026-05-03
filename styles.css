@@ -2372,20 +2372,53 @@ input:checked+.slider:before {
 .marker-cluster-small,
 .marker-cluster-medium,
 .marker-cluster-large {
-    background-color: rgba(45, 52, 54, 0.7) !important;
-    /* Dark slate background */
-    border: 2px solid #fab1a0 !important;
-    /* B.A.R.K. peach border */
+    background-color: rgba(17, 24, 39, 0.76) !important;
+    border: 2px solid #111827 !important;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
 
 .marker-cluster div {
-    background-color: #fab1a0 !important;
-    color: #2d3436 !important;
+    background-color: #111827 !important;
+    color: #f8fafc !important;
     font-weight: 800 !important;
     font-family: 'Inter', sans-serif !important;
     border-radius: 50%;
+}
+
+.cluster-enamel-wrapper {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #111827;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.92), 0 0 18px rgba(37, 99, 235, 0.5);
+}
+
+.cluster-enamel-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cluster-count-badge {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: #111827;
+    border: 2px solid #f8fafc;
+    color: #f8fafc;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
 }
 
 /* Instantly strips expensive renders when the toggle is ON */

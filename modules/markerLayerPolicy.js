@@ -3,6 +3,7 @@
  */
 const BARK_GLOBAL = window;
 BARK_GLOBAL.BARK = BARK_GLOBAL.BARK || {};
+const DETAILED_BUBBLE_BREAKOUT_ZOOM = 12;
 
 function getRenderContext(zoom) {
     const mapRef = BARK_GLOBAL.map;
@@ -25,7 +26,7 @@ function getRenderContext(zoom) {
 function getMarkerLayerPolicy(zoom) {
     const context = getRenderContext(zoom);
     const performanceReduced = context.lowGfxEnabled || context.ultraLowEnabled;
-    const premiumExplodesAtZoom = context.premiumClusteringEnabled && context.zoom >= 7;
+    const premiumExplodesAtZoom = context.premiumClusteringEnabled && context.zoom >= DETAILED_BUBBLE_BREAKOUT_ZOOM;
     const canCluster = context.clusteringEnabled && !context.forcePlainMarkers && !premiumExplodesAtZoom;
     const shouldLimitZoomOut = context.limitZoomOut || performanceReduced;
 
@@ -41,3 +42,4 @@ function getMarkerLayerPolicy(zoom) {
 
 BARK_GLOBAL.BARK.getRenderContext = getRenderContext;
 BARK_GLOBAL.BARK.getMarkerLayerPolicy = getMarkerLayerPolicy;
+BARK_GLOBAL.BARK.DETAILED_BUBBLE_BREAKOUT_ZOOM = DETAILED_BUBBLE_BREAKOUT_ZOOM;

@@ -176,7 +176,8 @@ function getVisitedIdsCacheKey() {
 
 function getTargetMarkerLayerType(zoom) {
     if (window.BARK.getMarkerLayerPolicy) return window.BARK.getMarkerLayerPolicy(zoom).layerType;
-    const forceNoClustering = window.premiumClusteringEnabled && zoom >= 7;
+    const breakoutZoom = window.BARK.DETAILED_BUBBLE_BREAKOUT_ZOOM || 12;
+    const forceNoClustering = window.premiumClusteringEnabled && zoom >= breakoutZoom;
     return (window.clusteringEnabled && !forceNoClustering) ? 'cluster' : 'plain';
 }
 

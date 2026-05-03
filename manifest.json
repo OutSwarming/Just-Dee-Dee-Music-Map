@@ -7,10 +7,10 @@
   "theme_color": "#b45309",
   "icons": [
     {
-      "src": "assets/images/jddm-icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "assets/images/jddm-not-played.jpg",
+      "sizes": "422x426",
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }

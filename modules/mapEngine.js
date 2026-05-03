@@ -213,7 +213,8 @@ map.on('movestart', () => {
 
 function getEffectiveMarkerLayerTypeForZoom(zoom) {
     if (window.BARK.getMarkerLayerPolicy) return window.BARK.getMarkerLayerPolicy(zoom).layerType;
-    const forceNoClustering = window.premiumClusteringEnabled && zoom >= 7;
+    const breakoutZoom = window.BARK.DETAILED_BUBBLE_BREAKOUT_ZOOM || 12;
+    const forceNoClustering = window.premiumClusteringEnabled && zoom >= breakoutZoom;
     return (window.clusteringEnabled && !forceNoClustering) ? 'cluster' : 'plain';
 }
 
@@ -440,7 +441,7 @@ const markerClusterGroup = L.markerClusterGroup({
         const hiddenClass = visibleChildCount > 0 ? '' : ' marker-filter-hidden';
         const markerHtml = `
             <div class="cluster-enamel-wrapper">
-                <img src="assets/images/bark-logo.jpeg" alt="B.A.R.K. Cluster" loading="lazy" />
+                <img src="assets/images/jddm-not-played.jpg" alt="Just Dee Dee Music Cluster" loading="lazy" />
                 <div class="cluster-count-badge">${visibleChildCount}</div>
             </div>
         `;

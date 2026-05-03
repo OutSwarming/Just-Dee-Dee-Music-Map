@@ -133,7 +133,7 @@ function hasTripVisitedPlace(placeOrId) {
         const style = window.MapMarkerConfig && typeof window.MapMarkerConfig.getPinStyle === 'function'
             ? window.MapMarkerConfig.getPinStyle(parkData, isVisited)
             : {
-                iconUrl: 'assets/images/bark-logo.jpeg',
+                iconUrl: 'assets/images/jddm-not-played.jpg',
                 ringColor: isVisited ? '#4CAF50' : '#000',
                 pinShadowColor: isVisited ? '#4CAF50' : 'rgba(0, 0, 0, 0.4)',
                 categoryClass: 'cat-national'
