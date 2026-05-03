@@ -738,19 +738,23 @@ function onEdit(e) {
 }
 
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('JDDM Map')
-    .addItem('Fill generated map columns', 'menuSyncGeneratedColumns')
-    .addItem('Install auto-fill trigger', 'installJddmAutoFillTrigger')
-    .addToUi();
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('JDDM Map')
+      .addItem('Fill generated map columns', 'menuSyncGeneratedColumns')
+      .addItem('Install auto-fill trigger', 'installJddmAutoFillTrigger')
+      .addToUi();
+  } catch (error) {
+    console.log('JDDM menu unavailable in this Apps Script context.');
+  }
 }
 
 function menuSyncGeneratedColumns() {
   var result = syncGeneratedColumns_({ limit: 200, geocodeMissing: true });
-  SpreadsheetApp.getUi().alert(
-    'JDDM Map columns updated',
-    'Changed rows: ' + result.changedCount + '\nGeocoded rows: ' + result.geocodedCount + '\nSkipped rows: ' + result.skippedCount,
-    SpreadsheetApp.getUi().ButtonSet.OK
+  notifyUser_(
+    'JDDM Map columns updated: changed rows=' + result.changedCount +
+    ', geocoded rows=' + result.geocodedCount +
+    ', skipped rows=' + result.skippedCount
   );
 }
 
@@ -765,5 +769,13 @@ function installJddmAutoFillTrigger() {
     .forSpreadsheet(spreadsheet)
     .onEdit()
     .create();
-  SpreadsheetApp.getUi().alert('JDDM auto-fill trigger installed. New/edited rows will fill Longitude, Latitude, and Site ID.');
+  notifyUser_('JDDM auto-fill trigger installed. New/edited rows will fill Longitude, Latitude, and Site ID.');
+}
+
+function notifyUser_(message) {
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (error) {
+    console.log(message);
+  }
 }
