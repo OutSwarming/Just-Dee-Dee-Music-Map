@@ -64,6 +64,11 @@ applyGlobalStyles();
 
 let mapSaveTimeout;
 const LOWER_48_MIN_ZOOM = 4;
+const JDDM_DEFAULT_CENTER = [41.35, -81.65];
+const JDDM_DEFAULT_ZOOM = 8.5;
+
+window.BARK.defaultMapCenter = JDDM_DEFAULT_CENTER;
+window.BARK.defaultMapZoom = JDDM_DEFAULT_ZOOM;
 
 const mapOptions = window.ultraLowEnabled ? {
     preferCanvas: true,
@@ -148,14 +153,14 @@ function setInitialMapView(defaultLat, defaultLng) {
         return true;
     } else {
         console.log("📍 Starting at default/current location...");
-        const startZoom = window.startNationalView ? 4 : 7;
+        const startZoom = window.startNationalView ? JDDM_DEFAULT_ZOOM : 7;
         map.setView([defaultLat, defaultLng], startZoom, { animate: false });
         return false;
     }
 }
 
-// Initial view set to US center as a placeholder during load
-setInitialMapView(39.8283, -98.5795);
+// Initial view starts locally over Northeast Ohio.
+setInitialMapView(JDDM_DEFAULT_CENTER[0], JDDM_DEFAULT_CENTER[1]);
 
 // 🎯 CUSTOM DOUBLE CLICK ZOOM ENGINE
 map.on('dblclick', (e) => {

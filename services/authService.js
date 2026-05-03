@@ -257,7 +257,9 @@ function handleCloudSettingsHydration(data, metadata = {}) {
 
         const mapRef = (typeof map !== 'undefined') ? map : window.map;
         if (window.startNationalView && mapRef) {
-            mapRef.setView([39.8283, -98.5795], 4, { animate: false });
+            const center = window.BARK.defaultMapCenter || [41.35, -81.65];
+            const zoom = window.BARK.defaultMapZoom || 8.5;
+            mapRef.setView(center, zoom, { animate: false });
         }
 
         console.log("☁️ Cloud settings loaded and injected perfectly!");
@@ -626,15 +628,16 @@ function resetMapViewToGuestDefault() {
     const mapRef = window.map || (typeof map !== 'undefined' ? map : null);
     if (!mapRef || typeof mapRef.setView !== 'function') return;
 
-    const guestZoom = 5;
+    const guestZoom = window.BARK.defaultMapZoom || 8.5;
+    const guestCenter = window.BARK.defaultMapCenter || [41.35, -81.65];
 
     localStorage.removeItem('mapLat');
     localStorage.removeItem('mapLng');
     localStorage.removeItem('mapZoom');
-    mapRef.setView([39.8283, -98.5795], guestZoom, { animate: false });
+    mapRef.setView(guestCenter, guestZoom, { animate: false });
 
     if (mapRef.locate && navigator.geolocation) {
-        mapRef.locate({ setView: true, maxZoom: guestZoom, watch: false });
+        mapRef.locate({ setView: true, maxZoom: 10, watch: false });
     }
 }
 
