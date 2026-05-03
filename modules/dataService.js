@@ -333,6 +333,91 @@ let dataPollTimer = null;
 let dataPollLoopStarted = false;
 let dataPollStopped = false;
 let lastDataPollStartedAt = 0;
+let dataSyncStatusTimers = [];
+let dataSyncStatusInterval = null;
+
+function clearDataSyncStatusTimers() {
+    dataSyncStatusTimers.forEach(timerId => clearTimeout(timerId));
+    dataSyncStatusTimers = [];
+    if (dataSyncStatusInterval) {
+        clearInterval(dataSyncStatusInterval);
+        dataSyncStatusInterval = null;
+    }
+}
+
+function getDataSyncStatusEl() {
+    let el = document.getElementById('spreadsheet-sync-status');
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = 'spreadsheet-sync-status';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.style.cssText = [
+        'position:fixed',
+        'left:50%',
+        'bottom:96px',
+        'transform:translateX(-50%)',
+        'z-index:10050',
+        'max-width:min(420px,calc(100vw - 32px))',
+        'background:rgba(15,23,42,0.94)',
+        'color:white',
+        'border:1px solid rgba(255,255,255,0.16)',
+        'border-radius:14px',
+        'box-shadow:0 16px 40px rgba(15,23,42,0.28)',
+        'padding:12px 16px',
+        'font-size:13px',
+        'font-weight:800',
+        'line-height:1.35',
+        'text-align:center',
+        'display:none'
+    ].join(';');
+    document.body.appendChild(el);
+    return el;
+}
+
+function setDataSyncStatus(message, tone = 'neutral') {
+    const el = getDataSyncStatusEl();
+    el.textContent = message;
+    el.dataset.tone = tone;
+    el.style.display = message ? 'block' : 'none';
+    if (tone === 'success') el.style.background = 'rgba(22,101,52,0.94)';
+    else if (tone === 'error') el.style.background = 'rgba(127,29,29,0.94)';
+    else el.style.background = 'rgba(15,23,42,0.94)';
+}
+
+function startManualDataSyncStatus() {
+    clearDataSyncStatusTimers();
+    const startedAt = Date.now();
+    let becameVisible = false;
+
+    dataSyncStatusTimers.push(setTimeout(() => {
+        becameVisible = true;
+        setDataSyncStatus('Checking spreadsheet updates...', 'neutral');
+    }, 900));
+
+    dataSyncStatusTimers.push(setTimeout(() => {
+        becameVisible = true;
+        setDataSyncStatus('Updating map from Google Sheets. New rows may take a little while because Longitude, Latitude, and Site ID need to finish filling.', 'neutral');
+        dataSyncStatusInterval = setInterval(() => {
+            const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+            setDataSyncStatus(`Still checking spreadsheet updates... ${seconds}s. You can keep using the map while Google finishes the new row.`, 'neutral');
+        }, 5000);
+    }, 4200));
+
+    return function finishManualDataSyncStatus({ ok = true } = {}) {
+        clearDataSyncStatusTimers();
+        if (!becameVisible) return;
+
+        if (ok) {
+            setDataSyncStatus('Map update check complete. If a brand-new row is still missing, wait for columns R, S, and T to fill, then check again.', 'success');
+            dataSyncStatusTimers.push(setTimeout(() => setDataSyncStatus('', 'success'), 4200));
+        } else {
+            setDataSyncStatus('Spreadsheet update is still taking too long. The map is using cached data and will retry in the background.', 'error');
+            dataSyncStatusTimers.push(setTimeout(() => setDataSyncStatus('', 'error'), 6200));
+        }
+    };
+}
 
 function pruneSeenHashes() {
     while (seenHashes.size > MAX_SEEN_DATA_HASHES) {
@@ -355,7 +440,22 @@ function rememberDataHash(hash, revisionTime) {
     pruneSeenHashes();
 }
 
-function pollForUpdates() {
+function getVenueCsvUrl(options = {}) {
+    const configuredCsvUrl = window.BARK.config && window.BARK.config.VENUE_CSV_URL
+        ? window.BARK.config.VENUE_CSV_URL
+        : 'assets/data/jddm-venues.csv';
+
+    if (options.userInitiated && window.JDDM_SPREADSHEET_API_URL) {
+        const apiUrl = String(window.JDDM_SPREADSHEET_API_URL);
+        const separator = apiUrl.includes('?') ? '&' : '?';
+        const autofillLimit = Math.max(1, Math.min(Number(options.autofillLimit || 25), 100));
+        return `${apiUrl}${separator}action=csv&autofill=1&autofillLimit=${autofillLimit}`;
+    }
+
+    return configuredCsvUrl;
+}
+
+function pollForUpdates(options = {}) {
     if (!navigator.onLine || pollInFlight) return Promise.resolve(false);
 
     try { window.BARK.incrementRequestCount(); }
@@ -364,12 +464,11 @@ function pollForUpdates() {
     pollInFlight = true;
     lastDataPollStartedAt = Date.now();
 
-    const csvUrl = window.BARK.config && window.BARK.config.VENUE_CSV_URL
-        ? window.BARK.config.VENUE_CSV_URL
-        : 'assets/data/jddm-venues.csv';
+    const csvUrl = getVenueCsvUrl(options);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutMs = options.userInitiated ? 30000 : 6000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     const cacheBustSeparator = csvUrl.includes('?') ? '&' : '?';
     const requestUrl = `${csvUrl}${cacheBustSeparator}t=${Date.now()}&r=${Math.random()}`;
@@ -425,15 +524,18 @@ function getPollInterval() {
     return dataPollErrorCount > 5 ? DATA_POLL_RETRY_INTERVAL_MS : DATA_POLL_INTERVAL_MS;
 }
 
-async function runDataPollCycle() {
+async function runDataPollCycle(options = {}) {
     if (window.ultraLowEnabled) {
         console.log("Ultra Low Mode: Background polling disabled.");
         return false;
     }
 
+    const finishManualStatus = options.userInitiated ? startManualDataSyncStatus(options) : null;
+
     try {
-        await pollForUpdates();
+        await pollForUpdates(options);
         dataPollErrorCount = 0;
+        if (finishManualStatus) finishManualStatus({ ok: true });
         return true;
     } catch (err) {
         if (err.message && err.message.includes("Safety Shutdown")) {
@@ -445,10 +547,11 @@ async function runDataPollCycle() {
         }
         dataPollErrorCount++;
         if (err.name === 'AbortError') {
-            console.warn('Data poll timed out after 6s; backing off...');
+            console.warn(`Data poll timed out after ${options.userInitiated ? 30 : 6}s; backing off...`);
         } else {
             console.error("Data poll failed, backing off...", err);
         }
+        if (finishManualStatus) finishManualStatus({ ok: false });
         return false;
     }
 }
@@ -509,7 +612,7 @@ function clearMarkerLayersSafely() {
     }
 }
 
-function loadData() {
+function loadData(options = {}) {
     const cachedCsv = localStorage.getItem(DATA_CACHE_KEY);
     const cachedTime = localStorage.getItem(DATA_CACHE_TIME_KEY);
 
@@ -539,10 +642,13 @@ function loadData() {
         return;
     }
 
-    runDataPollCycle();
+    return runDataPollCycle(options);
 }
 
 window.BARK.loadData = loadData;
+window.BARK.refreshSpreadsheetMap = function refreshSpreadsheetMap() {
+    return loadData({ userInitiated: true, autofillLimit: 25 });
+};
 window.BARK.safeDataPoll = safeDataPoll;
 window.BARK.clearMarkerLayersSafely = clearMarkerLayersSafely;
 window.BARK.isVenuePlayed = function (place) {

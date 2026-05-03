@@ -243,6 +243,12 @@
         }
 
         setStatus('Loading source spreadsheet row...', 'neutral');
+        const slowTimer = setTimeout(() => {
+            setStatus('Still checking Google Sheets. New rows and cold Apps Script starts can take a little while.', 'neutral');
+        }, 1800);
+        const longTimer = setTimeout(() => {
+            setStatus('Still loading the spreadsheet row. You can wait here; the map will keep using the current data until Sheets responds.', 'neutral');
+        }, 6000);
         try {
             const result = await service.getVenue(activeVenue.id);
             if (result && result.rawFields) renderRawFields(result.rawFields);
@@ -251,6 +257,9 @@
             console.error('[venueEditModal] failed to load source row:', error);
             renderRawFields({});
             setStatus(error.message || 'Could not load source spreadsheet row.', 'error');
+        } finally {
+            clearTimeout(slowTimer);
+            clearTimeout(longTimer);
         }
     }
 
@@ -286,7 +295,7 @@
             }
 
             if (window.JDDM_VENUE_CSV_URL && typeof window.BARK.loadData === 'function') {
-                setTimeout(() => window.BARK.loadData(), 800);
+                setTimeout(() => window.BARK.loadData({ userInitiated: true, autofillLimit: 25 }), 800);
             }
 
             const syncMessage = window.JDDM_VENUE_CSV_URL
