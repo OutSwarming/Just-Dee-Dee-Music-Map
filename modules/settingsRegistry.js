@@ -131,7 +131,7 @@ window.BARK.SETTINGS_REGISTRY = Object.freeze({
         cloudKey: 'limitZoomOut',
         defaultValue: false,
         label: 'Limit Zoom Out',
-        description: 'Prevents extreme national zoom-out when lots of pins are visible.',
+        description: 'Keeps zoom-out at a close Northeast Ohio view when lots of pins are visible.',
         elementId: 'toggle-limit-zoom-out',
         section: 'performance',
         impact: window.BARK.SETTING_IMPACTS.MAP_BEHAVIOR

@@ -4,6 +4,8 @@
 const BARK_GLOBAL = window;
 BARK_GLOBAL.BARK = BARK_GLOBAL.BARK || {};
 const DETAILED_BUBBLE_BREAKOUT_ZOOM = 12;
+const LIMIT_ZOOM_OUT_MIN_ZOOM = 10;
+const PERFORMANCE_MIN_ZOOM = 5;
 
 function getRenderContext(zoom) {
     const mapRef = BARK_GLOBAL.map;
@@ -29,6 +31,9 @@ function getMarkerLayerPolicy(zoom) {
     const premiumExplodesAtZoom = context.premiumClusteringEnabled && context.zoom >= DETAILED_BUBBLE_BREAKOUT_ZOOM;
     const canCluster = context.clusteringEnabled && !context.forcePlainMarkers && !premiumExplodesAtZoom;
     const shouldLimitZoomOut = context.limitZoomOut || performanceReduced;
+    const minZoom = context.limitZoomOut
+        ? LIMIT_ZOOM_OUT_MIN_ZOOM
+        : (performanceReduced ? PERFORMANCE_MIN_ZOOM : null);
 
     return {
         layerType: canCluster ? 'cluster' : 'plain',
@@ -36,10 +41,11 @@ function getMarkerLayerPolicy(zoom) {
         cullPlainMarkers: context.viewportCulling || context.forcePlainMarkers || performanceReduced,
         useReducedVisualsDuringMotion: context.simplifyPinsWhileMoving || context.stopResizing || performanceReduced,
         limitZoomOut: shouldLimitZoomOut,
-        minZoom: shouldLimitZoomOut ? 5 : null
+        minZoom
     };
 }
 
 BARK_GLOBAL.BARK.getRenderContext = getRenderContext;
 BARK_GLOBAL.BARK.getMarkerLayerPolicy = getMarkerLayerPolicy;
 BARK_GLOBAL.BARK.DETAILED_BUBBLE_BREAKOUT_ZOOM = DETAILED_BUBBLE_BREAKOUT_ZOOM;
+BARK_GLOBAL.BARK.LIMIT_ZOOM_OUT_MIN_ZOOM = LIMIT_ZOOM_OUT_MIN_ZOOM;
