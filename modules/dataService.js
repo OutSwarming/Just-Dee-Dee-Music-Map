@@ -360,11 +360,19 @@ function pollForUpdates() {
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const cacheBustSeparator = csvUrl.includes('?') ? '&' : '?';
-    return fetch(`${csvUrl}${cacheBustSeparator}t=${Date.now()}&r=${Math.random()}`, {
+    const requestUrl = `${csvUrl}${cacheBustSeparator}t=${Date.now()}&r=${Math.random()}`;
+    const fetchOptions = {
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' },
         signal: controller.signal
-    })
+    };
+
+    // Google Apps Script web apps do not answer CORS preflight OPTIONS requests.
+    // Keep cross-origin sheet polling as a simple GET; the cache-buster above is enough.
+    if (!/^https?:\/\//i.test(csvUrl) || requestUrl.startsWith(window.location.origin)) {
+        fetchOptions.headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
+    }
+
+    return fetch(requestUrl, fetchOptions)
         .then(res => {
             if (!res.ok) throw new Error('Network response was not ok');
             return res.text().then(text => ({ newCsv: text, url: res.url }));

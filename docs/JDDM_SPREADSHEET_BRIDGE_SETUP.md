@@ -31,7 +31,7 @@ Paste the URL into `config/firebaseConfig.example.js`:
 
 ```js
 window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
-window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
+window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 ```
 
 `JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. The app also refreshes immediately after a save when the bridge returns updated CSV.

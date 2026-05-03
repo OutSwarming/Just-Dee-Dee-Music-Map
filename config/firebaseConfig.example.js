@@ -16,6 +16,5 @@ window.JDDM_FIREBASE_CONFIG = {
 
 // Optional: Google Apps Script bridge for editing spreadsheet rows from marker cards.
 window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyeskUlFOAAfBKjhVtHpDHfjKn_SOfzaN0CIorRvyRirS_hTzTjjwf5w5gB2qs9yiw8/exec";
-// Keep the map on the checked-in CSV until the live Sheet has R=Longitude, S=Latitude, T=Site ID filled.
-// window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
+window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 // window.JDDM_SPREADSHEET_EDIT_TOKEN = "";
