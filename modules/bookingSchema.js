@@ -110,6 +110,36 @@
         return Number.isFinite(numberValue) ? numberValue : fallback;
     }
 
+    function compareVenuePriority(a, b) {
+        const scoreA = (a.booking.priority * 10) + a.booking.bestFitScore;
+        const scoreB = (b.booking.priority * 10) + b.booking.bestFitScore;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        return clean(a.name).localeCompare(clean(b.name));
+    }
+
+    function compareFollowUpDate(a, b) {
+        const dateA = parseLocalDate(a.booking.nextFollowUpDate);
+        const dateB = parseLocalDate(b.booking.nextFollowUpDate);
+        const timeA = dateA ? dateA.getTime() : Number.MAX_SAFE_INTEGER;
+        const timeB = dateB ? dateB.getTime() : Number.MAX_SAFE_INTEGER;
+        if (timeA !== timeB) return timeA - timeB;
+        return compareVenuePriority(a, b);
+    }
+
+    function makeAgendaItem(venue, reason, suggestedAction, type) {
+        return {
+            venue,
+            type,
+            venueId: venue.id,
+            venueName: venue.name || 'Unknown Venue',
+            reason,
+            suggestedAction,
+            status: venue.booking.contactStatus,
+            nextFollowUpDate: venue.booking.nextFollowUpDate,
+            contactEmail: venue.booking.contactEmail
+        };
+    }
+
     function normalizeVenue(venue = {}) {
         const bookingContact = clean(venue.bookingContact || venue.contact || venue.email || venue.phone);
         const explicitDnc = normalizeBoolean(venue.doNotContact);
@@ -176,8 +206,7 @@
             ...newProspects.filter(venue => !followUps.includes(venue)).slice(0, 20),
             ...missingInfo.filter(venue => !followUps.includes(venue)).slice(0, 10)
         ];
-
-        return {
+        const groups = {
             today,
             followUps,
             newProspects,
@@ -187,6 +216,68 @@
             doNotContact,
             all: normalized
         };
+
+        groups.dailyAgenda = buildDailyAgendaFromGroups(groups);
+        return groups;
+    }
+
+    function buildDailyAgendaFromGroups(groups = {}, limit = 6) {
+        const agenda = [];
+        const seen = new Set();
+
+        function add(venues, reason, suggestedAction, type) {
+            (venues || []).forEach(venue => {
+                if (!venue || !venue.id || seen.has(venue.id) || agenda.length >= limit) return;
+                seen.add(venue.id);
+                agenda.push(makeAgendaItem(venue, reason(venue), suggestedAction(venue), type));
+            });
+        }
+
+        const followUps = [...(groups.followUps || [])].sort(compareFollowUpDate);
+        const interestedDue = followUps.filter(venue => venue.booking.isInterested);
+        const overdueFollowUps = followUps.filter(venue => !venue.booking.isInterested);
+        const interested = [...(groups.interested || [])]
+            .filter(venue => !seen.has(venue.id))
+            .sort(compareFollowUpDate);
+        const newProspects = [...(groups.newProspects || [])].sort(compareVenuePriority);
+        const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
+
+        add(
+            interestedDue,
+            venue => `Interested lead follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
+            () => 'Send interested follow-up or mark booked',
+            'interestedDue'
+        );
+        add(
+            overdueFollowUps,
+            venue => `Follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
+            () => 'Send follow-up email',
+            'followUpDue'
+        );
+        add(
+            interested,
+            () => 'Interested lead needs a next step',
+            () => 'Set follow-up date or mark booked',
+            'interested'
+        );
+        add(
+            newProspects,
+            () => 'New venue ready for first outreach',
+            () => 'Copy first outreach email',
+            'newProspect'
+        );
+        add(
+            missingInfo,
+            () => 'Missing email or booking link',
+            () => 'Research contact info',
+            'missingInfo'
+        );
+
+        return agenda;
+    }
+
+    function getDailyAgenda(venues = [], limit = 6) {
+        return buildDailyAgendaFromGroups(getDashboardGroups(venues), limit);
     }
 
     window.BARK.bookingSchema = {
@@ -194,6 +285,7 @@
         DRAFT_STATUS,
         normalizeVenue,
         getDashboardGroups,
+        getDailyAgenda,
         extractEmail,
         extractPhone,
         parseLocalDate,

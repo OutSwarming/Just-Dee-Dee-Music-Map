@@ -59,6 +59,11 @@
         return document.getElementById(id);
     }
 
+    function escapeSelector(value) {
+        if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(clean(value));
+        return clean(value).replace(/["\\]/g, '\\$&');
+    }
+
     function getVenueLocation(venue) {
         return [venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(', ') || 'Northeast Ohio';
     }
@@ -232,6 +237,72 @@
                 <span>${escapeHtml(label)}</span>
             </div>
         `).join('');
+    }
+
+    function getAgendaTargetTab(item) {
+        if (!item) return 'today';
+        if (item.type === 'newProspect') return 'newProspects';
+        if (item.type === 'missingInfo') return 'missingInfo';
+        if (item.type === 'interested' || item.type === 'interestedDue') return 'interested';
+        if (item.type === 'followUpDue') return 'followUps';
+        return 'today';
+    }
+
+    function renderAgenda(data) {
+        const agenda = qs('booking-daily-agenda');
+        if (!agenda) return;
+
+        const items = Array.isArray(data.dailyAgenda) ? data.dailyAgenda : [];
+        if (!items.length) {
+            agenda.innerHTML = `
+                <div class="booking-agenda-header">
+                    <div>
+                        <p class="booking-kicker">Daily Agenda</p>
+                        <h3>All clear right now</h3>
+                    </div>
+                </div>
+                <p class="booking-agenda-empty">No urgent booking actions are due. Check New Prospects or Missing Info when you are ready to keep building the list.</p>
+            `;
+            return;
+        }
+
+        agenda.innerHTML = `
+            <div class="booking-agenda-header">
+                <div>
+                    <p class="booking-kicker">Daily Agenda</p>
+                    <h3>Top booking moves</h3>
+                </div>
+                <span>${items.length}</span>
+            </div>
+            <div class="booking-agenda-list">
+                ${items.map((item, index) => `
+                    <article class="booking-agenda-item">
+                        <strong>${index + 1}</strong>
+                        <div>
+                            <h4>${escapeHtml(item.venueName)}</h4>
+                            <p>${escapeHtml(item.reason)}</p>
+                            <span>${escapeHtml(item.suggestedAction)}</span>
+                        </div>
+                        <button type="button" data-agenda-action="open-list" data-venue-id="${escapeHtml(item.venueId)}" data-target-tab="${escapeHtml(getAgendaTargetTab(item))}">Open</button>
+                    </article>
+                `).join('')}
+            </div>
+        `;
+
+        agenda.querySelectorAll('[data-agenda-action="open-list"]').forEach(button => {
+            button.addEventListener('click', () => {
+                activeTab = button.dataset.targetTab || 'today';
+                render();
+                setTimeout(() => {
+                    const card = document.querySelector(`[data-booking-venue-id="${escapeSelector(button.dataset.venueId)}"]`);
+                    if (card) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        card.classList.add('booking-card-highlight');
+                        setTimeout(() => card.classList.remove('booking-card-highlight'), 1600);
+                    }
+                }, 80);
+            });
+        });
     }
 
     function renderTabs(data) {
@@ -449,6 +520,7 @@
         if (!root) return;
         const data = getDashboardData();
         renderStats(data);
+        renderAgenda(data);
         renderTabs(data);
         renderList(data);
         updateBadge(data);

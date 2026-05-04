@@ -145,3 +145,61 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.doNotContact), ['dnc']);
     assert.deepEqual(ids(groups.today), ['follow-up', 'interested', 'prospect', 'missing']);
 });
+
+test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects, and missing info', () => {
+    const schema = loadBookingSchema();
+    const agenda = schema.getDailyAgenda([
+        {
+            id: 'prospect-low',
+            name: 'Low Fit Cafe',
+            contactStatus: 'Not Contacted',
+            contactEmail: 'low@example.com',
+            priority: 1
+        },
+        {
+            id: 'missing',
+            name: 'Mystery Pub',
+            contactStatus: 'Not Contacted'
+        },
+        {
+            id: 'follow-up',
+            name: 'Sent Brewery',
+            contactStatus: 'Sent',
+            nextFollowUpDate: '2000-01-01',
+            contactEmail: 'sent@example.com'
+        },
+        {
+            id: 'interested-due',
+            name: 'Interested Winery',
+            contactStatus: 'Interested',
+            nextFollowUpDate: '2000-01-02',
+            contactEmail: 'wine@example.com'
+        },
+        {
+            id: 'prospect-high',
+            name: 'High Fit Room',
+            contactStatus: 'Not Contacted',
+            contactEmail: 'high@example.com',
+            priority: 9
+        },
+        {
+            id: 'interested',
+            name: 'Interested Gallery',
+            contactStatus: 'Interested',
+            contactEmail: 'gallery@example.com'
+        }
+    ], 6);
+
+    assert.deepEqual(Array.from(agenda, item => item.venueId), [
+        'interested-due',
+        'follow-up',
+        'interested',
+        'prospect-high',
+        'prospect-low',
+        'missing'
+    ]);
+    assert.equal(agenda[0].type, 'interestedDue');
+    assert.match(agenda[0].suggestedAction, /mark booked/i);
+    assert.equal(agenda[3].reason, 'New venue ready for first outreach');
+    assert.equal(agenda[5].suggestedAction, 'Research contact info');
+});
