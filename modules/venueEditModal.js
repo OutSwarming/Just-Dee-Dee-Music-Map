@@ -20,11 +20,24 @@
         'Phone Number',
         'Website',
         'Status',
+        'contactStatus',
+        'draftStatus',
+        'lastContactedDate',
+        'nextFollowUpDate',
+        'doNotContact',
         'Yearly Booking',
         'Notes',
         'Longitude',
         'Latitude',
         'Site ID'
+    ];
+
+    const GENERATED_BOOKING_FIELD_ORDER = [
+        'contactStatus',
+        'draftStatus',
+        'lastContactedDate',
+        'nextFollowUpDate',
+        'doNotContact'
     ];
 
     let activeVenue = null;
@@ -83,16 +96,130 @@
         activeRawFields = {};
     }
 
+    function getSchemaOptions(type) {
+        const schema = window.BARK.bookingSchema;
+        if (!schema) return [];
+        if (type === 'contactStatus') return schema.CONTACT_STATUS_VALUES || Object.values(schema.CONTACT_STATUS || {});
+        if (type === 'draftStatus') return schema.DRAFT_STATUS_VALUES || Object.values(schema.DRAFT_STATUS || {});
+        return [];
+    }
+
+    function getNormalizedHeader(header) {
+        return clean(header).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    function findHeaderByNormalized(fields, normalizedHeader) {
+        return Object.keys(fields).find(header => getNormalizedHeader(header) === normalizedHeader);
+    }
+
+    function getRenderableHeaders(rawFields) {
+        const fields = rawFields && typeof rawFields === 'object' ? rawFields : {};
+        const seen = new Set();
+        const known = [];
+
+        SOURCE_FIELD_ORDER.forEach(header => {
+            const normalized = getNormalizedHeader(header);
+            if (seen.has(normalized)) return;
+            const fieldHeader = Object.prototype.hasOwnProperty.call(fields, header)
+                ? header
+                : findHeaderByNormalized(fields, normalized);
+            if (!fieldHeader) return;
+            known.push(fieldHeader);
+            seen.add(normalized);
+        });
+
+        GENERATED_BOOKING_FIELD_ORDER.forEach(header => {
+            const normalized = getNormalizedHeader(header);
+            if (seen.has(normalized)) return;
+            const fieldHeader = findHeaderByNormalized(fields, normalized) || header;
+            known.push(fieldHeader);
+            seen.add(normalized);
+        });
+
+        const extras = Object.keys(fields)
+            .filter(header => !seen.has(getNormalizedHeader(header)))
+            .sort((a, b) => a.localeCompare(b));
+
+        return [...known, ...extras];
+    }
+
+    function toDateInputValue(value) {
+        const text = clean(value);
+        if (!text) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+        const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (slash) {
+            const year = slash[3].length === 2 ? `20${slash[3]}` : slash[3];
+            const month = slash[1].padStart(2, '0');
+            const day = slash[2].padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        return '';
+    }
+
+    function getFieldType(header) {
+        const normalized = getNormalizedHeader(header);
+        if (normalized === 'contactstatus' || normalized === 'status') return 'contactStatus';
+        if (normalized === 'draftstatus') return 'draftStatus';
+        if (normalized === 'donotcontact' || normalized === 'dnc') return 'checkbox';
+        if (normalized === 'lastcontacteddate' || normalized === 'nextfollowupdate') return 'date';
+        if (normalized === 'notes' || normalized === 'privatenotes') return 'textarea';
+        return 'text';
+    }
+
+    function renderSelectField(id, header, value, options) {
+        const current = clean(value);
+        const normalizedCurrent = current.toLowerCase();
+        const mergedOptions = options.slice();
+        if (current && !mergedOptions.some(option => clean(option).toLowerCase() === normalizedCurrent)) {
+            mergedOptions.unshift(current);
+        }
+
+        return `
+            <select id="${id}" data-source-header="${escapeHtml(header)}">
+                <option value="">Not set</option>
+                ${mergedOptions.map(option => {
+                    const selected = clean(option).toLowerCase() === normalizedCurrent ? ' selected' : '';
+                    return `<option value="${escapeHtml(option)}"${selected}>${escapeHtml(option)}</option>`;
+                }).join('')}
+            </select>
+        `;
+    }
+
+    function renderInputForHeader(id, header, value) {
+        const fieldType = getFieldType(header);
+
+        if (fieldType === 'contactStatus' || fieldType === 'draftStatus') {
+            return renderSelectField(id, header, value, getSchemaOptions(fieldType));
+        }
+
+        if (fieldType === 'checkbox') {
+            const checked = normalizeBoolean(value) ? ' checked' : '';
+            return `<label class="venue-edit-checkbox-control"><input id="${id}" data-source-header="${escapeHtml(header)}" type="checkbox"${checked}> <span>Do not contact this venue</span></label>`;
+        }
+
+        if (fieldType === 'date') {
+            const dateValue = toDateInputValue(value);
+            if (dateValue || !clean(value)) {
+                return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="date" value="${escapeHtml(dateValue)}">`;
+            }
+        }
+
+        if (fieldType === 'textarea' || clean(value).length > 80) {
+            return `<textarea id="${id}" data-source-header="${escapeHtml(header)}" rows="3">${escapeHtml(value)}</textarea>`;
+        }
+
+        return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="text" value="${escapeHtml(value)}">`;
+    }
+
     function renderRawFields(rawFields) {
         const container = qs('venue-edit-source-fields');
         if (!container) return;
 
         activeRawFields = rawFields && typeof rawFields === 'object' ? rawFields : {};
-        const known = SOURCE_FIELD_ORDER.filter(header => Object.prototype.hasOwnProperty.call(activeRawFields, header));
-        const extras = Object.keys(activeRawFields)
-            .filter(header => !known.includes(header))
-            .sort((a, b) => a.localeCompare(b));
-        const headers = [...known, ...extras];
+        const headers = getRenderableHeaders(activeRawFields);
 
         if (headers.length === 0) {
             container.innerHTML = '<p class="venue-edit-help">Source spreadsheet row will appear here once the bridge is connected.</p>';
@@ -102,11 +229,11 @@
         container.innerHTML = headers.map(header => {
             const id = `venue-edit-source-${header.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
             const value = activeRawFields[header] === undefined || activeRawFields[header] === null ? '' : activeRawFields[header];
-            const tall = clean(value).length > 80 || ['Notes', 'Status'].includes(header);
-            const input = tall
-                ? `<textarea id="${id}" data-source-header="${escapeHtml(header)}" rows="3">${escapeHtml(value)}</textarea>`
-                : `<input id="${id}" data-source-header="${escapeHtml(header)}" type="text" value="${escapeHtml(value)}">`;
-            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}"><label for="${id}">${escapeHtml(header)}</label>${input}</div>`;
+            const fieldType = getFieldType(header);
+            const tall = fieldType === 'textarea' || clean(value).length > 80;
+            const checkbox = fieldType === 'checkbox';
+            const input = renderInputForHeader(id, header, value);
+            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}${checkbox ? ' venue-edit-checkbox' : ''}"><label for="${id}">${escapeHtml(header)}</label>${input}</div>`;
         }).join('');
     }
 
@@ -114,22 +241,39 @@
         const modal = qs('venue-edit-modal');
         if (!modal) return {};
         return Array.from(modal.querySelectorAll('[data-source-header]')).reduce((fields, input) => {
-            fields[input.dataset.sourceHeader] = input.value;
+            fields[input.dataset.sourceHeader] = input.type === 'checkbox'
+                ? (input.checked ? 'Yes' : '')
+                : input.value;
             return fields;
         }, {});
     }
 
-    function getRawField(rawFields, headers) {
+    function getRawFieldValue(rawFields, headers) {
         for (const header of headers) {
-            if (Object.prototype.hasOwnProperty.call(rawFields, header) && clean(rawFields[header])) {
-                return clean(rawFields[header]);
+            if (Object.prototype.hasOwnProperty.call(rawFields, header)) {
+                return { found: true, value: rawFields[header] };
             }
 
             const normalized = header.toLowerCase();
-            const match = Object.keys(rawFields).find(key => key.toLowerCase() === normalized && clean(rawFields[key]));
-            if (match) return clean(rawFields[match]);
+            const match = Object.keys(rawFields).find(key => key.toLowerCase() === normalized);
+            if (match) return { found: true, value: rawFields[match] };
         }
-        return '';
+        return { found: false, value: '' };
+    }
+
+    function getRawField(rawFields, headers) {
+        const match = getRawFieldValue(rawFields, headers);
+        return match.found && clean(match.value) ? clean(match.value) : '';
+    }
+
+    function getOptionalRawField(rawFields, headers, fallback = '') {
+        const match = getRawFieldValue(rawFields, headers);
+        return match.found ? clean(match.value) : clean(fallback);
+    }
+
+    function getOptionalRawBoolean(rawFields, headers, fallback = false) {
+        const match = getRawFieldValue(rawFields, headers);
+        return match.found ? normalizeBoolean(match.value) : Boolean(fallback);
     }
 
     function parsePlace(value) {
@@ -160,7 +304,7 @@
 
     function normalizeBoolean(value) {
         const raw = clean(value).toLowerCase();
-        return ['true', 'yes', 'y', '1', 'private'].includes(raw);
+        return ['true', 'yes', 'y', '1', 'private', 'do not contact', 'dnc'].includes(raw);
     }
 
     function normalizePlayed(value) {
@@ -168,9 +312,9 @@
         return ['true', 'yes', 'y', '1', 'played', 'visited'].includes(raw);
     }
 
-    function buildVenueFromRawFields(rawFields) {
+    function buildVenueFromRawFields(rawFields, venue = activeVenue || {}) {
         const parsedPlace = parsePlace(getRawField(rawFields, ['Place']));
-        const name = getRawField(rawFields, ['venue name', 'name', 'Location']) || parsedPlace.name || activeVenue.name;
+        const name = getRawField(rawFields, ['venue name', 'name', 'Location']) || parsedPlace.name || venue.name;
         const contactBits = [
             getRawField(rawFields, ['Contact Name']),
             getRawField(rawFields, ['Email/Contact']),
@@ -179,22 +323,27 @@
         ].filter(Boolean);
 
         return {
-            id: getRawField(rawFields, ['Site ID', 'id']) || activeVenue.id,
+            id: getRawField(rawFields, ['Site ID', 'id']) || venue.id,
             name,
-            address: getRawField(rawFields, ['address']) || parsedPlace.address || activeVenue.address,
-            city: getRawField(rawFields, ['city']) || parsedPlace.city || activeVenue.city,
-            state: getRawField(rawFields, ['state']) || parsedPlace.state || activeVenue.state || 'OH',
-            zip: getRawField(rawFields, ['zip', 'zipcode', 'zip code']) || parsedPlace.zip || activeVenue.zip,
-            lat: getRawField(rawFields, ['Latitude', 'lat']) || activeVenue.lat,
-            lng: getRawField(rawFields, ['Longitude', 'lng', 'long']) || activeVenue.lng,
-            venueType: getRawField(rawFields, ['venue type', 'type']) || activeVenue.venueType || activeVenue.category || 'Other Venue',
-            website: getRawField(rawFields, ['Website', 'website/social link']) || activeVenue.website,
-            bookingContact: getRawField(rawFields, ['booking/contact info']) || contactBits.join(' | ') || activeVenue.bookingContact,
-            eventDate: getRawField(rawFields, ['upcoming event date']) || activeVenue.eventDate,
-            eventTime: getRawField(rawFields, ['upcoming event time']) || activeVenue.eventTime,
-            privateEvent: normalizeBoolean(getRawField(rawFields, ['private event'])) || Boolean(activeVenue.privateEvent),
-            notes: getRawField(rawFields, ['Notes', 'notes']) || activeVenue.notes,
-            played: normalizePlayed(getRawField(rawFields, ['Played', 'played'])) || Boolean(activeVenue.played)
+            address: getRawField(rawFields, ['address']) || parsedPlace.address || venue.address,
+            city: getRawField(rawFields, ['city']) || parsedPlace.city || venue.city,
+            state: getRawField(rawFields, ['state']) || parsedPlace.state || venue.state || 'OH',
+            zip: getRawField(rawFields, ['zip', 'zipcode', 'zip code']) || parsedPlace.zip || venue.zip,
+            lat: getRawField(rawFields, ['Latitude', 'lat']) || venue.lat,
+            lng: getRawField(rawFields, ['Longitude', 'lng', 'long']) || venue.lng,
+            venueType: getRawField(rawFields, ['venue type', 'type']) || venue.venueType || venue.category || 'Other Venue',
+            website: getRawField(rawFields, ['Website', 'website/social link']) || venue.website,
+            bookingContact: getRawField(rawFields, ['booking/contact info']) || contactBits.join(' | ') || venue.bookingContact,
+            eventDate: getRawField(rawFields, ['upcoming event date']) || venue.eventDate,
+            eventTime: getRawField(rawFields, ['upcoming event time']) || venue.eventTime,
+            privateEvent: getOptionalRawBoolean(rawFields, ['private event'], venue.privateEvent),
+            notes: getRawField(rawFields, ['Notes', 'notes']) || venue.notes,
+            played: getOptionalRawBoolean(rawFields, ['Played', 'played'], venue.played),
+            contactStatus: getOptionalRawField(rawFields, ['contactStatus', 'contact status', 'Status'], venue.contactStatus),
+            draftStatus: getOptionalRawField(rawFields, ['draftStatus', 'draft status'], venue.draftStatus),
+            lastContactedDate: getOptionalRawField(rawFields, ['lastContactedDate', 'last contacted date', 'Contacted'], venue.lastContactedDate),
+            nextFollowUpDate: getOptionalRawField(rawFields, ['nextFollowUpDate', 'next follow up date', 'next follow-up date'], venue.nextFollowUpDate),
+            doNotContact: getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], venue.doNotContact)
         };
     }
 
@@ -206,7 +355,7 @@
         const nextPoints = points.map(point => {
             if (!point || point.id !== id) return point;
             const venueType = fields.venueType || point.venueType || point.category || 'Other Venue';
-            return {
+            const nextPoint = {
                 ...point,
                 name: fields.name || point.name,
                 address: fields.address,
@@ -226,8 +375,17 @@
                 eventDate: fields.eventDate,
                 eventTime: fields.eventTime,
                 privateEvent: Boolean(fields.privateEvent),
+                contactStatus: fields.contactStatus,
+                draftStatus: fields.draftStatus,
+                lastContactedDate: fields.lastContactedDate,
+                nextFollowUpDate: fields.nextFollowUpDate,
+                doNotContact: Boolean(fields.doNotContact),
                 info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
             };
+            nextPoint.booking = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.normalizeVenue === 'function'
+                ? window.BARK.bookingSchema.normalizeVenue(nextPoint)
+                : { ...(point.booking || {}) };
+            return nextPoint;
         });
 
         parkRepo.replaceAll(nextPoints, { debug: true });
@@ -350,4 +508,9 @@
 
     window.BARK.openVenueEditor = openVenueEditor;
     window.BARK.closeVenueEditor = closeModal;
+    window.BARK.venueEditModal = {
+        buildVenueFromRawFields,
+        getRenderableHeaders,
+        toDateInputValue
+    };
 })();
