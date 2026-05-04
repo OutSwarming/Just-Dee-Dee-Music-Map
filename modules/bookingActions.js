@@ -225,7 +225,7 @@
         });
 
         if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
-            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
+            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
         } else {
             applyLocalStatus(venue.id, payload.patch);
         }
@@ -253,7 +253,7 @@
         });
 
         if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
-            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
+            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
         } else {
             applyLocalStatus(venue.id, payload.patch);
         }

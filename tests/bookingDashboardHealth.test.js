@@ -121,3 +121,26 @@ test('booking dashboard identifies missing CRM headers from bridge health', () =
         'doNotContact'
     ]);
 });
+
+test('booking dashboard summarizes venue data freshness states', () => {
+    const dashboard = loadBookingDashboard();
+
+    assert.equal(dashboard.getDataFreshnessSummary({
+        hasCachedData: false,
+        cacheTime: null,
+        source: 'Local CSV'
+    }).tone, 'warning');
+
+    const ready = dashboard.getDataFreshnessSummary({
+        hasCachedData: true,
+        cacheTime: 1777905600000,
+        source: 'Google Sheet'
+    });
+    assert.equal(ready.tone, 'success');
+    assert.match(ready.label, /Venue data loaded/i);
+    assert.match(ready.detail, /Google Sheet/i);
+
+    const checking = dashboard.getDataFreshnessSummary({}, { checking: true });
+    assert.equal(checking.actionDisabled, true);
+    assert.equal(checking.label, 'Refreshing venue data');
+});

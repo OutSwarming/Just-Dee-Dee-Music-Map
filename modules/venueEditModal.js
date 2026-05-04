@@ -447,7 +447,7 @@
             });
 
             if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
-                window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
+                window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
             } else {
                 applyLocalVenueUpdate(activeVenue.id, fields);
             }

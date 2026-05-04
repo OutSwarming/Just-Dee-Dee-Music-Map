@@ -47,6 +47,7 @@ const CSV_COLUMNS = {
 
 const DATA_CACHE_KEY = 'jddmVenueCSV';
 const DATA_CACHE_TIME_KEY = 'jddmVenueCSV_time';
+const VENUE_DATA_SYNC_EVENT = 'jddm:venue-data-sync';
 
 function cleanCSVValue(value) {
     if (value === undefined || value === null) return '';
@@ -319,9 +320,34 @@ function processParsedResults(results) {
 }
 
 function commitCSVCache(csvString, options = {}) {
-    if (!options.cacheTime) return;
+    if (!options.cacheTime) return false;
     localStorage.setItem(DATA_CACHE_KEY, csvString);
     localStorage.setItem(DATA_CACHE_TIME_KEY, String(options.cacheTime));
+    return true;
+}
+
+function getVenueDataSyncStatus() {
+    const cachedCsv = localStorage.getItem(DATA_CACHE_KEY);
+    const cachedTime = Number(localStorage.getItem(DATA_CACHE_TIME_KEY) || 0);
+    const cacheTime = Number.isFinite(cachedTime) && cachedTime > 0 ? cachedTime : null;
+    return {
+        hasCachedData: Boolean(cachedCsv),
+        cacheTime,
+        source: window.JDDM_SPREADSHEET_API_URL ? 'Google Sheet' : 'Local CSV'
+    };
+}
+
+function notifyVenueDataSync(detail = {}) {
+    const status = {
+        ...getVenueDataSyncStatus(),
+        ...detail
+    };
+
+    if (typeof window.dispatchEvent === 'function' && typeof window.CustomEvent === 'function') {
+        window.dispatchEvent(new window.CustomEvent(VENUE_DATA_SYNC_EVENT, { detail: status }));
+    }
+
+    return status;
 }
 
 function parseCSVString(csvString, options = {}) {
@@ -344,6 +370,12 @@ function parseCSVString(csvString, options = {}) {
             const accepted = processParsedResults(results);
             if (accepted) {
                 commitCSVCache(csvString, options);
+                if (options.cacheTime) {
+                    notifyVenueDataSync({
+                        accepted: true,
+                        source: options.source || getVenueDataSyncStatus().source
+                    });
+                }
                 if (typeof options.onAccepted === 'function') options.onAccepted();
             } else if (typeof options.onRejected === 'function') {
                 options.onRejected();
@@ -562,6 +594,7 @@ function pollForUpdates(options = {}) {
 
                 parseCSVString(newCsv, {
                     cacheTime: newHashTime,
+                    source: options.userInitiated ? 'Manual Refresh' : 'Background Refresh',
                     onAccepted: () => { lastDataHash = newHash; }
                 });
             }
@@ -673,12 +706,16 @@ function loadData(options = {}) {
 
     if (cachedCsv) {
         lastDataHash = quickHash(cachedCsv);
+        const parsedCacheTime = cachedTime ? parseInt(cachedTime, 10) : Date.now();
         if (cachedTime) {
-            rememberDataHash(lastDataHash, parseInt(cachedTime, 10));
+            rememberDataHash(lastDataHash, parsedCacheTime);
         } else {
-            rememberDataHash(lastDataHash, Date.now());
+            rememberDataHash(lastDataHash, parsedCacheTime);
         }
-        parseCSVString(cachedCsv);
+        parseCSVString(cachedCsv, {
+            cacheTime: parsedCacheTime,
+            source: 'Cache'
+        });
     }
 
     safeDataPoll();
@@ -704,6 +741,8 @@ window.BARK.loadData = loadData;
 window.BARK.refreshSpreadsheetMap = function refreshSpreadsheetMap() {
     return loadData({ userInitiated: true, autofillLimit: 25 });
 };
+window.BARK.VENUE_DATA_SYNC_EVENT = VENUE_DATA_SYNC_EVENT;
+window.BARK.getVenueDataSyncStatus = getVenueDataSyncStatus;
 window.BARK.safeDataPoll = safeDataPoll;
 window.BARK.clearMarkerLayersSafely = clearMarkerLayersSafely;
 window.BARK.isVenuePlayed = function (place) {

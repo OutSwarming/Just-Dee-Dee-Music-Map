@@ -32,6 +32,11 @@
         result: null,
         error: null
     };
+    let dataRefreshState = {
+        checking: false,
+        checkedAt: null,
+        error: null
+    };
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -181,6 +186,127 @@
         } catch (error) {
             return '';
         }
+    }
+
+    function getVenueDataSyncStatus() {
+        return typeof window.BARK.getVenueDataSyncStatus === 'function'
+            ? window.BARK.getVenueDataSyncStatus()
+            : { hasCachedData: false, cacheTime: null, source: 'Venue data' };
+    }
+
+    function formatSyncTime(cacheTime) {
+        const timestamp = Number(cacheTime || 0);
+        if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            }).format(new Date(timestamp));
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function getDataFreshnessSummary(status = {}, state = dataRefreshState) {
+        if (state && state.checking) {
+            return {
+                tone: 'neutral',
+                label: 'Refreshing venue data',
+                detail: 'Checking for the newest spreadsheet rows and accepted map data.',
+                actionLabel: 'Refreshing',
+                actionDisabled: true
+            };
+        }
+
+        if (state && state.error) {
+            return {
+                tone: 'error',
+                label: 'Refresh needs attention',
+                detail: state.error.message || 'Could not refresh venue data.',
+                actionLabel: 'Retry Refresh',
+                actionDisabled: false
+            };
+        }
+
+        if (!status.hasCachedData) {
+            return {
+                tone: 'warning',
+                label: 'Venue data not loaded yet',
+                detail: 'Load or refresh map data before relying on the planner counts.',
+                actionLabel: 'Refresh Data',
+                actionDisabled: false
+            };
+        }
+
+        const syncTime = formatSyncTime(status.cacheTime);
+        return {
+            tone: 'success',
+            label: syncTime ? `Venue data loaded ${syncTime}` : 'Venue data loaded',
+            detail: `${status.source || 'Venue data'} is available for the booking planner.`,
+            actionLabel: 'Refresh Data',
+            actionDisabled: false
+        };
+    }
+
+    function renderVenueDataSync() {
+        const root = qs('booking-data-sync');
+        if (!root) return;
+
+        const summary = getDataFreshnessSummary(getVenueDataSyncStatus(), dataRefreshState);
+        const checkedAt = formatCheckedAt(dataRefreshState.checkedAt);
+        root.dataset.tone = summary.tone;
+        root.innerHTML = `
+            <div>
+                <p class="booking-kicker">Venue Data</p>
+                <strong>${escapeHtml(summary.label)}</strong>
+                <span>${escapeHtml(summary.detail)}</span>
+                ${checkedAt ? `<small>Refresh checked ${escapeHtml(checkedAt)}</small>` : ''}
+            </div>
+            <button id="booking-data-refresh" type="button"${summary.actionDisabled ? ' disabled' : ''}>${escapeHtml(summary.actionLabel)}</button>
+        `;
+
+        const button = qs('booking-data-refresh');
+        if (button) button.addEventListener('click', () => refreshVenueData(true));
+    }
+
+    async function refreshVenueData(userInitiated = false) {
+        if (typeof window.BARK.refreshSpreadsheetMap !== 'function') {
+            dataRefreshState = {
+                checking: false,
+                checkedAt: new Date(),
+                error: new Error('Data refresh is not available yet.')
+            };
+            renderVenueDataSync();
+            return;
+        }
+
+        dataRefreshState = {
+            ...dataRefreshState,
+            checking: true,
+            error: null
+        };
+        renderVenueDataSync();
+
+        try {
+            await window.BARK.refreshSpreadsheetMap();
+            dataRefreshState = {
+                checking: false,
+                checkedAt: new Date(),
+                error: null
+            };
+        } catch (error) {
+            if (userInitiated) console.error('[bookingDashboard] venue data refresh failed:', error);
+            dataRefreshState = {
+                checking: false,
+                checkedAt: new Date(),
+                error
+            };
+        }
+
+        renderVenueDataSync();
     }
 
     function renderSheetBridgeHealth() {
@@ -787,6 +913,7 @@
         if (!root) return;
         const data = getDashboardData();
         renderSheetBridgeHealth();
+        renderVenueDataSync();
         renderStats(data);
         renderAgenda(data);
         renderSearchControls();
@@ -799,6 +926,15 @@
         bindSearchControls();
         render();
         checkSheetBridgeHealth(false);
+        if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {
+            dataRefreshState = {
+                ...dataRefreshState,
+                checking: false,
+                checkedAt: new Date(),
+                error: null
+            };
+            renderVenueDataSync();
+        });
         const repo = getRepo();
         if (repo && typeof repo.subscribe === 'function' && !unsubscribeRepo) {
             unsubscribeRepo = repo.subscribe(() => render());
@@ -810,7 +946,8 @@
         render,
         getDashboardData,
         getBridgeHealthSummary,
-        getMissingBookingHeaders
+        getMissingBookingHeaders,
+        getDataFreshnessSummary
     };
 
     document.addEventListener('DOMContentLoaded', init);
