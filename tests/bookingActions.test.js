@@ -135,6 +135,25 @@ test('manual follow-up date patch validates and writes only follow-up fields', (
     assert.throws(() => bark.bookingActions.buildFollowUpDatePatch('not a date'), /not valid/);
 });
 
+test('priority score patch validates and writes normalized score headers', () => {
+    const bark = loadBookingModules();
+    const patch = bark.bookingActions.buildPriorityScorePatch('8', '10');
+    const payload = bark.bookingActions.buildPriorityScoreSavePayload({ id: 'venue-1' }, '8', '10');
+
+    assert.deepEqual(plain(patch), {
+        priority: 8,
+        bestFitScore: 10
+    });
+    assert.equal(payload.id, 'venue-1');
+    assert.equal(payload.actionType, bark.bookingActions.ACTION_TYPES.SET_PRIORITY_SCORE);
+    assert.equal(payload.rawFields.priority, '8');
+    assert.equal(payload.rawFields.Rank, '8');
+    assert.equal(payload.rawFields.bestFitScore, '10');
+    assert.equal(payload.rawFields['best fit score'], '10');
+    assert.throws(() => bark.bookingActions.buildPriorityScorePatch('11', '4'), /between 0 and 10/);
+    assert.throws(() => bark.bookingActions.buildPriorityScorePatch('high', '4'), /must be a number/);
+});
+
 test('mergeBookingPatch updates dashboard flags without dropping venue details', () => {
     const bark = loadBookingModules();
     const updated = bark.bookingActions.mergeBookingPatch({
@@ -156,4 +175,21 @@ test('mergeBookingPatch updates dashboard flags without dropping venue details',
     assert.equal(updated.booking.contactEmail, 'booking@example.com');
     assert.equal(updated.booking.contactStatus, bark.bookingSchema.CONTACT_STATUS.SENT);
     assert.equal(updated.booking.isFollowUpDue, true);
+});
+
+test('mergeBookingPatch updates priority scoring flags locally', () => {
+    const bark = loadBookingModules();
+    const updated = bark.bookingActions.mergeBookingPatch({
+        id: 'venue-1',
+        name: 'High Fit Venue',
+        contactStatus: 'Not Contacted',
+        contactEmail: 'booking@example.com'
+    }, {
+        priority: 8,
+        bestFitScore: 9
+    });
+
+    assert.equal(updated.priority, 8);
+    assert.equal(updated.bestFitScore, 9);
+    assert.equal(updated.booking.isPriorityLead, true);
 });

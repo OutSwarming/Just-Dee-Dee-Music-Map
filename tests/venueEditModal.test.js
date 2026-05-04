@@ -67,13 +67,17 @@ test('venue editor always exposes generated booking CRM fields', () => {
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ].includes(header)), [
         'contactStatus',
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ]);
 });
 
@@ -87,6 +91,8 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
         draftStatus: 'Draft Ready',
         lastContactedDate: '2026-05-04',
         nextFollowUpDate: '2026-05-11',
+        priority: '8',
+        bestFitScore: '9',
         doNotContact: 'Yes',
         Played: '',
         'private event': ''
@@ -107,6 +113,8 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
     assert.equal(fields.draftStatus, 'Draft Ready');
     assert.equal(fields.lastContactedDate, '2026-05-04');
     assert.equal(fields.nextFollowUpDate, '2026-05-11');
+    assert.equal(fields.priority, '8');
+    assert.equal(fields.bestFitScore, '9');
     assert.equal(fields.doNotContact, true);
     assert.equal(fields.played, false);
     assert.equal(fields.privateEvent, false);

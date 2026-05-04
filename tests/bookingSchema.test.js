@@ -68,6 +68,20 @@ test('normalizeVenue treats do-not-contact as an outreach stop sign', () => {
     assert.equal(booking.isFollowUpDue, false);
 });
 
+test('normalizeVenue clamps priority and best-fit scores for planner sorting', () => {
+    const schema = loadBookingSchema();
+    const booking = schema.normalizeVenue({
+        contactStatus: 'Sent',
+        priority: '12',
+        bestFitScore: '8.4'
+    });
+
+    assert.equal(booking.priority, 10);
+    assert.equal(booking.bestFitScore, 8);
+    assert.equal(booking.isPriorityLead, true);
+    assert.equal(schema.normalizeScore('-2'), 0);
+});
+
 test('normalizeVenue identifies booked events and missing-info venues safely', () => {
     const schema = loadBookingSchema();
     const booked = schema.normalizeVenue({
@@ -137,6 +151,14 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
             contactEmail: 'wine@example.com'
         },
         {
+            id: 'priority',
+            name: 'High Priority Pub',
+            contactStatus: 'Sent',
+            contactEmail: 'priority@example.com',
+            priority: 8,
+            bestFitScore: 7
+        },
+        {
             id: 'booked',
             name: 'Booked Festival',
             contactStatus: 'Booked',
@@ -171,13 +193,14 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.followUps), ['follow-up']);
     assert.deepEqual(ids(groups.newProspects), ['prospect']);
     assert.deepEqual(ids(groups.interested), ['interested']);
+    assert.deepEqual(ids(groups.priorityLeads), ['priority']);
     assert.deepEqual(ids(groups.booked), ['booked', 'post-gig']);
     assert.deepEqual(ids(groups.upcomingGigs), ['booked']);
     assert.deepEqual(ids(groups.postGigFollowUps), ['post-gig']);
     assert.deepEqual(ids(groups.notAFit), ['not-fit']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['dnc']);
-    assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'prospect', 'missing']);
+    assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'priority', 'prospect', 'missing']);
 });
 
 test('daily agenda includes post-gig follow-through before upcoming gigs and prospects', () => {
@@ -263,7 +286,8 @@ test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects,
     ]);
     assert.equal(agenda[0].type, 'interestedDue');
     assert.match(agenda[0].suggestedAction, /mark booked/i);
-    assert.equal(agenda[3].reason, 'New venue ready for first outreach');
+    assert.equal(agenda[3].type, 'priorityLead');
+    assert.match(agenda[3].reason, /priority 9/i);
     assert.equal(agenda[5].suggestedAction, 'Research contact info');
 });
 

@@ -11,7 +11,8 @@
         MARK_BOOKED: 'markBooked',
         MARK_NOT_A_FIT: 'markNotAFit',
         MARK_DO_NOT_CONTACT: 'markDoNotContact',
-        SET_FOLLOW_UP_DATE: 'setFollowUpDate'
+        SET_FOLLOW_UP_DATE: 'setFollowUpDate',
+        SET_PRIORITY_SCORE: 'setPriorityScore'
     });
 
     const ACTION_DEFINITIONS = Object.freeze([
@@ -63,6 +64,15 @@
             throw new Error('Follow-up date is not valid.');
         }
         return formatLocalDate(date);
+    }
+
+    function normalizeScoreInput(value, label) {
+        const text = clean(value);
+        if (!text) return 0;
+        const score = Number(text);
+        if (!Number.isFinite(score)) throw new Error(`${label} must be a number from 0 to 10.`);
+        if (score < 0 || score > 10) throw new Error(`${label} must be between 0 and 10.`);
+        return Math.round(score);
     }
 
     function buildStatusPatch(actionType, options = {}) {
@@ -135,6 +145,13 @@
         };
     }
 
+    function buildPriorityScorePatch(priority, bestFitScore) {
+        return {
+            priority: normalizeScoreInput(priority, 'Priority'),
+            bestFitScore: normalizeScoreInput(bestFitScore, 'Best fit score')
+        };
+    }
+
     function addAliases(rawFields, aliases, value) {
         aliases.forEach(header => {
             rawFields[header] = value;
@@ -165,6 +182,14 @@
             addAliases(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], value);
         }
 
+        if (Object.prototype.hasOwnProperty.call(patch, 'priority')) {
+            addAliases(rawFields, ['priority', 'Priority', 'Rank'], clean(patch.priority));
+        }
+
+        if (Object.prototype.hasOwnProperty.call(patch, 'bestFitScore')) {
+            addAliases(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], clean(patch.bestFitScore));
+        }
+
         return rawFields;
     }
 
@@ -185,6 +210,8 @@
             draftStatus: booking.draftStatus || patch.draftStatus || venue.draftStatus,
             lastContactedDate: booking.lastContactedDate,
             nextFollowUpDate: booking.nextFollowUpDate,
+            priority: booking.priority,
+            bestFitScore: booking.bestFitScore,
             doNotContact: Boolean(booking.doNotContact),
             booking
         };
@@ -223,6 +250,16 @@
         return {
             id: venue && venue.id,
             actionType: ACTION_TYPES.SET_FOLLOW_UP_DATE,
+            patch,
+            rawFields: buildRawFieldsPatch(patch)
+        };
+    }
+
+    function buildPriorityScoreSavePayload(venue, priority, bestFitScore) {
+        const patch = buildPriorityScorePatch(priority, bestFitScore);
+        return {
+            id: venue && venue.id,
+            actionType: ACTION_TYPES.SET_PRIORITY_SCORE,
             patch,
             rawFields: buildRawFieldsPatch(patch)
         };
@@ -284,20 +321,52 @@
         };
     }
 
+    async function savePriorityScore(venue, priority, bestFitScore, options = {}) {
+        if (!venue || !venue.id) throw new Error('Venue id is required before saving priority.');
+
+        const payload = buildPriorityScoreSavePayload(venue, priority, bestFitScore);
+        const service = options.spreadsheetService || getSpreadsheetService();
+        if (!service || typeof service.saveVenue !== 'function' || (typeof service.isConfigured === 'function' && !service.isConfigured())) {
+            const error = new Error('Spreadsheet bridge is not configured yet.');
+            error.code = 'SPREADSHEET_BRIDGE_NOT_CONFIGURED';
+            throw error;
+        }
+
+        const result = await service.saveVenue({
+            id: venue.id,
+            rawFields: payload.rawFields
+        });
+
+        if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
+            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
+        } else {
+            applyLocalStatus(venue.id, payload.patch);
+        }
+
+        return {
+            ...payload,
+            result
+        };
+    }
+
     window.BARK.bookingActions = {
         ACTION_TYPES,
         ACTION_DEFINITIONS,
         formatLocalDate,
         addDays,
         normalizeDateInput,
+        normalizeScoreInput,
         buildStatusPatch,
         buildFollowUpDatePatch,
+        buildPriorityScorePatch,
         buildRawFieldsPatch,
         buildStatusSavePayload,
         buildFollowUpDateSavePayload,
+        buildPriorityScoreSavePayload,
         mergeBookingPatch,
         applyLocalStatus,
         saveStatus,
-        saveFollowUpDate
+        saveFollowUpDate,
+        savePriorityScore
     };
 })();

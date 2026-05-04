@@ -25,6 +25,8 @@
         'lastContactedDate',
         'nextFollowUpDate',
         'doNotContact',
+        'priority',
+        'bestFitScore',
         'Yearly Booking',
         'Notes',
         'Longitude',
@@ -37,7 +39,9 @@
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ];
 
     let activeVenue = null;
@@ -343,6 +347,8 @@
             draftStatus: getOptionalRawField(rawFields, ['draftStatus', 'draft status'], venue.draftStatus),
             lastContactedDate: getOptionalRawField(rawFields, ['lastContactedDate', 'last contacted date', 'Contacted'], venue.lastContactedDate),
             nextFollowUpDate: getOptionalRawField(rawFields, ['nextFollowUpDate', 'next follow up date', 'next follow-up date'], venue.nextFollowUpDate),
+            priority: getOptionalRawField(rawFields, ['priority', 'Priority', 'Rank'], venue.priority),
+            bestFitScore: getOptionalRawField(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], venue.bestFitScore),
             doNotContact: getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], venue.doNotContact)
         };
     }
@@ -379,6 +385,8 @@
                 draftStatus: fields.draftStatus,
                 lastContactedDate: fields.lastContactedDate,
                 nextFollowUpDate: fields.nextFollowUpDate,
+                priority: fields.priority,
+                bestFitScore: fields.bestFitScore,
                 doNotContact: Boolean(fields.doNotContact),
                 info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
             };

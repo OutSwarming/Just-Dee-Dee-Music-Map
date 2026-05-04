@@ -126,6 +126,11 @@
         return Number.isFinite(numberValue) ? numberValue : fallback;
     }
 
+    function normalizeScore(value, fallback = 0) {
+        const numberValue = normalizeNumber(value, fallback);
+        return Math.max(0, Math.min(10, Math.round(numberValue)));
+    }
+
     function compareVenuePriority(a, b) {
         const scoreA = (a.booking.priority * 10) + a.booking.bestFitScore;
         const scoreB = (b.booking.priority * 10) + b.booking.bestFitScore;
@@ -185,6 +190,8 @@
             booking.bookingUrl,
             booking.contactStatus,
             booking.draftStatus,
+            booking.priority,
+            booking.bestFitScore,
             booking.nextFollowUpDate,
             booking.eventDate,
             booking.eventTime
@@ -224,6 +231,8 @@
         const website = clean(venue.website);
         const nextFollowUpDate = clean(venue.nextFollowUpDate);
         const eventDate = clean(venue.eventDate);
+        const priority = normalizeScore(venue.priority, 0);
+        const bestFitScore = normalizeScore(venue.bestFitScore, 0);
         const isBooked = contactStatus === CONTACT_STATUS.BOOKED;
         const isUpcomingGig = isBooked && isTodayOrFuture(eventDate);
         const isPostGigFollowUpDue = isBooked && isBeforeToday(eventDate) && (!nextFollowUpDate || isDue(nextFollowUpDate));
@@ -240,8 +249,8 @@
             nextFollowUpDate,
             contactStatus,
             draftStatus: normalizeDraftStatus(venue.draftStatus),
-            priority: normalizeNumber(venue.priority, 0),
-            bestFitScore: normalizeNumber(venue.bestFitScore, 0),
+            priority,
+            bestFitScore,
             preferredDays: clean(venue.preferredDays),
             gigHistory: clean(venue.gigHistory),
             eventDate,
@@ -254,6 +263,7 @@
             isBooked,
             isUpcomingGig,
             isPostGigFollowUpDue,
+            isPriorityLead: !doNotContact && !isClosedStatus && (priority >= 7 || bestFitScore >= 8),
             isNotAFit: contactStatus === CONTACT_STATUS.NOT_A_FIT,
             isMissingInfo: !doNotContact && !isClosedStatus && !contactEmail && !bookingUrl,
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
@@ -273,6 +283,7 @@
         const booked = normalized.filter(venue => venue.booking.isBooked);
         const upcomingGigs = booked.filter(venue => venue.booking.isUpcomingGig).sort(compareEventDate);
         const postGigFollowUps = booked.filter(venue => venue.booking.isPostGigFollowUpDue).sort(compareEventDate);
+        const priorityLeads = notDnc.filter(venue => venue.booking.isPriorityLead).sort(compareVenuePriority);
         const notAFit = normalized.filter(venue => venue.booking.isNotAFit);
         const missingInfo = notDnc.filter(venue => venue.booking.isMissingInfo);
         const doNotContact = normalized.filter(venue => venue.booking.doNotContact);
@@ -280,6 +291,7 @@
             ...postGigFollowUps,
             ...followUps,
             ...interested.filter(venue => !followUps.includes(venue)),
+            ...priorityLeads.filter(venue => !followUps.includes(venue) && !interested.includes(venue)).slice(0, 10),
             ...newProspects.filter(venue => !followUps.includes(venue)).slice(0, 20),
             ...missingInfo.filter(venue => !followUps.includes(venue)).slice(0, 10)
         ];
@@ -291,6 +303,7 @@
             booked,
             upcomingGigs,
             postGigFollowUps,
+            priorityLeads,
             notAFit,
             missingInfo,
             doNotContact,
@@ -321,6 +334,7 @@
             .sort(compareFollowUpDate);
         const postGigFollowUps = [...(groups.postGigFollowUps || [])].sort(compareEventDate);
         const upcomingGigs = [...(groups.upcomingGigs || [])].sort(compareEventDate);
+        const priorityLeads = [...(groups.priorityLeads || [])].sort(compareVenuePriority);
         const newProspects = [...(groups.newProspects || [])].sort(compareVenuePriority);
         const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
 
@@ -355,6 +369,12 @@
             'upcomingGig'
         );
         add(
+            priorityLeads,
+            venue => `High-fit booking lead: priority ${venue.booking.priority}, fit ${venue.booking.bestFitScore}`,
+            () => 'Choose next outreach action',
+            'priorityLead'
+        );
+        add(
             newProspects,
             () => 'New venue ready for first outreach',
             () => 'Copy first outreach email',
@@ -384,6 +404,7 @@
         extractEmail,
         extractPhone,
         parseLocalDate,
+        normalizeScore,
         isBeforeToday,
         isTodayOrFuture,
         isDue

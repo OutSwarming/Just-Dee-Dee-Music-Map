@@ -25,7 +25,7 @@ var JDDM_BRIDGE_CONFIG = {
   EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
 };
 
-var JDDM_SCHEMA_VERSION = '2026-05-04-safe-booking-columns';
+var JDDM_SCHEMA_VERSION = '2026-05-04-priority-scoring';
 
 var MAP_GENERATED_COLUMNS = [
   { key: 'longitude', header: 'Longitude', column: 18 }, // R
@@ -38,7 +38,9 @@ var BOOKING_GENERATED_COLUMNS = [
   { key: 'draftStatus', header: 'draftStatus' },
   { key: 'lastContactedDate', header: 'lastContactedDate' },
   { key: 'nextFollowUpDate', header: 'nextFollowUpDate' },
-  { key: 'doNotContact', header: 'doNotContact' }
+  { key: 'doNotContact', header: 'doNotContact' },
+  { key: 'priority', header: 'priority' },
+  { key: 'bestFitScore', header: 'bestFitScore' }
 ];
 
 var GENERATED_COLUMNS = MAP_GENERATED_COLUMNS.concat(BOOKING_GENERATED_COLUMNS);
@@ -64,7 +66,9 @@ var OUTPUT_COLUMNS = [
   'draftStatus',
   'lastContactedDate',
   'nextFollowUpDate',
-  'doNotContact'
+  'doNotContact',
+  'priority',
+  'bestFitScore'
 ];
 
 var CATEGORY_NAMES = [
@@ -505,6 +509,8 @@ function normalizeRow_(row, headerMap, id) {
   var draftStatus = getByHeader_(row, headerMap, 'draftStatus');
   var lastContactedDate = getByHeader_(row, headerMap, 'lastContactedDate') || getByHeader_(row, headerMap, 'Contacted');
   var nextFollowUpDate = getByHeader_(row, headerMap, 'nextFollowUpDate');
+  var priority = getByHeader_(row, headerMap, 'priority') || getByHeader_(row, headerMap, 'Rank');
+  var bestFitScore = getByHeader_(row, headerMap, 'bestFitScore') || getByHeader_(row, headerMap, 'best fit score');
   var doNotContact = normalizeBoolean_(
     getByHeader_(row, headerMap, 'doNotContact') ||
     getByHeader_(row, headerMap, 'DNC') ||
@@ -532,6 +538,8 @@ function normalizeRow_(row, headerMap, id) {
     draftStatus: draftStatus,
     lastContactedDate: lastContactedDate,
     nextFollowUpDate: nextFollowUpDate,
+    priority: priority,
+    bestFitScore: bestFitScore,
     doNotContact: doNotContact
   };
 }
@@ -604,13 +612,15 @@ function normalizedToClientVenue_(venue) {
     bookingContact: venue['booking/contact info'],
     eventDate: venue['upcoming event date'],
     eventTime: venue['upcoming event time'],
-    privateEvent: venue['private event'] === 'TRUE',
+    privateEvent: normalizeBoolean_(venue['private event']),
     played: normalizePlayed_(venue.played),
     contactStatus: venue.contactStatus,
     draftStatus: venue.draftStatus,
     lastContactedDate: venue.lastContactedDate,
     nextFollowUpDate: venue.nextFollowUpDate,
-    doNotContact: venue.doNotContact === 'TRUE'
+    priority: venue.priority,
+    bestFitScore: venue.bestFitScore,
+    doNotContact: normalizeBoolean_(venue.doNotContact)
   };
 }
 
@@ -696,6 +706,14 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   if (Object.prototype.hasOwnProperty.call(venue, 'doNotContact')) {
     setByHeader_(rowValues, headerMap, 'doNotContact', venue.doNotContact ? 'TRUE' : '');
     setByHeader_(rowValues, headerMap, 'DNC', venue.doNotContact ? 'Yes' : '');
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'priority')) {
+    setByHeader_(rowValues, headerMap, 'priority', clean_(venue.priority));
+    setByHeader_(rowValues, headerMap, 'Rank', clean_(venue.priority));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'bestFitScore')) {
+    setByHeader_(rowValues, headerMap, 'bestFitScore', clean_(venue.bestFitScore));
+    setByHeader_(rowValues, headerMap, 'best fit score', clean_(venue.bestFitScore));
   }
 }
 

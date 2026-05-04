@@ -8,6 +8,7 @@
         { id: 'today', label: 'Today' },
         { id: 'followUps', label: 'Follow-Ups' },
         { id: 'newProspects', label: 'New Prospects' },
+        { id: 'priorityLeads', label: 'Priority' },
         { id: 'interested', label: 'Interested' },
         { id: 'booked', label: 'Booked' },
         { id: 'upcomingGigs', label: 'Upcoming Gigs' },
@@ -17,13 +18,15 @@
         { id: 'doNotContact', label: 'Do Not Contact' }
     ];
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-safe-booking-columns';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-priority-scoring';
     const REQUIRED_BOOKING_HEADERS = [
         'contactStatus',
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ];
 
     let activeTab = 'today';
@@ -80,7 +83,7 @@
         const venues = repo && typeof repo.getAll === 'function' ? repo.getAll() : [];
         return schema && typeof schema.getDashboardGroups === 'function'
             ? schema.getDashboardGroups(venues)
-            : { today: [], followUps: [], newProspects: [], interested: [], booked: [], upcomingGigs: [], postGigFollowUps: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
+            : { today: [], followUps: [], newProspects: [], priorityLeads: [], interested: [], booked: [], upcomingGigs: [], postGigFollowUps: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
     }
 
     function qs(id) {
@@ -382,6 +385,7 @@
         const booking = venue.booking || {};
         if (tabId === 'followUps' || booking.isFollowUpDue) return `Follow-up due${booking.nextFollowUpDate ? `: ${booking.nextFollowUpDate}` : ''}`;
         if (tabId === 'newProspects') return booking.contactEmail ? 'Ready for first outreach' : 'Needs contact info';
+        if (tabId === 'priorityLeads') return `Priority ${booking.priority || 0} / Fit ${booking.bestFitScore || 0}`;
         if (tabId === 'interested') return 'Interested lead';
         if (tabId === 'booked') return booking.eventDate ? `Booked: ${booking.eventDate}` : 'Booked';
         if (tabId === 'upcomingGigs') return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
@@ -393,6 +397,7 @@
         if (booking.isUpcomingGig) return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
         if (booking.isNotAFit) return 'Not a fit for booking';
         if (booking.isInterested) return 'Interested lead';
+        if (booking.isPriorityLead) return `Priority ${booking.priority || 0} / Fit ${booking.bestFitScore || 0}`;
         if (booking.isNewProspect) return 'New prospect';
         if (booking.isMissingInfo) return 'Research contact info';
         return booking.contactStatus || 'Ready to review';
@@ -492,6 +497,30 @@
         `;
     }
 
+    function getScoreInputValue(value) {
+        const numberValue = Number(clean(value));
+        if (!Number.isFinite(numberValue)) return 0;
+        return Math.max(0, Math.min(10, Math.round(numberValue)));
+    }
+
+    function renderPriorityScoreControl(venue) {
+        const booking = venue.booking || {};
+        const disabled = booking.doNotContact ? ' disabled' : '';
+        return `
+            <div class="booking-score-control">
+                <label>
+                    <span>Priority</span>
+                    <input type="number" min="0" max="10" step="1" inputmode="numeric" data-booking-priority-score data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(getScoreInputValue(booking.priority))}"${disabled}>
+                </label>
+                <label>
+                    <span>Best Fit</span>
+                    <input type="number" min="0" max="10" step="1" inputmode="numeric" data-booking-best-fit-score data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(getScoreInputValue(booking.bestFitScore))}"${disabled}>
+                </label>
+                <button type="button" data-booking-action="set-score" data-venue-id="${escapeHtml(venue.id)}"${disabled}>Save Score</button>
+            </div>
+        `;
+    }
+
     function renderTemplateControl(venue) {
         const templates = getTemplateService();
         if (!templates || typeof templates.getTemplateOptions !== 'function') return '';
@@ -582,7 +611,7 @@
             ['Today', data.today.length],
             ['Follow-Ups', data.followUps.length],
             ['Prospects', data.newProspects.length],
-            ['Gigs', data.upcomingGigs.length]
+            ['Priority', data.priorityLeads.length]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -595,6 +624,7 @@
         if (!item) return 'today';
         if (item.type === 'postGigFollowUp') return 'postGigFollowUps';
         if (item.type === 'upcomingGig') return 'upcomingGigs';
+        if (item.type === 'priorityLead') return 'priorityLeads';
         if (item.type === 'newProspect') return 'newProspects';
         if (item.type === 'missingInfo') return 'missingInfo';
         if (item.type === 'interested' || item.type === 'interestedDue') return 'interested';
@@ -712,6 +742,8 @@
         const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : booking.isInterested ? ' warm' : '';
         const hasEmailDraft = Boolean(getMailtoHref(venue));
         const eventLabel = [booking.eventDate || venue.eventDate, booking.eventTime || venue.eventTime].filter(Boolean).join(' ');
+        const priorityLabel = `Priority ${getScoreInputValue(booking.priority)}`;
+        const fitLabel = `Fit ${getScoreInputValue(booking.bestFitScore)}`;
 
         return `
             <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}">
@@ -726,6 +758,8 @@
                 <div class="booking-card-meta">
                     <span>${escapeHtml(venue.venueType || venue.category || 'Other Venue')}</span>
                     ${eventLabel ? `<span>Gig: ${escapeHtml(eventLabel)}</span>` : ''}
+                    <span>${escapeHtml(priorityLabel)}</span>
+                    <span>${escapeHtml(fitLabel)}</span>
                     <span>${booking.contactEmail ? escapeHtml(booking.contactEmail) : 'Missing contact info'}</span>
                     <span>${escapeHtml(renderedEmail.label)} template</span>
                 </div>
@@ -741,6 +775,7 @@
                     <button type="button" data-booking-action="open-email-draft" data-venue-id="${escapeHtml(venue.id)}"${hasEmailDraft ? '' : ' disabled'}>Email Draft</button>
                     ${renderStatusActions(venue)}
                 </div>
+                ${renderPriorityScoreControl(venue)}
                 ${renderFollowUpControl(venue)}
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
@@ -770,6 +805,14 @@
                 input.disabled = true;
             } else if (input.dataset.wasDisabled !== '1') {
                 input.disabled = false;
+            }
+        });
+        card.querySelectorAll('select').forEach(select => {
+            if (isBusy) {
+                select.dataset.wasDisabled = select.disabled ? '1' : '0';
+                select.disabled = true;
+            } else if (select.dataset.wasDisabled !== '1') {
+                select.disabled = false;
             }
         });
     }
@@ -833,6 +876,32 @@
         }
     }
 
+    async function savePriorityScore(card, button, venue) {
+        const actions = getActionService();
+        if (!actions || typeof actions.savePriorityScore !== 'function') return;
+
+        const priorityInput = card && card.querySelector('[data-booking-priority-score]');
+        const bestFitInput = card && card.querySelector('[data-booking-best-fit-score]');
+        const previousText = button.textContent;
+
+        setCardButtonsBusy(card, true);
+        setCardSaveStatus(card, 'Saving priority score...', 'neutral');
+        button.textContent = 'Saving';
+
+        try {
+            await actions.savePriorityScore(venue, priorityInput ? priorityInput.value : 0, bestFitInput ? bestFitInput.value : 0);
+            button.textContent = 'Saved';
+            setCardSaveStatus(card, 'Priority score saved.', 'success');
+            setTimeout(() => render(), 350);
+        } catch (error) {
+            console.error('[bookingDashboard] priority score save failed:', error);
+            button.textContent = previousText;
+            setCardSaveStatus(card, error.message || 'Could not save priority score.', 'error');
+        } finally {
+            setCardButtonsBusy(card, false);
+        }
+    }
+
     function bindCardActions(container, data) {
         const byId = new Map((data.all || []).map(venue => [venue.id, venue]));
         container.querySelectorAll('[data-booking-action]').forEach(button => {
@@ -858,6 +927,10 @@
                 }
                 if (button.dataset.bookingAction === 'set-follow-up') {
                     await saveFollowUpDate(card, button, venue);
+                    return;
+                }
+                if (button.dataset.bookingAction === 'set-score') {
+                    await savePriorityScore(card, button, venue);
                     return;
                 }
                 if (button.dataset.bookingAction === 'open-email-draft') {

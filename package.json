@@ -4,6 +4,7 @@
   "scripts": {
     "test": "npm run test:booking",
     "test:booking": "node --test tests/bookingSchema.test.js tests/bookingEmailTemplates.test.js tests/bookingActions.test.js tests/appsScriptBridgeColumns.test.js tests/venueEditModal.test.js tests/spreadsheetService.test.js tests/bookingDashboardHealth.test.js tests/dataServiceSyncStatus.test.js",
+    "test:smoke:jddm": "node scripts/jddm-smoke-check.mjs",
     "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
     "sheet:import-coordinates": "node scripts/import-sheet-coordinates.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",

@@ -1830,7 +1830,8 @@ body.app-tab-active #slide-panel {
     font-weight: 800;
 }
 
-.booking-followup-control {
+.booking-followup-control,
+.booking-score-control {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
@@ -1842,13 +1843,21 @@ body.app-tab-active #slide-panel {
     border-radius: 8px;
 }
 
-.booking-followup-control label {
+.booking-score-control {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.booking-followup-control label,
+.booking-score-control label {
     display: grid;
     gap: 5px;
     min-width: 0;
 }
 
-.booking-followup-control span {
+.booking-followup-control span,
+.booking-score-control span {
     color: #64748b;
     font-size: 10px;
     font-weight: 900;
@@ -1856,7 +1865,9 @@ body.app-tab-active #slide-panel {
 }
 
 .booking-followup-control input,
-.booking-followup-control button {
+.booking-followup-control button,
+.booking-score-control input,
+.booking-score-control button {
     min-height: 38px;
     border-radius: 8px;
     border: 1px solid #cbd5e1;
@@ -1864,7 +1875,8 @@ body.app-tab-active #slide-panel {
     font-weight: 800;
 }
 
-.booking-followup-control input {
+.booking-followup-control input,
+.booking-score-control input {
     width: 100%;
     min-width: 0;
     padding: 7px 8px;
@@ -1872,7 +1884,8 @@ body.app-tab-active #slide-panel {
     color: #111827;
 }
 
-.booking-followup-control button {
+.booking-followup-control button,
+.booking-score-control button {
     padding: 7px 10px;
     background: #111827;
     color: #ffffff;
@@ -1880,7 +1893,9 @@ body.app-tab-active #slide-panel {
 }
 
 .booking-followup-control button:disabled,
-.booking-followup-control input:disabled {
+.booking-followup-control input:disabled,
+.booking-score-control button:disabled,
+.booking-score-control input:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
@@ -1969,7 +1984,8 @@ body.app-tab-active #slide-panel {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .booking-followup-control {
+    .booking-followup-control,
+    .booking-score-control {
         grid-template-columns: 1fr;
     }
 }

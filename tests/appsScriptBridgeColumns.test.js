@@ -149,13 +149,15 @@ test('booking CRM headers append after occupied spreadsheet columns', () => {
     assert.equal(sheet.headers[22], 'Existing 23');
     assert.equal(sheet.headers[23], 'Existing 24');
     assert.equal(sheet.headers[24], 'Existing 25');
-    assert.deepEqual(sheet.writes.map(write => write.column), [26, 27, 28, 29, 30]);
-    assert.deepEqual(sheet.headers.slice(25, 30), [
+    assert.deepEqual(sheet.writes.map(write => write.column), [26, 27, 28, 29, 30, 31, 32]);
+    assert.deepEqual(sheet.headers.slice(25, 32), [
         'contactStatus',
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ]);
     assert.equal(result.columns.find(column => column.key === 'contactStatus').column, 26);
     assert.deepEqual(plain(result.changedHeaders), [
@@ -163,7 +165,9 @@ test('booking CRM headers append after occupied spreadsheet columns', () => {
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ]);
 });
 
@@ -181,11 +185,13 @@ test('existing booking CRM headers are reused instead of duplicated', () => {
 
     assert.deepEqual(headerColumns(sheet.headers, 'contactStatus'), [22]);
     assert.deepEqual(headerColumns(sheet.headers, 'nextFollowUpDate'), [27]);
-    assert.deepEqual(sheet.writes.map(write => write.column), [29, 30, 31]);
+    assert.deepEqual(sheet.writes.map(write => write.column), [29, 30, 31, 32, 33]);
     assert.deepEqual(sheet.writes.map(write => write.value), [
         'draftStatus',
         'lastContactedDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ]);
     assert.equal(result.columns.find(column => column.key === 'contactStatus').column, 22);
     assert.equal(result.columns.find(column => column.key === 'nextFollowUpDate').column, 27);
@@ -201,7 +207,7 @@ test('preferred map columns append safely when their slots are occupied', () => 
     assert.equal(sheet.headers[17], 'Client Field 18');
     assert.equal(sheet.headers[18], 'Client Field 19');
     assert.equal(sheet.headers[19], 'Client Field 20');
-    assert.deepEqual(sheet.writes.map(write => write.column), [21, 22, 23, 24, 25, 26, 27, 28]);
+    assert.deepEqual(sheet.writes.map(write => write.column), [21, 22, 23, 24, 25, 26, 27, 28, 29, 30]);
     assert.deepEqual(plain(result.preservedHeaders).map(item => item.header), ['Longitude', 'Latitude', 'Site ID']);
     assert.equal(result.columns.find(column => column.key === 'longitude').column, 21);
     assert.equal(result.columns.find(column => column.key === 'siteId').column, 23);

@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-05-04-safe-booking-columns',
+        schemaVersion: '2026-05-04-priority-scoring',
         generatedColumns: [
             { header: 'Longitude' },
             { header: 'Latitude' },
@@ -65,7 +65,9 @@ function safeHealth(overrides = {}) {
             { header: 'draftStatus' },
             { header: 'lastContactedDate' },
             { header: 'nextFollowUpDate' },
-            { header: 'doNotContact' }
+            { header: 'doNotContact' },
+            { header: 'priority' },
+            { header: 'bestFitScore' }
         ],
         ...overrides
     };
@@ -93,7 +95,7 @@ test('booking dashboard warns when Apps Script is still on an old schema version
         { configured: true },
         {
             checking: false,
-            result: safeHealth({ schemaVersion: '2026-05-04-booking-status-fields' }),
+            result: safeHealth({ schemaVersion: '2026-05-04-safe-booking-columns' }),
             error: null
         }
     );
@@ -118,7 +120,9 @@ test('booking dashboard identifies missing CRM headers from bridge health', () =
         'draftStatus',
         'lastContactedDate',
         'nextFollowUpDate',
-        'doNotContact'
+        'doNotContact',
+        'priority',
+        'bestFitScore'
     ]);
 });
 
