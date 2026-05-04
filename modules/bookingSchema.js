@@ -36,6 +36,10 @@
         return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     }
 
+    function normalizeSearch(value) {
+        return normalizeLoose(value);
+    }
+
     function normalizeBoolean(value) {
         const raw = normalizeLoose(value);
         return ['1', 'true', 'yes', 'y', 'do not contact', 'dnc'].includes(raw);
@@ -138,6 +142,38 @@
             nextFollowUpDate: venue.booking.nextFollowUpDate,
             contactEmail: venue.booking.contactEmail
         };
+    }
+
+    function getVenueSearchText(venue = {}) {
+        const booking = venue.booking || normalizeVenue(venue);
+        return normalizeSearch([
+            venue.name,
+            venue.address,
+            venue.city,
+            venue.state,
+            venue.zip,
+            venue.venueType,
+            venue.category,
+            venue.notes,
+            venue.website,
+            booking.contactName,
+            booking.contactEmail,
+            booking.contactPhone,
+            booking.bookingUrl,
+            booking.contactStatus,
+            booking.draftStatus,
+            booking.nextFollowUpDate
+        ].filter(Boolean).join(' '));
+    }
+
+    function filterVenues(venues = [], query = '') {
+        const normalizedQuery = normalizeSearch(query);
+        if (!normalizedQuery) return venues;
+        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+        return venues.filter(venue => {
+            const haystack = getVenueSearchText(venue);
+            return terms.every(term => haystack.includes(term));
+        });
     }
 
     function normalizeVenue(venue = {}) {
@@ -286,6 +322,7 @@
         normalizeVenue,
         getDashboardGroups,
         getDailyAgenda,
+        filterVenues,
         extractEmail,
         extractPhone,
         parseLocalDate,

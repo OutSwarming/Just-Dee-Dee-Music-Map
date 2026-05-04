@@ -16,6 +16,7 @@
 
     let activeTab = 'today';
     let unsubscribeRepo = null;
+    let searchQuery = '';
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -305,6 +306,34 @@
         });
     }
 
+    function bindSearchControls() {
+        if (bindSearchControls.bound) return;
+        const input = qs('booking-planner-search-input');
+        const clear = qs('booking-planner-search-clear');
+        if (!input) return;
+
+        bindSearchControls.bound = true;
+        input.addEventListener('input', () => {
+            searchQuery = input.value;
+            render();
+        });
+        if (clear) {
+            clear.addEventListener('click', () => {
+                searchQuery = '';
+                input.value = '';
+                render();
+                input.focus({ preventScroll: true });
+            });
+        }
+    }
+
+    function renderSearchControls() {
+        const input = qs('booking-planner-search-input');
+        const clear = qs('booking-planner-search-clear');
+        if (input && input.value !== searchQuery) input.value = searchQuery;
+        if (clear) clear.hidden = !clean(searchQuery);
+    }
+
     function renderTabs(data) {
         const tabs = qs('booking-planner-tabs');
         if (!tabs) return;
@@ -491,14 +520,29 @@
     function renderList(data) {
         const list = qs('booking-planner-list');
         const empty = qs('booking-planner-empty');
+        const searchStatus = qs('booking-planner-search-status');
         const tabLabel = TABS.find(tab => tab.id === activeTab)?.label || 'Today';
         if (!list || !empty) return;
 
-        const venues = data[activeTab] || [];
+        const schema = getSchema();
+        const query = clean(searchQuery);
+        const sourceVenues = query ? (data.all || []) : (data[activeTab] || []);
+        const venues = query && schema && typeof schema.filterVenues === 'function'
+            ? schema.filterVenues(sourceVenues, query)
+            : sourceVenues;
+
+        if (searchStatus) {
+            searchStatus.textContent = query
+                ? `${venues.length} result${venues.length === 1 ? '' : 's'} across all planner sections.`
+                : '';
+        }
+
         if (!venues.length) {
             list.innerHTML = '';
             empty.hidden = false;
-            empty.textContent = `No venues in ${tabLabel} right now.`;
+            empty.textContent = query
+                ? 'No venues match that search.'
+                : `No venues in ${tabLabel} right now.`;
             return;
         }
 
@@ -521,12 +565,14 @@
         const data = getDashboardData();
         renderStats(data);
         renderAgenda(data);
+        renderSearchControls();
         renderTabs(data);
         renderList(data);
         updateBadge(data);
     }
 
     function init() {
+        bindSearchControls();
         render();
         const repo = getRepo();
         if (repo && typeof repo.subscribe === 'function' && !unsubscribeRepo) {

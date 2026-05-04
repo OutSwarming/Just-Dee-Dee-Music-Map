@@ -1486,6 +1486,62 @@ body.app-tab-active #slide-panel {
     line-height: 1.45;
 }
 
+.booking-search {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.booking-search label {
+    display: block;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+}
+
+.booking-search > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.booking-search input,
+.booking-search button {
+    min-height: 40px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.booking-search input {
+    min-width: 0;
+    width: 100%;
+    background: #ffffff;
+    color: #111827;
+    padding: 8px 10px;
+}
+
+.booking-search button {
+    background: #111827;
+    color: #ffffff;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.booking-search p {
+    min-height: 17px;
+    margin: 7px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .booking-tabs {
     display: flex;
     gap: 8px;
@@ -1772,6 +1828,10 @@ body.app-tab-active #slide-panel {
     .booking-agenda-item button {
         grid-column: 1 / -1;
         width: 100%;
+    }
+
+    .booking-search > div {
+        grid-template-columns: 1fr;
     }
 
     .booking-card-main {

@@ -439,6 +439,14 @@
 
             <div id="booking-planner-stats" class="booking-stats" aria-label="Booking planner counts"></div>
             <section id="booking-daily-agenda" class="booking-agenda" aria-label="Daily booking agenda"></section>
+            <div class="booking-search">
+                <label for="booking-planner-search-input">Find Venue</label>
+                <div>
+                    <input id="booking-planner-search-input" type="search" autocomplete="off" placeholder="Venue, city, contact, status">
+                    <button id="booking-planner-search-clear" type="button" hidden>Clear</button>
+                </div>
+                <p id="booking-planner-search-status" aria-live="polite"></p>
+            </div>
             <div id="booking-planner-tabs" class="booking-tabs" role="tablist" aria-label="Booking dashboard sections"></div>
 
             <div id="booking-planner-empty" class="booking-empty" hidden></div>

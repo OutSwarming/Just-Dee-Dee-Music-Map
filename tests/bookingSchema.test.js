@@ -203,3 +203,38 @@ test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects,
     assert.equal(agenda[3].reason, 'New venue ready for first outreach');
     assert.equal(agenda[5].suggestedAction, 'Research contact info');
 });
+
+test('filterVenues searches venue, location, contact, and booking status terms', () => {
+    const schema = loadBookingSchema();
+    const venues = [
+        {
+            id: 'brewery',
+            name: 'Brighten Brewing Company',
+            city: 'Cuyahoga Falls',
+            venueType: 'Brewery',
+            contactStatus: 'Sent',
+            contactEmail: 'booking@brighten.example'
+        },
+        {
+            id: 'winery',
+            name: 'Lakeside Winery',
+            city: 'Madison',
+            venueType: 'Winery',
+            contactStatus: 'Interested',
+            contactName: 'Taylor'
+        },
+        {
+            id: 'pub',
+            name: 'Corner Pub',
+            city: 'Akron',
+            venueType: 'Pub/Bar',
+            contactStatus: 'Not Contacted'
+        }
+    ];
+
+    assert.deepEqual(ids(schema.filterVenues(venues, 'brighten sent')), ['brewery']);
+    assert.deepEqual(ids(schema.filterVenues(venues, 'madison taylor')), ['winery']);
+    assert.deepEqual(ids(schema.filterVenues(venues, 'pub bar akron')), ['pub']);
+    assert.deepEqual(ids(schema.filterVenues(venues, 'missing')), []);
+    assert.equal(schema.filterVenues(venues, '').length, 3);
+});
