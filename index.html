@@ -427,92 +427,25 @@
     </div>
 
     <div id="planner-view" class="ui-view">
-        <div class="view-content"
-            style="max-width: 500px; margin: 0 auto; background: transparent; box-shadow: none; border: none; padding: 0;">
-
-            <!-- Tile 1: Identity -->
-            <div
-                style="background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h2 style="font-size: 18px; color: #1e293b; margin: 0; font-weight: 900;">Route Planner</h2>
+        <div id="booking-planner-dashboard" class="booking-dashboard view-content">
+            <div class="booking-dashboard-header">
+                <div>
+                    <p class="booking-kicker">Booking Planner</p>
+                    <h2>Today&apos;s Booking Work</h2>
+                    <p>Review venues, follow-ups, missing contact info, and booked opportunities from the live map data.</p>
                 </div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                    <input type="text" id="tripNameInput" placeholder="Route Name (e.g. Summer Road Trip 2024)"
-                        style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 700; color: #334155; outline: none; background: white; box-sizing: border-box;">
-                </div>
+                <span class="booking-readonly-pill">Read-only first pass</span>
             </div>
 
-            <!-- Tile 2: The Itinerary -->
-            <div
-                style="background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 20px;">
-                <div id="route-telemetry"
-                    style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: center; font-size: 12px; font-weight: 600; color: #15803d;">
-                </div>
+            <div id="booking-planner-stats" class="booking-stats" aria-label="Booking planner counts"></div>
+            <div id="booking-planner-tabs" class="booking-tabs" role="tablist" aria-label="Booking dashboard sections"></div>
 
-                <div id="itinerary-timeline-wrapper"
-                    style="background: transparent; border: none; padding: 0; margin: 0;">
-                    <ul id="trip-queue-list"
-                        style="list-style: none; padding: 0; margin: 0; max-height: 35dvh; overflow-y: auto;"></ul>
-                </div>
-            </div>
+            <div id="booking-planner-empty" class="booking-empty" hidden></div>
+            <div id="booking-planner-list" class="booking-list"></div>
 
-            <!-- Tile 3: Tools & Actions -->
-            <div
-                style="background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 80px;">
-                <details
-                    style="margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;">
-                    <summary
-                        style="font-size: 11px; font-weight: 800; color: #64748b; cursor: pointer; text-transform: uppercase; outline: none; list-style: none; display: flex; align-items: center; justify-content: space-between;">
-                        <span>📝 Day Notes & Planning</span>
-                        <span style="font-size: 14px;">▾</span>
-                    </summary>
-                    <div id="day-notes-container" style="margin-top: 10px;"></div>
-                </details>
-
-                <div class="planner-actions">
-                    <div class="planner-actions-grid planner-actions-grid-secondary">
-                        <button id="auto-sort-day-btn" class="planner-action-btn planner-action-purple">
-                            <span class="planner-action-icon">🪄</span>
-                            <span>Sort Day</span>
-                        </button>
-                        <button id="optimize-trip-btn" class="planner-action-btn planner-action-violet">
-                            <span class="planner-action-icon">✨</span>
-                            <span>Optimize Trip</span>
-                        </button>
-                    </div>
-
-                    <div class="planner-actions-grid planner-actions-grid-main">
-                        <button id="planner-load-btn" class="planner-action-btn planner-action-neutral">
-                            <span class="planner-action-icon">📂</span>
-                            <span>Load</span>
-                        </button>
-                        <button id="save-route-btn" class="planner-action-btn planner-action-save">
-                            <span class="planner-action-icon">💾</span>
-                            <span>Save</span>
-                        </button>
-                        <button id="start-route-btn" class="planner-action-btn planner-action-primary">
-                            <span>Generate Route</span>
-                        </button>
-                        <button id="clear-trip-btn" class="planner-action-btn planner-action-clear">
-                            <span>Clear</span>
-                        </button>
-                    </div>
-
-                    <div id="planner-saved-routes-container"
-                        style="display: none; border-top: 1px solid #f1f5f9; margin-top: 15px; padding-top: 15px;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <span
-                                style="font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">📂
-                                Your Saved Routes</span>
-                            <button id="planner-routes-close-btn"
-                                style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer;">&times;</button>
-                        </div>
-                        <div id="planner-saved-routes-list"
-                            style="max-height: 250px; overflow-y: auto; padding-right: 4px;"></div>
-                    </div>
-                </div>
-            </div>
+            <p class="booking-dashboard-note">
+                Status update buttons come next. This first version is intentionally read-only so the map and spreadsheet write path stay safe while the workflow proves itself.
+            </p>
         </div>
     </div>
     <div id="profile-view" class="ui-view">
@@ -748,6 +681,26 @@
                     </div>
                 </div>
             </div>
+
+            <section id="profile-route-planner-card" hidden aria-hidden="true">
+                <span id="planner-badge" hidden>0</span>
+                <input type="text" id="tripNameInput" autocomplete="off" tabindex="-1">
+                <div id="route-telemetry" hidden></div>
+                <div id="itinerary-timeline-wrapper">
+                    <ul id="trip-queue-list"></ul>
+                </div>
+                <div id="day-notes-container"></div>
+                <button id="auto-sort-day-btn" type="button" tabindex="-1">Sort Day</button>
+                <button id="optimize-trip-btn" type="button" tabindex="-1">Optimize Trip</button>
+                <button id="planner-load-btn" type="button" tabindex="-1">Load</button>
+                <button id="save-route-btn" type="button" tabindex="-1">Save</button>
+                <button id="start-route-btn" type="button" tabindex="-1">Generate Route</button>
+                <button id="clear-trip-btn" type="button" tabindex="-1">Clear</button>
+                <div id="planner-saved-routes-container" hidden>
+                    <button id="planner-routes-close-btn" type="button" tabindex="-1">Close</button>
+                    <div id="planner-saved-routes-list"></div>
+                </div>
+            </section>
 
             <div id="offline-status-container"
                 style="display: none; background: transparent; border: none; padding: 0; margin-top: 0;">
@@ -1296,13 +1249,18 @@
         <button class="nav-item" data-target="planner-view" style="position: relative;">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                <path d="M8 2v4"></path>
+                <path d="M16 2v4"></path>
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M3 10h18"></path>
+                <path d="M8 14h.01"></path>
+                <path d="M12 14h.01"></path>
+                <path d="M16 14h.01"></path>
+                <path d="M8 18h.01"></path>
+                <path d="M12 18h.01"></path>
             </svg>
             <span>Planner</span>
-            <span id="planner-badge"
+            <span id="booking-planner-badge"
                 style="display: none; position: absolute; top: 5px; right: 15px; background: #FF9800; color: white; border-radius: 12px; font-size: 10px; font-weight: 800; padding: 2px 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">0</span>
         </button>
         <button class="nav-item" data-target="profile-view">
@@ -1362,7 +1320,9 @@
     <script src="renderers/panelRenderer.js?v=6" defer></script>
     <script src="modules/venueEditModal.js?v=3" defer></script>
     <script src="modules/searchEngine.js?v=5" defer></script>
+    <script src="modules/bookingSchema.js?v=1" defer></script>
     <script src="modules/dataService.js?v=6" defer></script>
+    <script src="modules/bookingDashboard.js?v=1" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>
     <script src="modules/profileEngine.js?v=5" defer></script>
     <script src="modules/expeditionEngine.js?v=3" defer></script>

@@ -23,6 +23,22 @@ const CSV_COLUMNS = {
     WEBSITE: ['website/social link', 'website', 'social link', 'link', 'Website'],
     NOTES: ['notes', 'Useful/Important/Other Info', 'description'],
     BOOKING_CONTACT: ['booking/contact info', 'booking contact', 'contact', 'email', 'phone'],
+    CONTACT_NAME: ['contactName', 'contact name', 'Contact Name'],
+    CONTACT_EMAIL: ['contactEmail', 'contact email', 'Email/Contact', 'email'],
+    CONTACT_PHONE: ['contactPhone', 'contact phone', 'Phone Number', 'phone'],
+    FACEBOOK_URL: ['facebookUrl', 'facebook url', 'facebook'],
+    INSTAGRAM_URL: ['instagramUrl', 'instagram url', 'instagram'],
+    BOOKING_URL: ['bookingUrl', 'booking url', 'booking link'],
+    PRIVATE_NOTES: ['privateNotes', 'private notes'],
+    LAST_CONTACTED_DATE: ['lastContactedDate', 'last contacted date', 'Contacted'],
+    NEXT_FOLLOW_UP_DATE: ['nextFollowUpDate', 'next follow up date', 'next follow-up date'],
+    CONTACT_STATUS: ['contactStatus', 'contact status', 'Status'],
+    DRAFT_STATUS: ['draftStatus', 'draft status'],
+    PRIORITY: ['priority', 'Rank'],
+    BEST_FIT_SCORE: ['bestFitScore', 'best fit score'],
+    PREFERRED_DAYS: ['preferredDays', 'preferred days', 'Days/Months'],
+    GIG_HISTORY: ['gigHistory', 'gig history', '#Times'],
+    DO_NOT_CONTACT: ['doNotContact', 'do not contact', 'DNC'],
     EVENT_DATE: ['upcoming event date', 'event date', 'date'],
     EVENT_TIME: ['upcoming event time', 'event time', 'time'],
     PRIVATE_EVENT: ['private event', 'private event flag', 'private'],
@@ -108,6 +124,24 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     const eventTime = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_TIME);
     const privateEvent = normalizePrivateEvent(getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_EVENT));
     const played = normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
+    const bookingSeed = {
+        contactName: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_NAME),
+        contactEmail: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_EMAIL),
+        contactPhone: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE),
+        facebookUrl: getCSVValueFromAny(row, CSV_COLUMNS.FACEBOOK_URL),
+        instagramUrl: getCSVValueFromAny(row, CSV_COLUMNS.INSTAGRAM_URL),
+        bookingUrl: getCSVValueFromAny(row, CSV_COLUMNS.BOOKING_URL),
+        privateNotes: getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_NOTES),
+        lastContactedDate: getCSVValueFromAny(row, CSV_COLUMNS.LAST_CONTACTED_DATE),
+        nextFollowUpDate: getCSVValueFromAny(row, CSV_COLUMNS.NEXT_FOLLOW_UP_DATE),
+        contactStatus: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_STATUS),
+        draftStatus: getCSVValueFromAny(row, CSV_COLUMNS.DRAFT_STATUS),
+        priority: getCSVValueFromAny(row, CSV_COLUMNS.PRIORITY),
+        bestFitScore: getCSVValueFromAny(row, CSV_COLUMNS.BEST_FIT_SCORE),
+        preferredDays: getCSVValueFromAny(row, CSV_COLUMNS.PREFERRED_DAYS),
+        gigHistory: getCSVValueFromAny(row, CSV_COLUMNS.GIG_HISTORY),
+        doNotContact: getCSVValueFromAny(row, CSV_COLUMNS.DO_NOT_CONTACT)
+    };
 
     const item = {
         id: getCSVValueFromAny(row, CSV_COLUMNS.ID),
@@ -123,6 +157,7 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
         website,
         notes,
         bookingContact,
+        ...bookingSeed,
         eventDate,
         eventTime,
         privateEvent,
@@ -138,6 +173,9 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     item.video = '';
     item.swagType = venueType;
     item.parkCategory = venueType;
+    item.booking = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.normalizeVenue === 'function'
+        ? window.BARK.bookingSchema.normalizeVenue(item)
+        : {};
     return item;
 }
 
@@ -210,6 +248,23 @@ function processParsedResults(results) {
                 pics,
                 video,
                 bookingContact: item.bookingContact,
+                contactName: item.booking.contactName || item.contactName,
+                contactEmail: item.booking.contactEmail || item.contactEmail,
+                contactPhone: item.booking.contactPhone || item.contactPhone,
+                facebookUrl: item.booking.facebookUrl || item.facebookUrl,
+                instagramUrl: item.booking.instagramUrl || item.instagramUrl,
+                bookingUrl: item.booking.bookingUrl || item.bookingUrl,
+                privateNotes: item.booking.privateNotes || item.privateNotes,
+                lastContactedDate: item.booking.lastContactedDate || item.lastContactedDate,
+                nextFollowUpDate: item.booking.nextFollowUpDate || item.nextFollowUpDate,
+                contactStatus: item.booking.contactStatus || item.contactStatus,
+                draftStatus: item.booking.draftStatus || item.draftStatus,
+                priority: item.booking.priority,
+                bestFitScore: item.booking.bestFitScore,
+                preferredDays: item.booking.preferredDays || item.preferredDays,
+                gigHistory: item.booking.gigHistory || item.gigHistory,
+                doNotContact: Boolean(item.booking.doNotContact),
+                booking: item.booking,
                 eventDate: item.eventDate,
                 eventTime: item.eventTime,
                 privateEvent: item.privateEvent,
