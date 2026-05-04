@@ -1529,6 +1529,35 @@ body.app-tab-active #slide-panel {
     cursor: not-allowed;
 }
 
+.booking-card-actions .booking-status-action {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+}
+
+.booking-card-actions .booking-danger-action {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+.booking-card-save-status {
+    min-height: 18px;
+    margin: 10px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.booking-card-save-status[data-tone="success"] {
+    color: #047857;
+}
+
+.booking-card-save-status[data-tone="error"] {
+    color: #b91c1c;
+}
+
 .booking-empty {
     background: #ffffff;
     border: 1px dashed #cbd5e1;

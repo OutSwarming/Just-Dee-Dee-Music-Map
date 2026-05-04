@@ -42,6 +42,10 @@
         return window.BARK.bookingEmailTemplates;
     }
 
+    function getActionService() {
+        return window.BARK.bookingActions;
+    }
+
     function getDashboardData() {
         const repo = getRepo();
         const schema = getSchema();
@@ -115,6 +119,29 @@
         if (/^https?:\/\//i.test(url)) return url;
         if (/^[a-z0-9.-]+\.[a-z]{2,}/i.test(url)) return `https://${url}`;
         return '';
+    }
+
+    function isStatusActionDisabled(venue, actionType) {
+        const actions = getActionService();
+        const booking = venue.booking || {};
+        if (!actions || !actions.ACTION_TYPES) return true;
+        if (booking.doNotContact) return true;
+        if (actionType === actions.ACTION_TYPES.MARK_SENT) return booking.contactStatus === 'Sent' || booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_INTERESTED) return booking.isInterested || booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_BOOKED) return booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT) return Boolean(booking.doNotContact);
+        return false;
+    }
+
+    function renderStatusActions(venue) {
+        const actions = getActionService();
+        if (!actions || !Array.isArray(actions.ACTION_DEFINITIONS)) return '';
+
+        return actions.ACTION_DEFINITIONS.map(action => {
+            const disabled = isStatusActionDisabled(venue, action.type) ? ' disabled' : '';
+            const danger = action.danger ? ' booking-danger-action' : '';
+            return `<button type="button" class="booking-status-action${danger}" data-booking-action="status" data-booking-status-action="${escapeHtml(action.type)}" data-venue-id="${escapeHtml(venue.id)}"${disabled}>${escapeHtml(action.label)}</button>`;
+        }).join('');
     }
 
     function writeClipboardText(text) {
@@ -233,9 +260,63 @@
                     <button type="button" data-booking-action="copy-email" data-venue-id="${escapeHtml(venue.id)}">Copy Email</button>
                     ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener">Website</a>` : '<button type="button" disabled>Website</button>'}
                     ${mailtoHref ? `<a href="${escapeHtml(mailtoHref)}">Email Draft</a>` : '<button type="button" disabled>Email Draft</button>'}
+                    ${renderStatusActions(venue)}
                 </div>
+                <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
         `;
+    }
+
+    function setCardSaveStatus(card, message, tone = 'neutral') {
+        const status = card && card.querySelector('.booking-card-save-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.dataset.tone = tone;
+    }
+
+    function setCardButtonsBusy(card, isBusy) {
+        if (!card) return;
+        card.querySelectorAll('button').forEach(button => {
+            if (isBusy) {
+                button.dataset.wasDisabled = button.disabled ? '1' : '0';
+                button.disabled = true;
+            } else if (button.dataset.wasDisabled !== '1') {
+                button.disabled = false;
+            }
+        });
+    }
+
+    async function saveVenueStatus(card, button, venue) {
+        const actions = getActionService();
+        if (!actions || typeof actions.saveStatus !== 'function') return;
+
+        const statusAction = button.dataset.bookingStatusAction;
+        if (
+            actions.ACTION_TYPES &&
+            statusAction === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT &&
+            typeof window.confirm === 'function' &&
+            !window.confirm(`Mark ${venue.name || 'this venue'} as Do Not Contact?`)
+        ) {
+            return;
+        }
+
+        const previousText = button.textContent;
+        setCardButtonsBusy(card, true);
+        setCardSaveStatus(card, 'Saving status...', 'neutral');
+        button.textContent = 'Saving';
+
+        try {
+            await actions.saveStatus(venue, statusAction);
+            button.textContent = 'Saved';
+            setCardSaveStatus(card, 'Saved to spreadsheet.', 'success');
+            setTimeout(() => render(), 350);
+        } catch (error) {
+            console.error('[bookingDashboard] status save failed:', error);
+            button.textContent = previousText;
+            setCardSaveStatus(card, error.message || 'Could not save status.', 'error');
+        } finally {
+            setCardButtonsBusy(card, false);
+        }
     }
 
     function bindCardActions(container, data) {
@@ -244,8 +325,13 @@
             button.addEventListener('click', async () => {
                 const venue = byId.get(button.dataset.venueId);
                 if (!venue) return;
+                const card = button.closest('.booking-card');
                 if (button.dataset.bookingAction === 'map') {
                     focusVenueOnMap(venue);
+                    return;
+                }
+                if (button.dataset.bookingAction === 'status') {
+                    await saveVenueStatus(card, button, venue);
                     return;
                 }
                 if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-email') {

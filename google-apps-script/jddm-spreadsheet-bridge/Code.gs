@@ -15,6 +15,11 @@
  * - R: Longitude
  * - S: Latitude
  * - T: Site ID
+ * - U: contactStatus
+ * - V: draftStatus
+ * - W: lastContactedDate
+ * - X: nextFollowUpDate
+ * - Y: doNotContact
  */
 
 var JDDM_BRIDGE_CONFIG = {
@@ -22,12 +27,17 @@ var JDDM_BRIDGE_CONFIG = {
   EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
 };
 
-var JDDM_SCHEMA_VERSION = '2026-05-03-rst-generated-columns';
+var JDDM_SCHEMA_VERSION = '2026-05-04-booking-status-fields';
 
 var GENERATED_COLUMNS = [
   { key: 'longitude', header: 'Longitude', column: 18 }, // R
   { key: 'latitude', header: 'Latitude', column: 19 },   // S
-  { key: 'siteId', header: 'Site ID', column: 20 }       // T
+  { key: 'siteId', header: 'Site ID', column: 20 },      // T
+  { key: 'contactStatus', header: 'contactStatus', column: 21 },           // U
+  { key: 'draftStatus', header: 'draftStatus', column: 22 },               // V
+  { key: 'lastContactedDate', header: 'lastContactedDate', column: 23 },   // W
+  { key: 'nextFollowUpDate', header: 'nextFollowUpDate', column: 24 },     // X
+  { key: 'doNotContact', header: 'doNotContact', column: 25 }              // Y
 ];
 
 var OUTPUT_COLUMNS = [
@@ -46,7 +56,12 @@ var OUTPUT_COLUMNS = [
   'upcoming event date',
   'upcoming event time',
   'private event',
-  'played'
+  'played',
+  'contactStatus',
+  'draftStatus',
+  'lastContactedDate',
+  'nextFollowUpDate',
+  'doNotContact'
 ];
 
 var CATEGORY_NAMES = [
@@ -208,7 +223,7 @@ function setByHeader_(rowValues, headerMap, header, value) {
 
 function ensureGeneratedColumns_() {
   var sheet = getSheet_();
-  var maxColumns = Math.max(sheet.getLastColumn(), 20);
+  var maxColumns = Math.max(sheet.getLastColumn(), GENERATED_COLUMNS[GENERATED_COLUMNS.length - 1].column);
   var headerRange = sheet.getRange(1, 1, 1, maxColumns);
   var headers = headerRange.getValues()[0].map(clean_);
   var changed = [];
@@ -437,6 +452,15 @@ function normalizeRow_(row, headerMap, id) {
   var latitude = getByHeader_(row, headerMap, 'Latitude') || getByHeader_(row, headerMap, 'lat');
   var longitude = getByHeader_(row, headerMap, 'Longitude') || getByHeader_(row, headerMap, 'lng') || getByHeader_(row, headerMap, 'long');
   var played = playedText_(getByHeader_(row, headerMap, 'Played'));
+  var contactStatus = getByHeader_(row, headerMap, 'contactStatus') || getByHeader_(row, headerMap, 'Status');
+  var draftStatus = getByHeader_(row, headerMap, 'draftStatus');
+  var lastContactedDate = getByHeader_(row, headerMap, 'lastContactedDate') || getByHeader_(row, headerMap, 'Contacted');
+  var nextFollowUpDate = getByHeader_(row, headerMap, 'nextFollowUpDate');
+  var doNotContact = normalizeBoolean_(
+    getByHeader_(row, headerMap, 'doNotContact') ||
+    getByHeader_(row, headerMap, 'DNC') ||
+    (contactStatus === 'Do Not Contact' ? 'TRUE' : '')
+  );
 
   return {
     id: id,
@@ -454,7 +478,12 @@ function normalizeRow_(row, headerMap, id) {
     'upcoming event date': getByHeader_(row, headerMap, 'upcoming event date'),
     'upcoming event time': getByHeader_(row, headerMap, 'upcoming event time'),
     'private event': privateEvent,
-    played: played
+    played: played,
+    contactStatus: contactStatus,
+    draftStatus: draftStatus,
+    lastContactedDate: lastContactedDate,
+    nextFollowUpDate: nextFollowUpDate,
+    doNotContact: doNotContact
   };
 }
 
@@ -527,7 +556,12 @@ function normalizedToClientVenue_(venue) {
     eventDate: venue['upcoming event date'],
     eventTime: venue['upcoming event time'],
     privateEvent: venue['private event'] === 'TRUE',
-    played: normalizePlayed_(venue.played)
+    played: normalizePlayed_(venue.played),
+    contactStatus: venue.contactStatus,
+    draftStatus: venue.draftStatus,
+    lastContactedDate: venue.lastContactedDate,
+    nextFollowUpDate: venue.nextFollowUpDate,
+    doNotContact: venue.doNotContact === 'TRUE'
   };
 }
 
@@ -595,6 +629,24 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   setByHeader_(rowValues, headerMap, 'private event', venue.privateEvent ? 'TRUE' : '');
   if (Object.prototype.hasOwnProperty.call(venue, 'played')) {
     setByHeader_(rowValues, headerMap, 'Played', playedText_(venue.played));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'contactStatus')) {
+    setByHeader_(rowValues, headerMap, 'Status', clean_(venue.contactStatus));
+    setByHeader_(rowValues, headerMap, 'contactStatus', clean_(venue.contactStatus));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'draftStatus')) {
+    setByHeader_(rowValues, headerMap, 'draftStatus', clean_(venue.draftStatus));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'lastContactedDate')) {
+    setByHeader_(rowValues, headerMap, 'Contacted', clean_(venue.lastContactedDate));
+    setByHeader_(rowValues, headerMap, 'lastContactedDate', clean_(venue.lastContactedDate));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'nextFollowUpDate')) {
+    setByHeader_(rowValues, headerMap, 'nextFollowUpDate', clean_(venue.nextFollowUpDate));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'doNotContact')) {
+    setByHeader_(rowValues, headerMap, 'doNotContact', venue.doNotContact ? 'TRUE' : '');
+    setByHeader_(rowValues, headerMap, 'DNC', venue.doNotContact ? 'Yes' : '');
   }
 }
 
