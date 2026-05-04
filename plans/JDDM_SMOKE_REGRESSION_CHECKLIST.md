@@ -1,6 +1,13 @@
 # Just Dee Dee Music Smoke + Regression Checklist
 
-Run this before every client demo or live sheet change.
+Run this before every tester session, client demo, or live sheet change.
+
+Current order:
+
+1. Owner testing.
+2. Bug fixes.
+3. UI redesign.
+4. Client handoff.
 
 ## Automated Gate
 
@@ -11,6 +18,7 @@ Run this before every client demo or live sheet change.
 
 ## Manual Smoke
 
+- Confirm the app being tested is the Just Dee Dee copy, not BARK Ranger.
 - App opens without console errors.
 - Map loads or shows the map-unavailable recovery message.
 - Venue pins render from the current data source.
@@ -22,16 +30,28 @@ Run this before every client demo or live sheet change.
 - Follow-up date saves on a harmless test venue.
 - Status actions save on a harmless test venue.
 - Copy Subject, Copy Body, Copy Email, and Email Draft behave as expected.
+- Upcoming Gigs and Post-Gig Follow-Up tabs show the expected booked venues.
 - Mobile viewport has no horizontal scrolling in Planner.
 
 ## Live Sheet Safety
 
 - `git remote -v` points to `OutSwarming/Just-Dee-Dee-Music-Map`.
-- Apps Script health says the bridge schema matches the app.
+- Apps Script health says the bridge schema matches the app: `2026-05-04-priority-scoring`.
 - Writes go to the Just Dee Dee Music Google Sheet, never BARK Ranger.
 - Test edits are made on a clearly disposable venue row first.
 - `priority` and `bestFitScore` columns exist before scoring live venues.
 - `doNotContact` venues do not appear in outreach lists.
+
+## Tester Bug Template
+
+- Area:
+- Severity:
+- Browser/device:
+- Steps:
+- Expected:
+- Actual:
+- Screenshot/video:
+- Notes:
 
 ## Rollback
 

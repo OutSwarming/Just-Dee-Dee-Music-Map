@@ -1,5 +1,44 @@
 # Just Dee Dee Music Map + Booking Assistant Roadmap
 
+## Current Build Status - May 4, 2026
+
+Core booking features are now in place. The project should move from feature building into tester QA, bug fixing, and then UI redesign.
+
+Done:
+
+- Just Dee Dee Music rebrand applied to the app shell and planner.
+- Separate Just Dee Dee Firebase/project assumptions documented.
+- Google Sheet bridge path exists through Apps Script.
+- Map reads normalized venue data.
+- Venue editor can write booking fields back through the spreadsheet bridge.
+- Booking Planner exists in the bottom nav.
+- Route planner is moved out of the main nav flow and kept in Profile.
+- Paywall behavior is retired; all users have full access.
+- Dashboard groups exist for Today, Follow-Ups, New Prospects, Priority, Interested, Booked, Upcoming Gigs, Post-Gig Follow-Up, Missing Info, Not a Fit, and Do Not Contact.
+- Email templates, copy buttons, and mailto drafts exist.
+- Status actions exist for Draft Ready, Mark Sent, Interested, Booked, Not a Fit, and Do Not Contact.
+- Manual follow-up date control exists.
+- Priority and Best Fit scoring controls exist.
+- Apps Script safe-column logic now includes `contactStatus`, `draftStatus`, `lastContactedDate`, `nextFollowUpDate`, `doNotContact`, `priority`, and `bestFitScore`.
+- Automated checks include booking tests and the JDDM smoke gate.
+
+Not done yet:
+
+- Live Apps Script redeploy for the newest `priority` / `bestFitScore` bridge schema.
+- Real Google Sheet write QA on a disposable test venue row.
+- Tester bug sweep.
+- UI redesign / mobile polish pass.
+- Client handoff guide. This is intentionally delayed until after testing, bug fixes, and redesign.
+
+## Current Execution Order
+
+1. Prepare testing docs and smoke checklist.
+2. Tester QA pass by Carter/owner on local or preview build.
+3. Fix bugs found during testing.
+4. Redeploy Apps Script and verify real Google Sheet writes when ready.
+5. Redesign and polish UI after the behavior is proven.
+6. Client handoff and client-facing operating guide.
+
 ## Current Architecture Assumptions
 
 - The app is a static HTML/CSS/JS map app using Leaflet and global `window.BARK` namespaces retained from the original architecture.
@@ -40,7 +79,17 @@ Do not rewrite the sheet in one risky pass. First add a schema adapter that can 
 
 ### Booking CRM Fields
 
-Add these as explicit columns after the existing generated columns when the bridge migration is ready:
+The current app and bridge actively support this first safe booking-column set:
+
+- `contactStatus`
+- `draftStatus`
+- `lastContactedDate`
+- `nextFollowUpDate`
+- `doNotContact`
+- `priority`
+- `bestFitScore`
+
+These future fields remain part of the larger CRM model and can be added after testing proves the first set:
 
 - `contactName`
 - `contactEmail`
@@ -50,12 +99,6 @@ Add these as explicit columns after the existing generated columns when the brid
 - `bookingUrl`
 - `notes`
 - `privateNotes`
-- `lastContactedDate`
-- `nextFollowUpDate`
-- `contactStatus`
-- `draftStatus`
-- `priority`
-- `bestFitScore`
 - `preferredDays`
 - `gigHistory`
 - `eventDate`
@@ -182,7 +225,22 @@ Rules:
 
 Deliverable: status buttons save reliable next steps.
 
-### Phase 6 - Mobile and Client Polish
+### Phase 6 - Tester QA + Bug Fixing
+
+Goal: let the owner test the working feature set before redesign or handoff.
+
+Work:
+
+- Run the automated gate in `plans/JDDM_SMOKE_REGRESSION_CHECKLIST.md`.
+- Test map load, marker details, planner tabs, search, email copies, status actions, follow-up date, and priority score.
+- Test signed-out flow first.
+- Test signed-in account flow if Firebase Auth is configured.
+- Test one disposable Google Sheet venue row only after Apps Script is redeployed.
+- Record bugs with page/view, exact steps, expected result, actual result, screenshot if useful, and severity.
+
+Deliverable: prioritized bug list and a verified beta baseline.
+
+### Phase 7 - UI Redesign + Mobile Polish
 
 Goal: make the workflow comfortable on a phone.
 
@@ -195,23 +253,26 @@ Work:
 - Confirmation for `Do Not Contact`.
 - Last synced indicator.
 - Unsaved changes warning in edit flows.
+- More polished visual hierarchy for map, planner, venue cards, and account/profile.
+- Remove leftover BARK-era naming from CSS/classes only when it is safe and low-risk.
 
 Deliverable: client-ready mobile workflow.
 
-### Phase 7 - Test Harness
+### Phase 8 - Test Harness Hardening
 
 Goal: make demos repeatable.
 
 Work:
 
 - Keep syntax checks for modified JS.
-- Add Playwright smoke tests for map load, marker open, dashboard load, mobile layout, email template rendering.
+- Keep `npm test` and `npm run test:smoke:jddm` passing.
+- Add Playwright smoke tests for map load, marker open, dashboard load, mobile layout, and email template rendering after UI redesign settles.
 - Add Apps Script bridge manual checklist.
 - Add rebrand/security grep checks.
 
 Deliverable: pre-demo checklist and automated smoke coverage.
 
-### Phase 8 - Optional Gmail Draft Integration
+### Phase 9 - Optional Gmail Draft Integration
 
 Goal: create drafts only, with human approval.
 
@@ -225,7 +286,7 @@ Rules:
 
 Deliverable: one-click Gmail draft creation after OAuth.
 
-### Phase 9 - Optional AI Layer
+### Phase 10 - Optional AI Layer
 
 Goal: improve drafting and prioritization after the rules-based version works.
 
@@ -238,9 +299,11 @@ Rules:
 
 Deliverable: AI-assisted agenda and personalized draft preview.
 
-### Phase 10 - Production Handoff
+### Phase 11 - Production Handoff
 
 Goal: make the app maintainable without developer babysitting.
+
+Status: delayed until after tester QA, bug fixes, and UI redesign.
 
 Work:
 
@@ -286,13 +349,14 @@ Deliverable: client operating manual.
 ### Automated Checks
 
 - `git diff --check`
-- `node --check modules/dataService.js`
+- `npm test`
+- `npm run test:smoke:jddm`
+- `npm run build --if-present`
+- `node --check modules/bookingSchema.js`
+- `node --check modules/bookingActions.js`
+- `node --check modules/bookingDashboard.js`
 - `node --check modules/venueEditModal.js`
-- `node --check services/spreadsheetService.js`
-- `node --check google-apps-script/jddm-spreadsheet-bridge/Code.gs` is not supported directly; manually lint Apps Script changes.
-- `node --test functions/tests/checkout-session.test.js`
-- `npm run test:e2e:premium`
-- Add new `npm run test:e2e:jddm-smoke` after dashboard exists.
+- Apps Script cannot be checked directly with Node; use the existing bridge tests plus manual deploy QA.
 
 ### Manual Smoke
 
@@ -310,6 +374,20 @@ Deliverable: client operating manual.
 - Confirm mobile viewport works.
 - Confirm route planner opens.
 - Confirm email template copy works after Phase 4.
+- Confirm Priority and Best Fit scores save on a disposable test row.
+- Confirm Post-Gig Follow-Up and Upcoming Gigs sections route from Daily Agenda correctly.
+
+### Tester Bug Report Template
+
+Use this format while testing:
+
+- Area: Map, Planner, Sheet Sync, Account, Route Planner, Mobile, Email Template, or Rebrand.
+- Severity: P0 data loss/wrong service, P1 broken workflow, P2 confusing/ugly, P3 nice-to-have.
+- Steps: exact taps/clicks.
+- Expected: what should have happened.
+- Actual: what happened instead.
+- Device/browser: desktop/mobile and browser name.
+- Screenshot/video: optional but useful.
 
 ### Rebrand/Security Greps
 
@@ -332,31 +410,36 @@ rg -n "LEMONSQUEEZY|paywall-title|Upgrade" index.html modules services tests pac
 
 | ID | Feature / Task | Priority | Phase | Status | Acceptance Criteria |
 | --- | --- | --- | --- | --- | --- |
-| JDDM-001 | Confirm no BARK Firebase references | P0 | 0 | Open | Search finds no old project/config writes |
-| JDDM-002 | Confirm spreadsheet read/write sync | P0 | 0 | Open | App reads and updates one test row correctly |
-| JDDM-003 | Lock venue ID system | P0 | 1 | Open | Every row has stable unique `venueId` or `Site ID` |
-| JDDM-004 | Add contactStatus support | P0 | 1 | Open | App reads/writes `contactStatus` |
-| JDDM-005 | Add nextFollowUpDate support | P0 | 1 | Open | Follow-up date saves and reloads |
-| JDDM-006 | Add Booking Dashboard tab | P1 | 2 | Open | User can open Booking section without disturbing map |
-| JDDM-007 | Add Follow-Ups Due list | P1 | 3 | Open | Due venues appear correctly and exclude booked/DNC |
-| JDDM-008 | Add New Prospects list | P1 | 3 | Open | Not-contacted venues with email appear |
-| JDDM-009 | Add email template renderer | P1 | 4 | Open | Template fills venue variables safely |
-| JDDM-010 | Add copy email button | P1 | 4 | Open | Email copies to clipboard with success feedback |
-| JDDM-011 | Add mailto draft button | P1 | 4 | Open | Mail client opens populated draft |
-| JDDM-012 | Add Mark Sent action | P1 | 5 | Open | Status/date update writes to sheet |
-| JDDM-013 | Add Mark Interested action | P1 | 5 | Open | Status/follow-up update writes |
-| JDDM-014 | Add Mark Booked action | P1 | 5 | Open | Venue moves to Booked list |
-| JDDM-015 | Add Do Not Contact action | P1 | 5 | Open | Venue excluded from outreach lists |
+| JDDM-001 | Confirm no BARK Firebase references | P0 | 0 | In Progress | Search finds no old project/config writes |
+| JDDM-002 | Confirm spreadsheet read/write sync | P0 | 0 | Needs Live QA | App reads and updates one test row correctly |
+| JDDM-003 | Lock venue ID system | P0 | 1 | Done | Every row has stable unique `venueId` or `Site ID` |
+| JDDM-004 | Add contactStatus support | P0 | 1 | Done | App reads/writes `contactStatus` |
+| JDDM-005 | Add nextFollowUpDate support | P0 | 1 | Done | Follow-up date saves and reloads |
+| JDDM-006 | Add Booking Dashboard tab | P1 | 2 | Done | User can open Booking section without disturbing map |
+| JDDM-007 | Add Follow-Ups Due list | P1 | 3 | Done | Due venues appear correctly and exclude booked/DNC |
+| JDDM-008 | Add New Prospects list | P1 | 3 | Done | Not-contacted venues with email appear |
+| JDDM-009 | Add email template renderer | P1 | 4 | Done | Template fills venue variables safely |
+| JDDM-010 | Add copy email button | P1 | 4 | Done | Email copies to clipboard with success feedback |
+| JDDM-011 | Add mailto draft button | P1 | 4 | Done | Mail client opens populated draft |
+| JDDM-012 | Add Mark Sent action | P1 | 5 | Done | Status/date update writes to sheet |
+| JDDM-013 | Add Mark Interested action | P1 | 5 | Done | Status/follow-up update writes |
+| JDDM-014 | Add Mark Booked action | P1 | 5 | Done | Venue moves to Booked list |
+| JDDM-015 | Add Do Not Contact action | P1 | 5 | Done | Venue excluded from outreach lists |
 | JDDM-016 | Add mobile smoke test | P1 | 6 | Open | Dashboard usable at 390px width |
-| JDDM-017 | Add error/loading states | P1 | 6 | Open | Failed sheet writes show useful recovery message |
-| JDDM-018 | Add regression checklist | P1 | 7 | Open | Repeatable pre-demo checklist exists |
-| JDDM-019 | Gmail API draft creation | P3 | 8 | Backlog | Draft appears in Gmail after OAuth |
-| JDDM-020 | AI daily agenda | P3 | 9 | Backlog | AI summarizes top tasks with preview only |
+| JDDM-017 | Add error/loading states | P1 | 6 | In Progress | Failed sheet writes show useful recovery message |
+| JDDM-018 | Add regression checklist | P1 | 8 | Done | Repeatable pre-demo checklist exists |
+| JDDM-019 | Gmail API draft creation | P3 | 9 | Backlog | Draft appears in Gmail after OAuth |
+| JDDM-020 | AI daily agenda | P3 | 10 | Backlog | AI summarizes top tasks with preview only |
 | JDDM-021 | Contact info privacy decision | P0 | 0 | Open | Decide whether contact CSV can remain in repo |
-| JDDM-022 | Apps Script schema health check | P0 | 1 | Open | Bridge returns expected columns and schema version |
-| JDDM-023 | Read-only dashboard first pass | P1 | 2 | Open | Lists derive from venue data without writing anything |
-| JDDM-024 | Status update write adapter | P1 | 5 | Open | One function writes booking fields by venue ID |
-| JDDM-025 | Client guide | P2 | 10 | Open | Non-technical workflow doc exists |
+| JDDM-022 | Apps Script schema health check | P0 | 1 | Done | Bridge returns expected columns and schema version |
+| JDDM-023 | Read-only dashboard first pass | P1 | 2 | Done | Lists derive from venue data without writing anything |
+| JDDM-024 | Status update write adapter | P1 | 5 | Done | One function writes booking fields by venue ID |
+| JDDM-025 | Client guide | P2 | 11 | Delayed | Non-technical workflow doc exists after UI redesign |
+| JDDM-026 | Priority / Best Fit scoring | P1 | 3 | Done | Scores save and high-fit leads appear in planner |
+| JDDM-027 | Tester QA pass | P1 | 6 | Next | Owner tests core workflows and logs bugs |
+| JDDM-028 | Bug fix pass | P1 | 6 | Next | P0/P1 bugs from tester QA are fixed and pushed |
+| JDDM-029 | UI redesign pass | P1 | 7 | Later | Map/planner/account feel polished on desktop and mobile |
+| JDDM-030 | Live Apps Script redeploy | P0 | 6 | Needs Owner | Live bridge reports `2026-05-04-priority-scoring` |
 
 ## Bug Tracker Categories
 
@@ -372,21 +455,24 @@ rg -n "LEMONSQUEEZY|paywall-title|Upgrade" index.html modules services tests pac
 - Performance
 - Security/Privacy
 
-## Recommended First Coding Pass
+## Recommended Next Pass
 
-Do not start by building the whole dashboard. Start with the adapter layer.
+Do not build handoff docs yet. The next useful pass is tester QA plus bug triage.
 
-1. Add `modules/bookingSchema.js` with field names, status constants, draft status constants, date helpers, and dashboard predicates.
-2. Load it before `modules/dataService.js`.
-3. Update `modules/dataService.js` to normalize booking fields from both current and future sheet headers.
-4. Add a read-only console/debug summary for counts: follow-ups due, new prospects, interested, booked, missing info, do not contact.
-5. Add unit-like browser-free tests for date/status predicates if practical.
-6. Do not write to the sheet in this pass.
+1. Run `npm test`, `npm run test:smoke:jddm`, `npm run build --if-present`, and `git diff --check`.
+2. Start the local preview server.
+3. Test the app signed out first.
+4. Test the map, marker details, planner tabs, search, email copy, mailto draft, status actions, follow-up date, and priority score.
+5. If Apps Script has not been redeployed, do not trust live score/status writes yet.
+6. After Apps Script is redeployed, test exactly one disposable venue row before changing real venue data.
+7. Log every bug in the tester template above.
+8. Fix P0/P1 bugs before UI redesign.
+9. Redesign UI only after core behavior is stable.
+10. Write client handoff docs last.
 
-Acceptance for first pass:
+Acceptance for this pass:
 
-- Existing map still loads.
-- Existing spreadsheet edit modal still saves.
-- Normalized venue objects include booking fields with safe defaults.
-- No dashboard UI exists yet, or it is hidden behind a simple feature flag.
-- No schema migration has touched the live sheet.
+- Tester can identify whether the app is ready for a bug-fix sprint.
+- No accidental writes to BARK services or the wrong sheet.
+- Bugs are clear enough to reproduce.
+- Client handoff remains intentionally delayed.
