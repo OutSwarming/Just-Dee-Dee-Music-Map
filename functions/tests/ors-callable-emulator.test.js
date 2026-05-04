@@ -168,7 +168,7 @@ const routePayload = {
     radiuses: [350, 350]
 };
 
-describe("ORS callable emulator entitlement enforcement", { concurrency: false }, () => {
+describe("ORS callable emulator full-access policy", { concurrency: false }, () => {
     before(async () => {
         assert.equal(process.env.JDDM_ORS_EMULATOR_STUB, "1");
         assert.equal(process.env.ORS_API_KEY, "emulator-test-key");
@@ -221,16 +221,19 @@ describe("ORS callable emulator entitlement enforcement", { concurrency: false }
         assert.deepEqual(readOrsCalls(), []);
     });
 
-    it("rejects signed-in free geocode requests before ORS", async () => {
-        const user = await createSignedInUser("free-geocode");
+    it("allows signed-in geocode requests because JDDM includes full access", async () => {
+        const user = await createSignedInUser("included-geocode");
         await seedEntitlement(user.uid, { premium: false, status: "free", source: "none" });
 
-        await assertRejectsCode(
-            callGeocode({ text: "Seattle", isPremium: true }),
-            "permission-denied"
+        const result = await withTimeout(
+            callGeocode({ text: "Seattle", isPremium: false }),
+            "Included geocode callable"
         );
+        const calls = readOrsCalls();
 
-        assert.deepEqual(readOrsCalls(), []);
+        assert.equal(result.data.features[0].properties.label, "Stubbed Seattle");
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].service, "geocode");
     });
 
     it("allows premium manual geocode requests to reach the stubbed ORS path", async () => {
@@ -249,16 +252,19 @@ describe("ORS callable emulator entitlement enforcement", { concurrency: false }
         assert.match(calls[0].uri, /text=Seattle/);
     });
 
-    it("rejects signed-in free route requests before ORS", async () => {
-        const user = await createSignedInUser("free-route");
+    it("allows signed-in route requests because JDDM includes full access", async () => {
+        const user = await createSignedInUser("included-route");
         await seedEntitlement(user.uid, { premium: false, status: "free", source: "none" });
 
-        await assertRejectsCode(
-            callRoute({ ...routePayload, isPremium: true }),
-            "permission-denied"
+        const result = await withTimeout(
+            callRoute({ ...routePayload, isPremium: false }),
+            "Included route callable"
         );
+        const calls = readOrsCalls();
 
-        assert.deepEqual(readOrsCalls(), []);
+        assert.equal(result.data.type, "FeatureCollection");
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].service, "route");
     });
 
     it("allows premium manual route requests to reach the stubbed ORS path", async () => {
@@ -277,52 +283,58 @@ describe("ORS callable emulator entitlement enforcement", { concurrency: false }
         assert.equal(calls[0].service, "route");
     });
 
-    it("ignores client-provided premium, entitlement, status, and uid claims", async () => {
+    it("does not require client-provided premium, entitlement, status, or uid claims", async () => {
         const user = await createSignedInUser("client-claims");
         await seedEntitlement(user.uid, { premium: false, status: "free", source: "none" });
 
-        await assertRejectsCode(
+        const result = await withTimeout(
             callGeocode({
                 text: "Seattle",
-                isPremium: true,
-                entitlement: premiumEntitlement,
-                status: "manual_active",
-                uid: "premium-user"
+                isPremium: false,
+                entitlement: { premium: false, status: "free" },
+                status: "free",
+                uid: "different-user"
             }),
-            "permission-denied"
+            "Included geocode callable with ignored client claims"
         );
+        const calls = readOrsCalls();
 
-        assert.deepEqual(readOrsCalls(), []);
+        assert.equal(result.data.features[0].properties.label, "Stubbed Seattle");
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].service, "geocode");
     });
 
-    it("rejects users with missing entitlement", async () => {
+    it("allows users with missing entitlement because full access is included", async () => {
         await createSignedInUser("missing-entitlement");
 
-        await assertRejectsCode(
+        const result = await withTimeout(
             callGeocode({ text: "Seattle" }),
-            "permission-denied"
+            "Included geocode callable with missing entitlement"
         );
+        const calls = readOrsCalls();
 
-        assert.deepEqual(readOrsCalls(), []);
+        assert.equal(result.data.features[0].properties.label, "Stubbed Seattle");
+        assert.equal(calls.length, 1);
     });
 
-    it("rejects malformed entitlements", async () => {
+    it("allows malformed legacy entitlements because full access is included", async () => {
         const user = await createSignedInUser("malformed");
 
         for (const entitlement of ["premium", { premium: true }]) {
             resetOrsStubFiles();
             await seedEntitlement(user.uid, entitlement);
 
-            await assertRejectsCode(
+            const result = await withTimeout(
                 callGeocode({ text: "Seattle" }),
-                "permission-denied"
+                "Included geocode callable with malformed entitlement"
             );
 
-            assert.deepEqual(readOrsCalls(), []);
+            assert.equal(result.data.features[0].properties.label, "Stubbed Seattle");
+            assert.equal(readOrsCalls().length, 1);
         }
     });
 
-    it("rejects inactive premium statuses", async () => {
+    it("allows inactive legacy premium statuses because full access is included", async () => {
         const user = await createSignedInUser("inactive");
 
         for (const status of ["canceled", "expired", "past_due"]) {
@@ -333,12 +345,13 @@ describe("ORS callable emulator entitlement enforcement", { concurrency: false }
                 source: "provider"
             });
 
-            await assertRejectsCode(
+            const result = await withTimeout(
                 callGeocode({ text: "Seattle" }),
-                "permission-denied"
+                `Included geocode callable with ${status} entitlement`
             );
 
-            assert.deepEqual(readOrsCalls(), [], status);
+            assert.equal(result.data.features[0].properties.label, "Stubbed Seattle");
+            assert.equal(readOrsCalls().length, 1, status);
         }
     });
 });

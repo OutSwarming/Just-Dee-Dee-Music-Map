@@ -65,7 +65,7 @@ const premiumEntitlement = {
     currentPeriodEnd: null
 };
 
-describe("ORS premium callable entitlement helpers", () => {
+describe("ORS callable full-access helpers", () => {
     it("normalizes missing and malformed entitlements to non-premium", () => {
         assert.deepEqual(normalizeEntitlement(null), {
             premium: false,
@@ -96,22 +96,27 @@ describe("ORS premium callable entitlement helpers", () => {
         );
     });
 
-    it("rejects signed-in free users", async () => {
+    it("includes signed-in users without reading entitlement documents", async () => {
         const firestore = makeFirestore({
             entitlement: { premium: false, status: "free", source: "none" }
         });
 
-        await assertRejectsCode(
-            requirePremiumCallable(authedContext("free-user"), "getPremiumRoute", { firestore }),
-            "permission-denied"
-        );
+        const result = await requirePremiumCallable(authedContext("free-user"), "getPremiumRoute", { firestore });
 
-        assert.equal(firestore.state.requestedCollection, "users");
-        assert.equal(firestore.state.requestedDoc, "free-user");
-        assert.equal(firestore.state.reads, 1);
+        assert.equal(result.uid, "free-user");
+        assert.deepEqual(result.entitlement, {
+            premium: true,
+            status: "included",
+            source: "client_app",
+            manualOverride: true,
+            currentPeriodEnd: null
+        });
+        assert.equal(firestore.state.requestedCollection, null);
+        assert.equal(firestore.state.requestedDoc, null);
+        assert.equal(firestore.state.reads, 0);
     });
 
-    it("rejects malformed and inactive premium entitlements", async () => {
+    it("ignores stale or inactive entitlement documents because JDDM includes full access", async () => {
         for (const entitlement of [
             "premium",
             { premium: true },
@@ -119,78 +124,78 @@ describe("ORS premium callable entitlement helpers", () => {
             { premium: true, status: "expired" },
             { premium: true, status: "past_due" }
         ]) {
-            await assertRejectsCode(
-                requirePremiumCallable(authedContext("inactive-user"), "getPremiumGeocode", {
-                    firestore: makeFirestore({ entitlement })
-                }),
-                "permission-denied"
-            );
+            const firestore = makeFirestore({ entitlement });
+            const result = await requirePremiumCallable(authedContext("included-user"), "getPremiumGeocode", {
+                firestore
+            });
+
+            assert.equal(result.uid, "included-user");
+            assert.equal(result.entitlement.premium, true);
+            assert.equal(result.entitlement.status, "included");
+            assert.equal(firestore.state.reads, 0);
         }
     });
 
-    it("allows premium manual override users", async () => {
+    it("returns an included entitlement even for old manual override users", async () => {
         const result = await requirePremiumCallable(authedContext("premium-user"), "getPremiumRoute", {
             firestore: makeFirestore({ entitlement: premiumEntitlement })
         });
 
         assert.equal(result.uid, "premium-user");
         assert.equal(result.entitlement.premium, true);
-        assert.equal(result.entitlement.status, "manual_active");
+        assert.equal(result.entitlement.status, "included");
     });
 });
 
-describe("ORS premium callable handlers", () => {
-    it("rejects free route requests before ORS is called and ignores client isPremium", async () => {
+describe("ORS callable handlers", () => {
+    it("allows signed-in route requests through because JDDM includes full access", async () => {
         let postCalls = 0;
 
-        await assertRejectsCode(
-            handlePremiumRoute(
-                {
-                    data: {
-                        coordinates: [[-122.4, 37.8], [-122.5, 37.9]],
-                        isPremium: true
-                    }
-                },
-                authedContext("free-user"),
-                {
-                    firestore: makeFirestore({
-                        entitlement: { premium: false, status: "free", source: "none" }
-                    }),
-                    getOrsApiKey: () => "test-key",
-                    axiosPost: async () => {
-                        postCalls += 1;
-                        return { data: { ok: true } };
-                    }
+        const result = await handlePremiumRoute(
+            {
+                data: {
+                    coordinates: [[-122.4, 37.8], [-122.5, 37.9]],
+                    isPremium: false,
+                    entitlement: { premium: false, status: "free" }
                 }
-            ),
-            "permission-denied"
+            },
+            authedContext("free-user"),
+            {
+                firestore: makeFirestore({
+                    entitlement: { premium: false, status: "free", source: "none" }
+                }),
+                getOrsApiKey: () => "test-key",
+                axiosPost: async () => {
+                    postCalls += 1;
+                    return { data: { ok: true } };
+                }
+            }
         );
 
-        assert.equal(postCalls, 0);
+        assert.deepEqual(result, { ok: true });
+        assert.equal(postCalls, 1);
     });
 
-    it("rejects free geocode requests before ORS is called and ignores client isPremium", async () => {
+    it("allows signed-in geocode requests through because JDDM includes full access", async () => {
         let getCalls = 0;
 
-        await assertRejectsCode(
-            handlePremiumGeocode(
-                { text: "San Francisco", isPremium: true },
-                authedContext("free-user"),
-                {
-                    firestore: makeFirestore({
-                        entitlement: { premium: false, status: "free", source: "none" }
-                    }),
-                    getOrsApiKey: () => "test-key",
-                    axiosGet: async () => {
-                        getCalls += 1;
-                        return { data: { features: [] } };
-                    }
+        const result = await handlePremiumGeocode(
+            { text: "San Francisco", isPremium: false, uid: "someone-else" },
+            authedContext("free-user"),
+            {
+                firestore: makeFirestore({
+                    entitlement: { premium: false, status: "free", source: "none" }
+                }),
+                getOrsApiKey: () => "test-key",
+                axiosGet: async () => {
+                    getCalls += 1;
+                    return { data: { features: [] } };
                 }
-            ),
-            "permission-denied"
+            }
         );
 
-        assert.equal(getCalls, 0);
+        assert.deepEqual(result, { features: [] });
+        assert.equal(getCalls, 1);
     });
 
     it("allows premium route requests through to the ORS transport path", async () => {

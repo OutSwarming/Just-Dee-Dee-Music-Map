@@ -48,7 +48,9 @@ const CSV_COLUMNS = {
 
 const DATA_CACHE_KEY = 'jddmVenueCSV';
 const DATA_CACHE_TIME_KEY = 'jddmVenueCSV_time';
+const DATA_CACHE_SOURCE_KEY = 'jddmVenueCSV_source';
 const VENUE_DATA_SYNC_EVENT = 'jddm:venue-data-sync';
+const PACKAGED_VENUE_CSV_URL = 'assets/data/jddm-venues.csv';
 
 function cleanCSVValue(value) {
     if (value === undefined || value === null) return '';
@@ -326,17 +328,19 @@ function commitCSVCache(csvString, options = {}) {
     if (!options.cacheTime) return false;
     localStorage.setItem(DATA_CACHE_KEY, csvString);
     localStorage.setItem(DATA_CACHE_TIME_KEY, String(options.cacheTime));
+    if (options.source) localStorage.setItem(DATA_CACHE_SOURCE_KEY, String(options.source));
     return true;
 }
 
 function getVenueDataSyncStatus() {
     const cachedCsv = localStorage.getItem(DATA_CACHE_KEY);
     const cachedTime = Number(localStorage.getItem(DATA_CACHE_TIME_KEY) || 0);
+    const cachedSource = localStorage.getItem(DATA_CACHE_SOURCE_KEY);
     const cacheTime = Number.isFinite(cachedTime) && cachedTime > 0 ? cachedTime : null;
     return {
         hasCachedData: Boolean(cachedCsv),
         cacheTime,
-        source: window.JDDM_SPREADSHEET_API_URL ? 'Google Sheet' : 'Local CSV'
+        source: cachedSource || (window.JDDM_SPREADSHEET_API_URL ? 'Google Sheet' : 'Local CSV')
     };
 }
 
@@ -531,9 +535,11 @@ function rememberDataHash(hash, revisionTime) {
 }
 
 function getVenueCsvUrl(options = {}) {
+    if (options.packagedFallback) return PACKAGED_VENUE_CSV_URL;
+
     const configuredCsvUrl = window.BARK.config && window.BARK.config.VENUE_CSV_URL
         ? window.BARK.config.VENUE_CSV_URL
-        : 'assets/data/jddm-venues.csv';
+        : PACKAGED_VENUE_CSV_URL;
 
     if (options.userInitiated && window.JDDM_SPREADSHEET_API_URL) {
         const apiUrl = String(window.JDDM_SPREADSHEET_API_URL);
@@ -543,6 +549,32 @@ function getVenueCsvUrl(options = {}) {
     }
 
     return configuredCsvUrl;
+}
+
+function loadPackagedVenueDataFallback(options = {}) {
+    const fallbackUrl = getVenueCsvUrl({ packagedFallback: true });
+    const requestUrl = `${fallbackUrl}${fallbackUrl.includes('?') ? '&' : '?'}fallback=${Date.now()}`;
+
+    return fetch(requestUrl, { cache: 'no-store' })
+        .then(res => {
+            if (!res.ok) throw new Error('Packaged venue CSV unavailable');
+            return res.text();
+        })
+        .then(csvString => {
+            if (!csvString || csvString.trim().length < 10) return false;
+            const fallbackHash = quickHash(csvString);
+            rememberDataHash(fallbackHash, Date.now());
+            parseCSVString(csvString, {
+                cacheTime: Date.now(),
+                source: options.source || 'Packaged CSV fallback',
+                onAccepted: () => { lastDataHash = fallbackHash; }
+            });
+            return true;
+        })
+        .catch(error => {
+            console.warn('[dataService] packaged venue CSV fallback failed:', error);
+            return false;
+        });
 }
 
 function pollForUpdates(options = {}) {
@@ -706,6 +738,7 @@ function clearMarkerLayersSafely() {
 function loadData(options = {}) {
     const cachedCsv = localStorage.getItem(DATA_CACHE_KEY);
     const cachedTime = localStorage.getItem(DATA_CACHE_TIME_KEY);
+    const shouldLoadPackagedFallback = !cachedCsv && !options.userInitiated && navigator.onLine;
 
     if (cachedCsv) {
         lastDataHash = quickHash(cachedCsv);
@@ -720,6 +753,10 @@ function loadData(options = {}) {
             source: 'Cache'
         });
     }
+
+    const packagedFallbackPromise = shouldLoadPackagedFallback
+        ? loadPackagedVenueDataFallback({ source: 'Packaged CSV fallback' })
+        : Promise.resolve(false);
 
     safeDataPoll();
 
@@ -737,7 +774,10 @@ function loadData(options = {}) {
         return;
     }
 
-    return runDataPollCycle(options);
+    return Promise.all([
+        packagedFallbackPromise,
+        runDataPollCycle(options)
+    ]).then(([fallbackLoaded, liveLoaded]) => Boolean(liveLoaded || fallbackLoaded));
 }
 
 window.BARK.loadData = loadData;
