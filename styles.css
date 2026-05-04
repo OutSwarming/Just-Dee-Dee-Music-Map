@@ -1715,6 +1715,38 @@ body.app-tab-active #slide-panel {
     color: #b91c1c;
 }
 
+.booking-template-control {
+    margin-top: 10px;
+    padding: 10px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+}
+
+.booking-template-control label {
+    display: grid;
+    gap: 5px;
+}
+
+.booking-template-control span {
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.booking-template-control select {
+    width: 100%;
+    min-height: 38px;
+    border-radius: 8px;
+    border: 1px solid #fcd34d;
+    background: #ffffff;
+    color: #111827;
+    padding: 7px 8px;
+    font-size: 13px;
+    font-weight: 800;
+}
+
 .booking-followup-control {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

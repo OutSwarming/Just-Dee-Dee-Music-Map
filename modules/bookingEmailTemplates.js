@@ -196,6 +196,13 @@
         return TEMPLATE_TYPES.FIRST_OUTREACH;
     }
 
+    function getTemplateOptions() {
+        return Object.keys(TEMPLATES).map(type => ({
+            type,
+            label: TEMPLATES[type].label
+        }));
+    }
+
     function renderTemplate(type, venue = {}) {
         const templateType = TEMPLATES[type] ? type : getSuggestedTemplateType(venue);
         const template = TEMPLATES[templateType];
@@ -230,6 +237,7 @@
         TEMPLATE_TYPES,
         TEMPLATES,
         buildContext,
+        getTemplateOptions,
         getSuggestedTemplateType,
         renderTemplate,
         getMailtoHref

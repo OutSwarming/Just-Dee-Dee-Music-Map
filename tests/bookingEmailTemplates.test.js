@@ -99,3 +99,33 @@ test('mailto draft encodes the selected email template without sending anything'
     assert.match(params.get('body'), /Hi Taylor,/);
     assert.match(params.get('body'), /possible dates for Interested Winery/);
 });
+
+test('template options expose manual choices and explicit template overrides', () => {
+    const bark = loadBookingModules();
+    const templates = bark.bookingEmailTemplates;
+    const options = templates.getTemplateOptions();
+    const optionLabels = options.map(option => option.label);
+    const rendered = templates.renderTemplate(templates.TEMPLATE_TYPES.THANK_YOU, {
+        name: 'Booked Festival',
+        booking: {
+            contactName: 'Morgan',
+            contactEmail: 'morgan@example.com'
+        }
+    });
+    const href = templates.getMailtoHref({
+        name: 'Follow Up Room',
+        booking: {
+            contactEmail: 'follow@example.com'
+        }
+    }, templates.TEMPLATE_TYPES.FOLLOW_UP);
+
+    assert.ok(optionLabels.includes('First Outreach'));
+    assert.ok(optionLabels.includes('Thank You'));
+    assert.equal(rendered.type, templates.TEMPLATE_TYPES.THANK_YOU);
+    assert.match(rendered.subject, /Thank you/);
+    assert.match(rendered.body, /Thank you for having Dee Dee at Booked Festival/);
+
+    const params = new URLSearchParams(href.split('?')[1]);
+    assert.match(params.get('subject'), /Following up/);
+    assert.match(params.get('body'), /Follow Up Room/);
+});

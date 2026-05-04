@@ -83,10 +83,10 @@
         return booking.contactStatus || 'Ready to review';
     }
 
-    function getRenderedEmail(venue) {
+    function getRenderedEmail(venue, templateType) {
         const templates = getTemplateService();
         if (templates && typeof templates.renderTemplate === 'function') {
-            return templates.renderTemplate(undefined, venue);
+            return templates.renderTemplate(templateType, venue);
         }
 
         const subject = 'Live acoustic music booking inquiry - Just Dee Dee Music';
@@ -117,6 +117,11 @@
             return templates.getMailtoHref(venue);
         }
         return '';
+    }
+
+    function getSelectedTemplateType(card) {
+        const select = card && card.querySelector('[data-booking-template-select]');
+        return select ? clean(select.value) : '';
     }
 
     function getExternalUrl(value) {
@@ -170,6 +175,24 @@
         `;
     }
 
+    function renderTemplateControl(venue) {
+        const templates = getTemplateService();
+        if (!templates || typeof templates.getTemplateOptions !== 'function') return '';
+
+        const suggestedType = templates.getSuggestedTemplateType(venue);
+        const options = templates.getTemplateOptions();
+        return `
+            <div class="booking-template-control">
+                <label>
+                    <span>Email Template</span>
+                    <select data-booking-template-select data-venue-id="${escapeHtml(venue.id)}">
+                        ${options.map(option => `<option value="${escapeHtml(option.type)}"${option.type === suggestedType ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+                    </select>
+                </label>
+            </div>
+        `;
+    }
+
     function writeClipboardText(text) {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
             return navigator.clipboard.writeText(text);
@@ -203,8 +226,19 @@
         return writeClipboardText(text);
     }
 
-    function copyEmailDraft(venue) {
-        return writeClipboardText(getRenderedEmail(venue).fullText);
+    function copyEmailDraft(venue, templateType, copyTarget = 'fullText') {
+        const rendered = getRenderedEmail(venue, templateType);
+        return writeClipboardText(rendered[copyTarget] || rendered.fullText);
+    }
+
+    function openEmailDraft(venue, templateType) {
+        const templates = getTemplateService();
+        const href = templates && typeof templates.getMailtoHref === 'function'
+            ? templates.getMailtoHref(venue, templateType)
+            : '';
+        if (!href) return false;
+        window.location.href = href;
+        return true;
     }
 
     function focusVenueOnMap(venue) {
@@ -354,10 +388,10 @@
 
     function renderVenueCard(venue, tabId) {
         const booking = venue.booking || {};
-        const mailtoHref = getMailtoHref(venue);
         const renderedEmail = getRenderedEmail(venue);
         const website = getExternalUrl(booking.bookingUrl || venue.website || '');
         const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : booking.isInterested ? ' warm' : '';
+        const hasEmailDraft = Boolean(getMailtoHref(venue));
 
         return `
             <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}">
@@ -374,12 +408,15 @@
                     <span>${booking.contactEmail ? escapeHtml(booking.contactEmail) : 'Missing contact info'}</span>
                     <span>${escapeHtml(renderedEmail.label)} template</span>
                 </div>
+                ${renderTemplateControl(venue)}
                 <div class="booking-card-actions">
                     <button type="button" data-booking-action="map" data-venue-id="${escapeHtml(venue.id)}">View Map</button>
                     <button type="button" data-booking-action="copy" data-venue-id="${escapeHtml(venue.id)}">Copy Info</button>
-                    <button type="button" data-booking-action="copy-email" data-venue-id="${escapeHtml(venue.id)}">Copy Email</button>
+                    <button type="button" data-booking-action="copy-template" data-copy-target="subject" data-venue-id="${escapeHtml(venue.id)}">Copy Subject</button>
+                    <button type="button" data-booking-action="copy-template" data-copy-target="body" data-venue-id="${escapeHtml(venue.id)}">Copy Body</button>
+                    <button type="button" data-booking-action="copy-template" data-copy-target="fullText" data-venue-id="${escapeHtml(venue.id)}">Copy Email</button>
                     ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener">Website</a>` : '<button type="button" disabled>Website</button>'}
-                    ${mailtoHref ? `<a href="${escapeHtml(mailtoHref)}">Email Draft</a>` : '<button type="button" disabled>Email Draft</button>'}
+                    <button type="button" data-booking-action="open-email-draft" data-venue-id="${escapeHtml(venue.id)}"${hasEmailDraft ? '' : ' disabled'}>Email Draft</button>
                     ${renderStatusActions(venue)}
                 </div>
                 ${renderFollowUpControl(venue)}
@@ -493,12 +530,18 @@
                     await saveFollowUpDate(card, button, venue);
                     return;
                 }
-                if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-email') {
+                if (button.dataset.bookingAction === 'open-email-draft') {
+                    if (!openEmailDraft(venue, getSelectedTemplateType(card))) {
+                        setCardSaveStatus(card, 'Missing contact email for this venue.', 'error');
+                    }
+                    return;
+                }
+                if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-template') {
                     const previousText = button.textContent;
                     button.disabled = true;
                     try {
-                        if (button.dataset.bookingAction === 'copy-email') {
-                            await copyEmailDraft(venue);
+                        if (button.dataset.bookingAction === 'copy-template') {
+                            await copyEmailDraft(venue, getSelectedTemplateType(card), button.dataset.copyTarget);
                         } else {
                             await copyVenueInfo(venue);
                         }
