@@ -15,11 +15,9 @@
  * - R: Longitude
  * - S: Latitude
  * - T: Site ID
- * - U: contactStatus
- * - V: draftStatus
- * - W: lastContactedDate
- * - X: nextFollowUpDate
- * - Y: doNotContact
+ *
+ * Booking CRM columns are appended when missing. They are never inserted into
+ * the middle of the sheet or written over existing headers.
  */
 
 var JDDM_BRIDGE_CONFIG = {
@@ -27,18 +25,23 @@ var JDDM_BRIDGE_CONFIG = {
   EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
 };
 
-var JDDM_SCHEMA_VERSION = '2026-05-04-booking-status-fields';
+var JDDM_SCHEMA_VERSION = '2026-05-04-safe-booking-columns';
 
-var GENERATED_COLUMNS = [
+var MAP_GENERATED_COLUMNS = [
   { key: 'longitude', header: 'Longitude', column: 18 }, // R
   { key: 'latitude', header: 'Latitude', column: 19 },   // S
-  { key: 'siteId', header: 'Site ID', column: 20 },      // T
-  { key: 'contactStatus', header: 'contactStatus', column: 21 },           // U
-  { key: 'draftStatus', header: 'draftStatus', column: 22 },               // V
-  { key: 'lastContactedDate', header: 'lastContactedDate', column: 23 },   // W
-  { key: 'nextFollowUpDate', header: 'nextFollowUpDate', column: 24 },     // X
-  { key: 'doNotContact', header: 'doNotContact', column: 25 }              // Y
+  { key: 'siteId', header: 'Site ID', column: 20 }       // T
 ];
+
+var BOOKING_GENERATED_COLUMNS = [
+  { key: 'contactStatus', header: 'contactStatus' },
+  { key: 'draftStatus', header: 'draftStatus' },
+  { key: 'lastContactedDate', header: 'lastContactedDate' },
+  { key: 'nextFollowUpDate', header: 'nextFollowUpDate' },
+  { key: 'doNotContact', header: 'doNotContact' }
+];
+
+var GENERATED_COLUMNS = MAP_GENERATED_COLUMNS.concat(BOOKING_GENERATED_COLUMNS);
 
 var OUTPUT_COLUMNS = [
   'id',
@@ -209,6 +212,21 @@ function makeHeaderMap_(headers) {
   return map;
 }
 
+function findHeaderColumn_(headers, header) {
+  var target = normalizeHeader_(header);
+  for (var index = 0; index < headers.length; index++) {
+    if (normalizeHeader_(headers[index]) === target) return index + 1;
+  }
+  return 0;
+}
+
+function appendGeneratedHeader_(sheet, headers, header) {
+  var column = headers.length + 1;
+  sheet.getRange(1, column).setValue(header);
+  headers.push(header);
+  return column;
+}
+
 function getByHeader_(row, headerMap, header) {
   var index = headerMap[normalizeHeader_(header)];
   if (index === undefined || index < 0) return '';
@@ -223,18 +241,48 @@ function setByHeader_(rowValues, headerMap, header, value) {
 
 function ensureGeneratedColumns_() {
   var sheet = getSheet_();
-  var maxColumns = Math.max(sheet.getLastColumn(), GENERATED_COLUMNS[GENERATED_COLUMNS.length - 1].column);
+  var maxPreferredColumn = MAP_GENERATED_COLUMNS.reduce(function(max, columnSpec) {
+    return Math.max(max, columnSpec.column || 0);
+  }, 0);
+  var maxColumns = Math.max(sheet.getLastColumn(), maxPreferredColumn, 1);
   var headerRange = sheet.getRange(1, 1, 1, maxColumns);
   var headers = headerRange.getValues()[0].map(clean_);
   var changed = [];
+  var preserved = [];
+  var resolvedColumns = [];
 
   GENERATED_COLUMNS.forEach(function(columnSpec) {
-    var index = columnSpec.column - 1;
-    if (headers[index] !== columnSpec.header) {
-      sheet.getRange(1, columnSpec.column).setValue(columnSpec.header);
-      headers[index] = columnSpec.header;
-      changed.push(columnSpec.header);
+    var existingColumn = findHeaderColumn_(headers, columnSpec.header);
+    if (existingColumn) {
+      resolvedColumns.push(Object.assign({}, columnSpec, { column: existingColumn }));
+      return;
     }
+
+    if (columnSpec.column) {
+      var index = columnSpec.column - 1;
+      if (!headers[index]) {
+        sheet.getRange(1, columnSpec.column).setValue(columnSpec.header);
+        headers[index] = columnSpec.header;
+        changed.push(columnSpec.header);
+        resolvedColumns.push(Object.assign({}, columnSpec, { column: columnSpec.column }));
+        return;
+      }
+
+      var appendedFixedColumn = appendGeneratedHeader_(sheet, headers, columnSpec.header);
+      changed.push(columnSpec.header);
+      preserved.push({
+        header: columnSpec.header,
+        preferredColumn: columnSpec.column,
+        existingHeader: headers[index],
+        actualColumn: appendedFixedColumn
+      });
+      resolvedColumns.push(Object.assign({}, columnSpec, { column: appendedFixedColumn }));
+      return;
+    }
+
+    var appendedColumn = appendGeneratedHeader_(sheet, headers, columnSpec.header);
+    changed.push(columnSpec.header);
+    resolvedColumns.push(Object.assign({}, columnSpec, { column: appendedColumn }));
   });
 
   return {
@@ -242,7 +290,8 @@ function ensureGeneratedColumns_() {
     schemaVersion: JDDM_SCHEMA_VERSION,
     sheetName: sheet.getName(),
     changedHeaders: changed,
-    columns: GENERATED_COLUMNS
+    preservedHeaders: preserved,
+    columns: resolvedColumns
   };
 }
 
