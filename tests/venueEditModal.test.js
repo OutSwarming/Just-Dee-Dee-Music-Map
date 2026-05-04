@@ -69,7 +69,8 @@ test('venue editor always exposes generated booking CRM fields', () => {
         'nextFollowUpDate',
         'doNotContact',
         'priority',
-        'bestFitScore'
+        'bestFitScore',
+        'websiteBookingEvents'
     ].includes(header)), [
         'contactStatus',
         'draftStatus',
@@ -77,7 +78,8 @@ test('venue editor always exposes generated booking CRM fields', () => {
         'nextFollowUpDate',
         'doNotContact',
         'priority',
-        'bestFitScore'
+        'bestFitScore',
+        'websiteBookingEvents'
     ]);
 });
 
@@ -93,6 +95,7 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
         nextFollowUpDate: '2026-05-11',
         priority: '8',
         bestFitScore: '9',
+        websiteBookingEvents: '2026-05-06 7:00pm Brighten Brewing Company',
         doNotContact: 'Yes',
         Played: '',
         'private event': ''
@@ -115,6 +118,7 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
     assert.equal(fields.nextFollowUpDate, '2026-05-11');
     assert.equal(fields.priority, '8');
     assert.equal(fields.bestFitScore, '9');
+    assert.equal(fields.websiteBookingEvents, '2026-05-06 7:00pm Brighten Brewing Company');
     assert.equal(fields.doNotContact, true);
     assert.equal(fields.played, false);
     assert.equal(fields.privateEvent, false);

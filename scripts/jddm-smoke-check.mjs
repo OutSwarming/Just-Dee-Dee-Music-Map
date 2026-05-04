@@ -61,10 +61,12 @@ assertCheck('Booking planner bottom-nav badge exists', /id="booking-planner-badg
 assertCheck('Manifest is rebranded', /Just Dee Dee Music Live Map/i.test(manifest) && /JDDM Map/i.test(manifest));
 assertCheck('Booking schema module is loaded', /modules\/bookingSchema\.js/.test(indexHtml));
 assertCheck('Booking actions module is loaded', /modules\/bookingActions\.js/.test(indexHtml));
+assertCheck('Website booking service module is loaded', /modules\/websiteBookingsService\.js/.test(indexHtml));
 assertCheck('Booking dashboard module is loaded', /modules\/bookingDashboard\.js/.test(indexHtml));
 assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(bookingActions) && /savePriorityScore/.test(bookingActions));
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
+assertCheck('Apps Script website event staging action exists', /stageWebsiteBookingEvents/.test(bridge) && /websiteBookingEvents/.test(bridge));
 
 const dashboardVersion = matchVersion(
     bookingDashboard,
@@ -89,10 +91,18 @@ assertCheck(
     'nextFollowUpDate',
     'doNotContact',
     'priority',
-    'bestFitScore'
+    'bestFitScore',
+    'websiteBookingEvents'
 ].forEach((header) => {
     assertCheck(`Bridge/dashboard require ${header}`, bridge.includes(header) && bookingDashboard.includes(header));
 });
+
+assertCheck('Website event planner tabs exist', /websiteUpcoming/.test(bookingDashboard) && /websitePast/.test(bookingDashboard));
+assertCheck(
+    'Staged website booking data files exist',
+    fs.existsSync(path.join(ROOT, 'data/staged/jddm-website-bookings-future.json')) &&
+    fs.existsSync(path.join(ROOT, 'data/staged/jddm-website-booking-history.json'))
+);
 
 assertCheck('Unit test script exists', Boolean(packageJson.scripts && packageJson.scripts.test));
 assertCheck('JDDM smoke script is registered', packageJson.scripts['test:smoke:jddm'] === 'node scripts/jddm-smoke-check.mjs');

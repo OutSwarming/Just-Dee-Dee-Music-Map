@@ -27,6 +27,7 @@
         'doNotContact',
         'priority',
         'bestFitScore',
+        'websiteBookingEvents',
         'Yearly Booking',
         'Notes',
         'Longitude',
@@ -41,7 +42,8 @@
         'nextFollowUpDate',
         'doNotContact',
         'priority',
-        'bestFitScore'
+        'bestFitScore',
+        'websiteBookingEvents'
     ];
 
     let activeVenue = null;
@@ -169,7 +171,7 @@
         if (normalized === 'draftstatus') return 'draftStatus';
         if (normalized === 'donotcontact' || normalized === 'dnc') return 'checkbox';
         if (normalized === 'lastcontacteddate' || normalized === 'nextfollowupdate') return 'date';
-        if (normalized === 'notes' || normalized === 'privatenotes') return 'textarea';
+        if (normalized === 'notes' || normalized === 'privatenotes' || normalized === 'websitebookingevents') return 'textarea';
         return 'text';
     }
 
@@ -349,6 +351,7 @@
             nextFollowUpDate: getOptionalRawField(rawFields, ['nextFollowUpDate', 'next follow up date', 'next follow-up date'], venue.nextFollowUpDate),
             priority: getOptionalRawField(rawFields, ['priority', 'Priority', 'Rank'], venue.priority),
             bestFitScore: getOptionalRawField(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], venue.bestFitScore),
+            websiteBookingEvents: getOptionalRawField(rawFields, ['websiteBookingEvents', 'website booking events'], venue.websiteBookingEvents),
             doNotContact: getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], venue.doNotContact)
         };
     }
@@ -387,6 +390,7 @@
                 nextFollowUpDate: fields.nextFollowUpDate,
                 priority: fields.priority,
                 bestFitScore: fields.bestFitScore,
+                websiteBookingEvents: fields.websiteBookingEvents,
                 doNotContact: Boolean(fields.doNotContact),
                 info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
             };

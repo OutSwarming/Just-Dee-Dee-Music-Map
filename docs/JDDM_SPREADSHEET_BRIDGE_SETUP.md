@@ -40,7 +40,7 @@ Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has generated coordinates
 
 ## 4. Generated Map Columns
 
-The bridge owns these generated columns:
+The bridge owns these generated map columns:
 
 - Column R: `Longitude`
 - Column S: `Latitude`
@@ -56,6 +56,23 @@ After pasting the latest `Code.gs`, run this once in Apps Script:
 4. Reload the spreadsheet.
 
 New or edited rows will then auto-fill columns R/S/T.
+
+## 5. Booking CRM Columns
+
+The bridge appends these booking columns when missing. It does not insert them into the middle of existing spreadsheet data:
+
+- `contactStatus`
+- `draftStatus`
+- `lastContactedDate`
+- `nextFollowUpDate`
+- `doNotContact`
+- `priority`
+- `bestFitScore`
+- `websiteBookingEvents`
+
+`websiteBookingEvents` is a holding column for reviewed website calendar events before a real merge. The bridge includes a `stageWebsiteBookingEvents` action that defaults to dry-run mode and writes only that holding column when explicitly run with `dryRun: false`.
+
+## Coordinate Import
 
 For the initial migration from the checked-in map CSV, run a 5-row test from this repo after the new Apps Script deployment is live:
 
@@ -120,6 +137,14 @@ The map also supports normalized columns if they are added later:
 - `upcoming event date`
 - `upcoming event time`
 - `private event`
+- `contactStatus`
+- `draftStatus`
+- `lastContactedDate`
+- `nextFollowUpDate`
+- `doNotContact`
+- `priority`
+- `bestFitScore`
+- `websiteBookingEvents`
 
 ## Test
 

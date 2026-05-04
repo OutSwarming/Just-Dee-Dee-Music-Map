@@ -212,22 +212,24 @@ function parseLocation(location) {
         .replace(/\s*,\s*/g, ', ')
         .replace(/,\s*OH,\s*United States,\s*Ohio\s+(\d{5}(?:-\d{4})?)/i, ', OH $1')
         .replace(/,\s*United States,\s*Ohio\s+(\d{5}(?:-\d{4})?)/i, ', OH $1')
+        .replace(/,\s*OH,\s*United States,\s*Ohio\b/i, ', OH')
         .replace(/,\s*United States,\s*Ohio\b/i, ', OH');
 
     if (!normalized) {
         return { address: '', city: '', state: '', zip: '' };
     }
 
-    const zipMatch = normalized.match(/\b(?:(OH|Ohio)\s*)?(\d{5}(?:-\d{4})?)\b/i);
+    const trailingStateZipMatch = normalized.match(/\b([A-Z]{2}|Ohio)\s+(\d{5}(?:-\d{4})?)\s*$/i);
+    const trailingZipMatch = normalized.match(/\b(\d{5}(?:-\d{4})?)\s*$/i);
     const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean);
-    let state = zipMatch && zipMatch[1] ? normalizeState(zipMatch[1]) : '';
-    let zip = zipMatch ? zipMatch[2] : '';
+    let state = trailingStateZipMatch ? normalizeState(trailingStateZipMatch[1]) : '';
+    let zip = trailingStateZipMatch ? trailingStateZipMatch[2] : (trailingZipMatch ? trailingZipMatch[1] : '');
     let city = '';
     let address = normalized;
 
     if (parts.length >= 3) {
         const stateZipPart = parts[parts.length - 1];
-        const stateZipMatch = stateZipPart.match(/\b([A-Z]{2}|Ohio)?\s*(\d{5}(?:-\d{4})?)?\b/i);
+        const stateZipMatch = stateZipPart.match(/^\s*([A-Z]{2}|Ohio)?\s*(\d{5}(?:-\d{4})?)?\s*$/i);
         city = parts[parts.length - 2] || '';
         address = parts.slice(0, -2).join(', ');
         state = state || normalizeState(stateZipMatch && stateZipMatch[1]);

@@ -20,11 +20,13 @@ async function main() {
         throw new Error(`Website calendar request failed: ${response.status} ${response.statusText}`);
     }
 
+    const pulledAt = new Date().toISOString();
     const html = await response.text();
     const parsedBookings = parseJddmWebsiteBookings(html, {
         sourceUrl: url,
         year: options.year,
-        now: options.now
+        now: options.now,
+        sourceCapturedAt: pulledAt
     });
     const bookings = options.includePast
         ? parsedBookings
@@ -32,7 +34,7 @@ async function main() {
     const payload = {
         ok: true,
         sourceUrl: url,
-        pulledAt: new Date().toISOString(),
+        pulledAt,
         mode: options.includePast ? 'all-events' : 'future-events',
         count: bookings.length,
         bookings

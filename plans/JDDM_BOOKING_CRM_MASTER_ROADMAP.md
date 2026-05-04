@@ -19,14 +19,16 @@ Done:
 - Status actions exist for Draft Ready, Mark Sent, Interested, Booked, Not a Fit, and Do Not Contact.
 - Manual follow-up date control exists.
 - Priority and Best Fit scoring controls exist.
-- Apps Script safe-column logic now includes `contactStatus`, `draftStatus`, `lastContactedDate`, `nextFollowUpDate`, `doNotContact`, `priority`, and `bestFitScore`.
+- Apps Script safe-column logic now includes `contactStatus`, `draftStatus`, `lastContactedDate`, `nextFollowUpDate`, `doNotContact`, `priority`, `bestFitScore`, and `websiteBookingEvents`.
 - Public Just Dee Dee website booking pull/preview script exists for future event review.
 - Public website/archive past booking history is staged in JSON and CSV for later Sheet merge review.
+- Booking Planner includes `Website Future` and `Website Past` tabs that read staged website booking files without merging them into the Sheet.
+- Apps Script includes a dry-run-first `stageWebsiteBookingEvents` action to write approved website events only into the `websiteBookingEvents` holding column.
 - Automated checks include booking tests and the JDDM smoke gate.
 
 Not done yet:
 
-- Live Apps Script redeploy for the newest `priority` / `bestFitScore` bridge schema.
+- Live Apps Script redeploy for the newest `websiteBookingEvents` bridge schema.
 - Real Google Sheet write QA on a disposable test venue row.
 - Sheet merge workflow for approved website future/past bookings.
 - Tester bug sweep.
@@ -91,6 +93,7 @@ The current app and bridge actively support this first safe booking-column set:
 - `doNotContact`
 - `priority`
 - `bestFitScore`
+- `websiteBookingEvents`
 
 These future fields remain part of the larger CRM model and can be added after testing proves the first set:
 
@@ -139,6 +142,7 @@ These future fields remain part of the larger CRM model and can be added after t
 - Missing email should show `Missing contact info` and suppress email actions.
 - `doNotContact` rows must not appear in outreach lists.
 - Private events must be clearly marked before any dashboard filters hide them.
+- Website future/past booking records stay in staged JSON until reviewed; the `websiteBookingEvents` Sheet column is a holding area, not the final merge.
 - Row number can be used only as a lookup fallback, never as the permanent ID.
 - All dashboard writes must be idempotent and write only the intended row.
 
@@ -240,8 +244,10 @@ Work:
 - Normalize date, time, venue, location, private/public placeholder flags, and notes.
 - Deduplicate obvious duplicate website calendar entries.
 - Keep output as review JSON until a merge workflow is approved.
+- Show staged future events in `Website Future` and recovered past events in `Website Past`.
+- Prepare the `websiteBookingEvents` Sheet holding column and dry-run staging action for review-before-merge imports.
 
-Deliverable: `npm run bookings:website:preview` shows future booking records and `npm run bookings:website:history` stages recoverable past booking history for review.
+Deliverable: `npm run bookings:website:preview` shows future booking records, `npm run bookings:website:history` stages recoverable past booking history for review, and the Booking Planner can display both sets.
 
 ### Phase 6 - Tester QA + Bug Fixing
 
@@ -457,10 +463,12 @@ rg -n "LEMONSQUEEZY|paywall-title|Upgrade" index.html modules services tests pac
 | JDDM-027 | Tester QA pass | P1 | 6 | Next | Owner tests core workflows and logs bugs |
 | JDDM-028 | Bug fix pass | P1 | 6 | Next | P0/P1 bugs from tester QA are fixed and pushed |
 | JDDM-029 | UI redesign pass | P1 | 7 | Later | Map/planner/account feel polished on desktop and mobile |
-| JDDM-030 | Live Apps Script redeploy | P0 | 6 | Needs Owner | Live bridge reports `2026-05-04-priority-scoring` |
+| JDDM-030 | Live Apps Script redeploy | P0 | 6 | Needs Owner | Live bridge reports `2026-05-04-website-events-staging` |
 | JDDM-031 | Website booking pull preview | P1 | 5A | Done | Public website calendar produces future normalized booking records without Sheet writes |
 | JDDM-032 | Approved website booking Sheet merge | P1 | 5A | Backlog | Reviewed website bookings can update matching venue/event fields safely |
 | JDDM-033 | Website/archive past booking staging | P1 | 5A | Done | Public website/archive sources stage past booking JSON/CSV without Sheet writes |
+| JDDM-034 | Website bookings in planner | P1 | 5A | Done | Future and past staged website bookings appear in Booking Planner tabs |
+| JDDM-035 | Website event holding column | P1 | 5A | Done Locally | Apps Script can create `websiteBookingEvents` and dry-run stage matched events before merge |
 
 ## Bug Tracker Categories
 
@@ -484,7 +492,7 @@ Do not build handoff docs yet. The next useful pass is tester QA plus bug triage
 2. Start the local preview server.
 3. Test the app signed out first.
 4. Test the map, marker details, planner tabs, search, email copy, mailto draft, status actions, follow-up date, and priority score.
-5. If Apps Script has not been redeployed, do not trust live score/status writes yet.
+5. If Apps Script has not been redeployed, do not trust live score/status/website event staging writes yet.
 6. After Apps Script is redeployed, test exactly one disposable venue row before changing real venue data.
 7. Log every bug in the tester template above.
 8. Fix P0/P1 bugs before UI redesign.

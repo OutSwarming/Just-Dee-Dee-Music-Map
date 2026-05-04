@@ -29,8 +29,14 @@ node scripts/pull-jddm-website-bookings.mjs --json
 To save a review file:
 
 ```sh
-node scripts/pull-jddm-website-bookings.mjs --out data/jddm-website-bookings-preview.json
+node scripts/pull-jddm-website-bookings.mjs --out data/staged/jddm-website-bookings-future.json
 ```
+
+Current staged future output:
+
+- `data/staged/jddm-website-bookings-future.json`
+
+The Booking Planner now reads this file directly and shows it in the `Website Future` tab. This is still staged review data, not merged Sheet data.
 
 ## Past Booking History Staging
 
@@ -51,7 +57,17 @@ Current staged outputs:
 - `data/staged/jddm-website-booking-history.json`
 - `data/staged/jddm-website-booking-history.csv`
 
-The staged history currently contains 33 past events recovered from public sources, covering `2025-10-18` through `2026-04-26`. No Google Sheet merge has happened yet.
+The staged history currently contains 33 past events recovered from public sources, covering `2025-10-18` through `2026-04-26`. The Booking Planner reads the JSON file directly and shows it in the `Website Past` tab. No Google Sheet merge has happened yet.
+
+## Spreadsheet Staging Column
+
+The Apps Script bridge now prepares a safe holding column named:
+
+- `websiteBookingEvents`
+
+This column is meant for review/staging before a real merge. The bridge also includes a `stageWebsiteBookingEvents` action that can match approved website events to existing venue rows and write only this one holding column.
+
+Default behavior is `dryRun`, so it reports matches without writing unless the caller explicitly sends `dryRun: false`. Private events and public placeholders are skipped unless they have an explicit venue ID because they do not have enough public venue detail to merge safely.
 
 ## Normalized Fields
 

@@ -25,7 +25,7 @@ var JDDM_BRIDGE_CONFIG = {
   EDIT_TOKEN: '' // Optional prototype guard. If set, frontend token must match.
 };
 
-var JDDM_SCHEMA_VERSION = '2026-05-04-priority-scoring';
+var JDDM_SCHEMA_VERSION = '2026-05-04-website-events-staging';
 
 var MAP_GENERATED_COLUMNS = [
   { key: 'longitude', header: 'Longitude', column: 18 }, // R
@@ -40,7 +40,8 @@ var BOOKING_GENERATED_COLUMNS = [
   { key: 'nextFollowUpDate', header: 'nextFollowUpDate' },
   { key: 'doNotContact', header: 'doNotContact' },
   { key: 'priority', header: 'priority' },
-  { key: 'bestFitScore', header: 'bestFitScore' }
+  { key: 'bestFitScore', header: 'bestFitScore' },
+  { key: 'websiteBookingEvents', header: 'websiteBookingEvents' }
 ];
 
 var GENERATED_COLUMNS = MAP_GENERATED_COLUMNS.concat(BOOKING_GENERATED_COLUMNS);
@@ -68,7 +69,8 @@ var OUTPUT_COLUMNS = [
   'nextFollowUpDate',
   'doNotContact',
   'priority',
-  'bestFitScore'
+  'bestFitScore',
+  'websiteBookingEvents'
 ];
 
 var CATEGORY_NAMES = [
@@ -132,6 +134,10 @@ function routeRequest_(payload) {
 
     if (action === 'importCoordinates') {
       return jsonOutput_(importCoordinates_(payload));
+    }
+
+    if (action === 'stageWebsiteBookingEvents') {
+      return jsonOutput_(stageWebsiteBookingEvents_(payload));
     }
 
     if (action === 'getVenue') {
@@ -511,6 +517,7 @@ function normalizeRow_(row, headerMap, id) {
   var nextFollowUpDate = getByHeader_(row, headerMap, 'nextFollowUpDate');
   var priority = getByHeader_(row, headerMap, 'priority') || getByHeader_(row, headerMap, 'Rank');
   var bestFitScore = getByHeader_(row, headerMap, 'bestFitScore') || getByHeader_(row, headerMap, 'best fit score');
+  var websiteBookingEvents = getByHeader_(row, headerMap, 'websiteBookingEvents') || getByHeader_(row, headerMap, 'website booking events');
   var doNotContact = normalizeBoolean_(
     getByHeader_(row, headerMap, 'doNotContact') ||
     getByHeader_(row, headerMap, 'DNC') ||
@@ -540,7 +547,8 @@ function normalizeRow_(row, headerMap, id) {
     nextFollowUpDate: nextFollowUpDate,
     priority: priority,
     bestFitScore: bestFitScore,
-    doNotContact: doNotContact
+    doNotContact: doNotContact,
+    websiteBookingEvents: websiteBookingEvents
   };
 }
 
@@ -620,7 +628,8 @@ function normalizedToClientVenue_(venue) {
     nextFollowUpDate: venue.nextFollowUpDate,
     priority: venue.priority,
     bestFitScore: venue.bestFitScore,
-    doNotContact: normalizeBoolean_(venue.doNotContact)
+    doNotContact: normalizeBoolean_(venue.doNotContact),
+    websiteBookingEvents: venue.websiteBookingEvents
   };
 }
 
@@ -714,6 +723,9 @@ function writeVenueFields_(rowValues, headerMap, venue, rawFields) {
   if (Object.prototype.hasOwnProperty.call(venue, 'bestFitScore')) {
     setByHeader_(rowValues, headerMap, 'bestFitScore', clean_(venue.bestFitScore));
     setByHeader_(rowValues, headerMap, 'best fit score', clean_(venue.bestFitScore));
+  }
+  if (Object.prototype.hasOwnProperty.call(venue, 'websiteBookingEvents')) {
+    setByHeader_(rowValues, headerMap, 'websiteBookingEvents', clean_(venue.websiteBookingEvents));
   }
 }
 
@@ -860,6 +872,274 @@ function importCoordinates_(payload) {
     updatedRows: updated,
     missingIds: missing.slice(0, 50)
   };
+}
+
+function stageWebsiteBookingEvents_(payload) {
+  ensureGeneratedColumns_();
+  var events = payload && Array.isArray(payload.events) ? payload.events : [];
+  if (!events.length) {
+    return { ok: false, code: 'NO_EVENTS', message: 'No website booking events were provided.' };
+  }
+
+  var data = getIndexedRows_();
+  var matchIndex = buildWebsiteBookingMatchIndex_(data.indexed);
+  var grouped = {};
+  var matched = [];
+  var unmatched = [];
+  var dryRun = !payload || payload.dryRun !== false;
+  var format = payload && payload.format === 'json' ? 'json' : 'text';
+  var mode = payload && payload.mode === 'append' ? 'append' : 'replace';
+  var limit = Math.max(1, Math.min(Number(payload && payload.limit || events.length), 1000));
+
+  events.slice(0, limit).forEach(function(event, index) {
+    var match = findWebsiteBookingVenueMatch_(event, matchIndex);
+    var stagedEvent = normalizeWebsiteBookingEventForSheet_(event);
+
+    if (!match) {
+      unmatched.push({
+        eventIndex: index,
+        eventDate: stagedEvent.eventDate,
+        eventTime: stagedEvent.eventTime,
+        venueName: stagedEvent.venueName,
+        location: stagedEvent.location,
+        reason: 'NO_CONFIDENT_VENUE_MATCH'
+      });
+      return;
+    }
+
+    if (!grouped[match.item.id]) {
+      grouped[match.item.id] = {
+        item: match.item,
+        events: []
+      };
+    }
+
+    grouped[match.item.id].events.push(stagedEvent);
+    matched.push({
+      eventIndex: index,
+      id: match.item.id,
+      rowNumber: match.item.rowNumber,
+      venueName: match.item.venue['venue name'],
+      matchType: match.matchType
+    });
+  });
+
+  var updatedRows = [];
+  if (!dryRun) {
+    Object.keys(grouped).forEach(function(id) {
+      var group = grouped[id];
+      var rowValues = group.item.row.slice();
+      while (rowValues.length < data.headers.length) rowValues.push('');
+
+      var stagedEvents = group.events;
+      if (mode === 'append') {
+        stagedEvents = dedupeWebsiteBookingEventsForSheet_(
+          parseWebsiteBookingEventsCell_(getByHeader_(rowValues, data.headerMap, 'websiteBookingEvents')).concat(stagedEvents)
+        );
+      }
+
+      setByHeader_(
+        rowValues,
+        data.headerMap,
+        'websiteBookingEvents',
+        formatWebsiteBookingEventsForCell_(stagedEvents, format)
+      );
+      data.sheet.getRange(group.item.rowNumber, 1, 1, data.headers.length).setValues([rowValues]);
+      updatedRows.push({
+        id: id,
+        rowNumber: group.item.rowNumber,
+        eventCount: stagedEvents.length
+      });
+    });
+  }
+
+  return {
+    ok: true,
+    action: 'stageWebsiteBookingEvents',
+    dryRun: dryRun,
+    mode: mode,
+    format: format,
+    stagedColumn: 'websiteBookingEvents',
+    receivedCount: events.length,
+    consideredCount: Math.min(events.length, limit),
+    matchedCount: matched.length,
+    unmatchedCount: unmatched.length,
+    updatedRowCount: updatedRows.length,
+    matchedRows: matched.slice(0, 50),
+    updatedRows: updatedRows,
+    unmatchedEvents: unmatched.slice(0, 50)
+  };
+}
+
+function buildWebsiteBookingMatchIndex_(indexedRows) {
+  var index = {
+    byId: {},
+    byVenueCity: {},
+    byAddressCity: {},
+    byVenueName: {}
+  };
+
+  indexedRows.forEach(function(item) {
+    var venue = item.venue || {};
+    var venueName = venue['venue name'];
+    var city = venue.city;
+    var address = venue.address;
+
+    index.byId[item.id] = item;
+    addWebsiteBookingMatchCandidate_(index.byVenueCity, websiteBookingMatchKey_(venueName, city), item);
+    addWebsiteBookingMatchCandidate_(index.byAddressCity, websiteBookingMatchKey_(address, city), item);
+    addWebsiteBookingMatchCandidate_(index.byVenueName, websiteBookingTextKey_(venueName), item);
+  });
+
+  return index;
+}
+
+function addWebsiteBookingMatchCandidate_(bucket, key, item) {
+  if (!key) return;
+  if (!bucket[key]) bucket[key] = [];
+  bucket[key].push(item);
+}
+
+function findWebsiteBookingVenueMatch_(event, matchIndex) {
+  var siteId = clean_(event && (event.siteId || event.venueId || event.id));
+  if (siteId && matchIndex.byId[siteId]) {
+    return { item: matchIndex.byId[siteId], matchType: 'id' };
+  }
+
+  if (isPlaceholderWebsiteBookingEvent_(event)) return null;
+
+  var venueName = clean_(event && event.venueName);
+  var city = clean_(event && event.city);
+  var address = clean_(event && event.address);
+  var candidates = [
+    ['venue-city', matchIndex.byVenueCity[websiteBookingMatchKey_(venueName, city)]],
+    ['address-city', matchIndex.byAddressCity[websiteBookingMatchKey_(address, city)]],
+    ['venue-name', matchIndex.byVenueName[websiteBookingTextKey_(venueName)]]
+  ];
+
+  for (var index = 0; index < candidates.length; index++) {
+    var matchType = candidates[index][0];
+    var rows = candidates[index][1] || [];
+    if (rows.length === 1) {
+      return { item: rows[0], matchType: matchType };
+    }
+  }
+
+  return null;
+}
+
+function isPlaceholderWebsiteBookingEvent_(event) {
+  var venueName = clean_(event && event.venueName).toLowerCase();
+  return Boolean(
+    event && (event.isPrivateEvent || event.isPublicPlaceholder) ||
+    venueName === 'private event' ||
+    venueName === 'scheduled public event'
+  );
+}
+
+function normalizeWebsiteBookingEventForSheet_(event) {
+  return {
+    eventId: clean_(event && event.eventId),
+    eventDate: clean_(event && event.eventDate),
+    eventDay: clean_(event && event.eventDay),
+    eventTime: clean_(event && event.eventTime),
+    eventEndTime: clean_(event && event.eventEndTime),
+    title: clean_(event && event.title),
+    venueName: clean_(event && event.venueName),
+    venueType: clean_(event && event.venueType),
+    location: clean_(event && event.location),
+    address: clean_(event && event.address),
+    city: clean_(event && event.city),
+    state: clean_(event && event.state),
+    zip: clean_(event && event.zip),
+    isPrivateEvent: Boolean(event && event.isPrivateEvent),
+    isPublicPlaceholder: Boolean(event && event.isPublicPlaceholder),
+    sourceUrl: clean_(event && event.sourceUrl),
+    sourceCapturedAt: clean_(event && event.sourceCapturedAt),
+    notes: clean_(event && event.notes)
+  };
+}
+
+function formatWebsiteBookingEventsForCell_(events, format) {
+  var deduped = dedupeWebsiteBookingEventsForSheet_(events);
+  if (format === 'json') return JSON.stringify(deduped);
+
+  return deduped.map(function(event) {
+    var timeRange = [event.eventTime, event.eventEndTime].filter(Boolean).join('-');
+    return [
+      event.eventDate,
+      timeRange,
+      event.title || event.venueName,
+      event.location,
+      event.sourceUrl
+    ].filter(Boolean).join(' | ');
+  }).join('\n');
+}
+
+function parseWebsiteBookingEventsCell_(value) {
+  var text = clean_(value);
+  if (!text) return [];
+
+  if (text.charAt(0) === '[') {
+    try {
+      var parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeWebsiteBookingEventForSheet_);
+      }
+    } catch (error) {
+      return [];
+    }
+  }
+
+  return text.split(/\n+/).map(function(line) {
+    var parts = line.split('|').map(clean_);
+    return normalizeWebsiteBookingEventForSheet_({
+      eventDate: parts[0],
+      eventTime: parts[1],
+      title: parts[2],
+      location: parts[3],
+      sourceUrl: parts[4]
+    });
+  }).filter(function(event) {
+    return event.eventDate || event.title || event.location;
+  });
+}
+
+function dedupeWebsiteBookingEventsForSheet_(events) {
+  var seen = {};
+  var deduped = [];
+
+  events.forEach(function(event) {
+    var normalized = normalizeWebsiteBookingEventForSheet_(event);
+    var key = [
+      normalized.eventDate,
+      normalized.eventTime,
+      websiteBookingTextKey_(normalized.venueName || normalized.title),
+      websiteBookingTextKey_(normalized.location)
+    ].join('|');
+
+    if (seen[key]) return;
+    seen[key] = true;
+    deduped.push(normalized);
+  });
+
+  return deduped;
+}
+
+function websiteBookingMatchKey_(primary, secondary) {
+  var first = websiteBookingTextKey_(primary);
+  var second = websiteBookingTextKey_(secondary);
+  return first && second ? first + '|' + second : '';
+}
+
+function websiteBookingTextKey_(value) {
+  return clean_(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\b(the|and|llc|inc)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildNormalizedCsv_() {

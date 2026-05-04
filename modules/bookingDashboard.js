@@ -12,13 +12,15 @@
         { id: 'interested', label: 'Interested' },
         { id: 'booked', label: 'Booked' },
         { id: 'upcomingGigs', label: 'Upcoming Gigs' },
+        { id: 'websiteUpcoming', label: 'Website Future' },
+        { id: 'websitePast', label: 'Website Past' },
         { id: 'postGigFollowUps', label: 'Post-Gig Follow-Up' },
         { id: 'missingInfo', label: 'Missing Info' },
         { id: 'notAFit', label: 'Not a Fit' },
         { id: 'doNotContact', label: 'Do Not Contact' }
     ];
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-priority-scoring';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-website-events-staging';
     const REQUIRED_BOOKING_HEADERS = [
         'contactStatus',
         'draftStatus',
@@ -26,7 +28,8 @@
         'nextFollowUpDate',
         'doNotContact',
         'priority',
-        'bestFitScore'
+        'bestFitScore',
+        'websiteBookingEvents'
     ];
 
     let activeTab = 'today';
@@ -77,13 +80,33 @@
         return window.BARK.services && window.BARK.services.spreadsheet;
     }
 
+    function getWebsiteBookingsService() {
+        return window.BARK.websiteBookings;
+    }
+
     function getDashboardData() {
         const repo = getRepo();
         const schema = getSchema();
         const venues = repo && typeof repo.getAll === 'function' ? repo.getAll() : [];
-        return schema && typeof schema.getDashboardGroups === 'function'
+        const data = schema && typeof schema.getDashboardGroups === 'function'
             ? schema.getDashboardGroups(venues)
             : { today: [], followUps: [], newProspects: [], priorityLeads: [], interested: [], booked: [], upcomingGigs: [], postGigFollowUps: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
+        const websiteService = getWebsiteBookingsService();
+        const websiteGroups = websiteService && typeof websiteService.getWebsiteBookingGroups === 'function'
+            ? websiteService.getWebsiteBookingGroups()
+            : { all: [], upcoming: [], past: [], loading: false, loadedAt: null, error: null };
+
+        return {
+            ...data,
+            websiteUpcoming: websiteGroups.upcoming || [],
+            websitePast: websiteGroups.past || [],
+            websiteAll: websiteGroups.all || [],
+            websiteBookingsStatus: {
+                loading: Boolean(websiteGroups.loading),
+                loadedAt: websiteGroups.loadedAt || null,
+                error: websiteGroups.error || null
+            }
+        };
     }
 
     function qs(id) {
@@ -97,6 +120,18 @@
 
     function getVenueLocation(venue) {
         return [venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(', ') || 'Northeast Ohio';
+    }
+
+    function getEventLocation(event) {
+        return event.location || [event.address, event.city, event.state, event.zip].filter(Boolean).join(', ') || 'Location not published yet';
+    }
+
+    function isWebsiteEventTab(tabId) {
+        return tabId === 'websiteUpcoming' || tabId === 'websitePast';
+    }
+
+    function normalizeSearchText(value) {
+        return clean(value).toLowerCase();
     }
 
     function getBridgeGeneratedHeaders(health = {}) {
@@ -676,7 +711,9 @@
             ['Today', data.today.length],
             ['Follow-Ups', data.followUps.length],
             ['Prospects', data.newProspects.length],
-            ['Priority', data.priorityLeads.length]
+            ['Priority', data.priorityLeads.length],
+            ['Web Future', data.websiteUpcoming.length],
+            ['Web Past', data.websitePast.length]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -845,6 +882,125 @@
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
         `;
+    }
+
+    function formatWebsiteEventDate(event) {
+        return [event.eventDate, event.eventTime].filter(Boolean).join(' ');
+    }
+
+    function getSourceCountLabel(event) {
+        const sourceCount = (event.sourceUrls || []).length || (event.sourceUrl ? 1 : 0);
+        return `${sourceCount || 1} source${sourceCount === 1 ? '' : 's'}`;
+    }
+
+    function eventSearchText(event) {
+        return [
+            event.eventDate,
+            event.eventDay,
+            event.eventTime,
+            event.eventEndTime,
+            event.title,
+            event.venueName,
+            event.venueType,
+            event.location,
+            event.address,
+            event.city,
+            event.state,
+            event.zip,
+            event.notes,
+            event.isPrivateEvent ? 'private event' : '',
+            event.isPublicPlaceholder ? 'scheduled public event placeholder' : ''
+        ].map(normalizeSearchText).join(' ');
+    }
+
+    function filterWebsiteEvents(events, query) {
+        const normalizedQuery = normalizeSearchText(query);
+        if (!normalizedQuery) return events || [];
+        return (events || []).filter(event => eventSearchText(event).includes(normalizedQuery));
+    }
+
+    function normalizeMatchText(value) {
+        return clean(value)
+            .toLowerCase()
+            .replace(/&/g, ' and ')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function findMatchingVenueForEvent(event, data) {
+        if (!event || event.isPublicPlaceholder || event.isPrivateEvent) return null;
+        const venues = data && Array.isArray(data.all) ? data.all : [];
+        const eventVenue = normalizeMatchText(event.venueName);
+        const eventAddress = normalizeMatchText(event.address || event.location);
+        const eventCity = normalizeMatchText(event.city);
+        if (!eventVenue && !eventAddress) return null;
+
+        return venues.find(venue => {
+            const venueName = normalizeMatchText(venue.name);
+            const venueAddress = normalizeMatchText(venue.address);
+            const venueCity = normalizeMatchText(venue.city);
+            if (eventAddress && venueAddress && (eventAddress.includes(venueAddress) || venueAddress.includes(eventAddress))) return true;
+            if (!eventVenue || !venueName) return false;
+            const nameMatches = eventVenue === venueName || eventVenue.includes(venueName) || venueName.includes(eventVenue);
+            if (!nameMatches) return false;
+            return !eventCity || !venueCity || eventCity === venueCity;
+        }) || null;
+    }
+
+    function renderWebsiteEventCard(event, tabId, data) {
+        const matchedVenue = findMatchingVenueForEvent(event, data);
+        const statusClass = event.isPrivateEvent ? ' warm' : event.isPublicPlaceholder ? '' : ' success';
+        const sourceUrl = getExternalUrl(event.sourceUrl || (event.sourceUrls && event.sourceUrls[0]) || '');
+        const timingLabel = tabId === 'websitePast' ? 'Past website event' : 'Future website event';
+        const capturedLabel = (event.sourceCapturedAts || []).length
+            ? `Captured ${escapeHtml(clean(event.sourceCapturedAts[event.sourceCapturedAts.length - 1]).slice(0, 10))}`
+            : 'Website staged';
+
+        return `
+            <article class="booking-card website-event-card" data-website-event-id="${escapeHtml(event.id)}">
+                <div class="booking-card-main">
+                    <div>
+                        <p class="booking-card-eyebrow">${escapeHtml(timingLabel)}</p>
+                        <h3>${escapeHtml(event.venueName || event.title || 'Website Event')}</h3>
+                    </div>
+                    <span class="booking-status${statusClass}">${event.isPrivateEvent ? 'Private' : event.isPublicPlaceholder ? 'Placeholder' : 'Website'}</span>
+                </div>
+                <p class="booking-card-location">${escapeHtml(getEventLocation(event))}</p>
+                <div class="booking-card-meta">
+                    <span>${escapeHtml(formatWebsiteEventDate(event) || 'Date not set')}</span>
+                    ${event.eventEndTime ? `<span>Ends ${escapeHtml(event.eventEndTime)}</span>` : ''}
+                    <span>${escapeHtml(event.venueType || 'Other Venue')}</span>
+                    <span>${escapeHtml(getSourceCountLabel(event))}</span>
+                    <span>${capturedLabel}</span>
+                    ${matchedVenue ? '<span>Matched to map venue</span>' : '<span>Not merged to venue yet</span>'}
+                </div>
+                ${event.title && event.title !== event.venueName ? `<p class="website-event-title">${escapeHtml(event.title)}</p>` : ''}
+                ${event.notes ? `<p class="website-event-notes">${escapeHtml(event.notes)}</p>` : ''}
+                <div class="booking-card-actions">
+                    <button type="button" data-website-event-action="map" data-venue-id="${escapeHtml(matchedVenue ? matchedVenue.id : '')}"${matchedVenue ? '' : ' disabled'}>View Map</button>
+                    <button type="button" data-website-event-action="copy" data-event-id="${escapeHtml(event.id)}">Copy Event</button>
+                    ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Source</a>` : '<button type="button" disabled>Source</button>'}
+                </div>
+                <p class="booking-card-save-status" aria-live="polite"></p>
+            </article>
+        `;
+    }
+
+    function copyWebsiteEventInfo(event) {
+        const text = [
+            event.venueName || event.title || 'Website Event',
+            formatWebsiteEventDate(event),
+            event.eventEndTime ? `Ends: ${event.eventEndTime}` : '',
+            getEventLocation(event),
+            event.venueType ? `Type: ${event.venueType}` : '',
+            event.isPrivateEvent ? 'Private event' : '',
+            event.isPublicPlaceholder ? 'Website placeholder - venue/location needs review' : '',
+            event.sourceUrl ? `Source: ${event.sourceUrl}` : '',
+            event.notes || ''
+        ].filter(Boolean).join('\n');
+
+        return writeClipboardText(text);
     }
 
     function setCardSaveStatus(card, message, tone = 'neutral') {
@@ -1028,6 +1184,43 @@
         });
     }
 
+    function bindWebsiteEventActions(container, data) {
+        const eventsById = new Map((data.websiteAll || []).map(event => [event.id, event]));
+        const venuesById = new Map((data.all || []).map(venue => [venue.id, venue]));
+
+        container.querySelectorAll('[data-website-event-action]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const card = button.closest('.website-event-card');
+                if (button.dataset.websiteEventAction === 'map') {
+                    const venue = venuesById.get(button.dataset.venueId);
+                    if (venue) focusVenueOnMap(venue);
+                    return;
+                }
+
+                if (button.dataset.websiteEventAction === 'copy') {
+                    const event = eventsById.get(button.dataset.eventId);
+                    if (!event) return;
+                    const previousText = button.textContent;
+                    button.disabled = true;
+                    try {
+                        await copyWebsiteEventInfo(event);
+                        button.textContent = 'Copied';
+                        setCardSaveStatus(card, 'Website event copied.', 'success');
+                    } catch (error) {
+                        console.error('[bookingDashboard] website event copy failed:', error);
+                        button.textContent = 'Copy failed';
+                        setCardSaveStatus(card, 'Could not copy website event.', 'error');
+                    } finally {
+                        setTimeout(() => {
+                            button.textContent = previousText;
+                            button.disabled = false;
+                        }, 1400);
+                    }
+                }
+            });
+        });
+    }
+
     function renderList(data) {
         const list = qs('booking-planner-list');
         const empty = qs('booking-planner-empty');
@@ -1037,29 +1230,53 @@
 
         const schema = getSchema();
         const query = clean(searchQuery);
-        const sourceVenues = query ? (data.all || []) : (data[activeTab] || []);
+        const activeIsWebsiteEventTab = isWebsiteEventTab(activeTab);
+        const sourceVenues = query ? (data.all || []) : (activeIsWebsiteEventTab ? [] : (data[activeTab] || []));
         const venues = query && schema && typeof schema.filterVenues === 'function'
             ? schema.filterVenues(sourceVenues, query)
             : sourceVenues;
+        const sourceEvents = query ? (data.websiteAll || []) : (activeIsWebsiteEventTab ? (data[activeTab] || []) : []);
+        const events = filterWebsiteEvents(sourceEvents, query);
+        const rows = query
+            ? [...venues, ...events]
+            : activeIsWebsiteEventTab ? events : venues;
 
         if (searchStatus) {
             searchStatus.textContent = query
-                ? `${venues.length} result${venues.length === 1 ? '' : 's'} across all planner sections.`
+                ? `${rows.length} result${rows.length === 1 ? '' : 's'} across all planner sections and website events.`
                 : '';
         }
 
-        if (!venues.length) {
+        if (activeIsWebsiteEventTab && data.websiteBookingsStatus && data.websiteBookingsStatus.loading && !rows.length) {
+            list.innerHTML = '';
+            empty.hidden = false;
+            empty.textContent = 'Loading staged website events...';
+            return;
+        }
+
+        if (activeIsWebsiteEventTab && data.websiteBookingsStatus && data.websiteBookingsStatus.error && !rows.length) {
+            list.innerHTML = '';
+            empty.hidden = false;
+            empty.textContent = 'Website events are not available yet. Run the staging scripts or check the static data files.';
+            return;
+        }
+
+        if (!rows.length) {
             list.innerHTML = '';
             empty.hidden = false;
             empty.textContent = query
-                ? 'No venues match that search.'
-                : `No venues in ${tabLabel} right now.`;
+                ? 'No venues or website events match that search.'
+                : `No ${activeIsWebsiteEventTab ? 'website events' : 'venues'} in ${tabLabel} right now.`;
             return;
         }
 
         empty.hidden = true;
-        list.innerHTML = venues.slice(0, 80).map(venue => renderVenueCard(venue, activeTab)).join('');
+        list.innerHTML = rows.slice(0, 120).map(row => row && row.kind === 'websiteEvent'
+            ? renderWebsiteEventCard(row, activeTab, data)
+            : renderVenueCard(row, activeTab)
+        ).join('');
         bindCardActions(list, data);
+        bindWebsiteEventActions(list, data);
     }
 
     function updateBadge(data) {
@@ -1097,6 +1314,11 @@
             };
             renderVenueDataSync();
         });
+        if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.WEBSITE_BOOKINGS_SYNC_EVENT || 'jddm:website-bookings-sync', () => render());
+        const websiteService = getWebsiteBookingsService();
+        if (websiteService && typeof websiteService.loadWebsiteBookings === 'function') {
+            websiteService.loadWebsiteBookings(false).then(() => render()).catch(() => render());
+        }
         const repo = getRepo();
         if (repo && typeof repo.subscribe === 'function' && !unsubscribeRepo) {
             unsubscribeRepo = repo.subscribe(() => render());
@@ -1109,7 +1331,9 @@
         getDashboardData,
         getBridgeHealthSummary,
         getMissingBookingHeaders,
-        getDataFreshnessSummary
+        getDataFreshnessSummary,
+        filterWebsiteEvents,
+        findMatchingVenueForEvent
     };
 
     document.addEventListener('DOMContentLoaded', init);

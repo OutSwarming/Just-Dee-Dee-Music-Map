@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-05-04-priority-scoring',
+        schemaVersion: '2026-05-04-website-events-staging',
         generatedColumns: [
             { header: 'Longitude' },
             { header: 'Latitude' },
@@ -67,7 +67,8 @@ function safeHealth(overrides = {}) {
             { header: 'nextFollowUpDate' },
             { header: 'doNotContact' },
             { header: 'priority' },
-            { header: 'bestFitScore' }
+            { header: 'bestFitScore' },
+            { header: 'websiteBookingEvents' }
         ],
         ...overrides
     };
@@ -122,7 +123,8 @@ test('booking dashboard identifies missing CRM headers from bridge health', () =
         'nextFollowUpDate',
         'doNotContact',
         'priority',
-        'bestFitScore'
+        'bestFitScore',
+        'websiteBookingEvents'
     ]);
 });
 

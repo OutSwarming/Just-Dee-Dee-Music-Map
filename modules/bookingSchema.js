@@ -251,6 +251,7 @@
             draftStatus: normalizeDraftStatus(venue.draftStatus),
             priority,
             bestFitScore,
+            websiteBookingEvents: clean(venue.websiteBookingEvents),
             preferredDays: clean(venue.preferredDays),
             gigHistory: clean(venue.gigHistory),
             eventDate,

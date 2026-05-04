@@ -26,6 +26,8 @@ Current order:
 - Booking Planner opens from the bottom nav.
 - Daily Agenda shows real counts or a clear empty state.
 - Search finds a known venue by name, city, status, and contact.
+- Website Future shows staged future website events.
+- Website Past shows staged recovered past events.
 - Priority / Best Fit score saves on a harmless test venue.
 - Follow-up date saves on a harmless test venue.
 - Status actions save on a harmless test venue.
@@ -36,10 +38,10 @@ Current order:
 ## Live Sheet Safety
 
 - `git remote -v` points to `OutSwarming/Just-Dee-Dee-Music-Map`.
-- Apps Script health says the bridge schema matches the app: `2026-05-04-priority-scoring`.
+- Apps Script health says the bridge schema matches the app: `2026-05-04-website-events-staging`.
 - Writes go to the Just Dee Dee Music Google Sheet, never BARK Ranger.
 - Test edits are made on a clearly disposable venue row first.
-- `priority` and `bestFitScore` columns exist before scoring live venues.
+- `priority`, `bestFitScore`, and `websiteBookingEvents` columns exist before testing live venue writes.
 - `doNotContact` venues do not appear in outreach lists.
 
 ## Tester Bug Template

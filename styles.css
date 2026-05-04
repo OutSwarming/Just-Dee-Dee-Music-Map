@@ -1917,6 +1917,39 @@ body.app-tab-active #slide-panel {
     color: #b91c1c;
 }
 
+.website-event-card {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+
+.website-event-card .booking-card-eyebrow {
+    color: #1d4ed8;
+}
+
+.website-event-card .booking-card-actions a {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+}
+
+.website-event-title,
+.website-event-notes {
+    margin: 10px 0 0;
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.website-event-notes {
+    max-height: 84px;
+    overflow: auto;
+    padding: 9px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    white-space: pre-line;
+}
+
 .booking-empty {
     background: #ffffff;
     border: 1px dashed #cbd5e1;

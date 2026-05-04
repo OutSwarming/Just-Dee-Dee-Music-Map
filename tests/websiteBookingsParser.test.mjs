@@ -115,6 +115,54 @@ test('parser folds duplicate website events that share date, time, and place', (
     assert.equal(markko.zip, '44030');
 });
 
+test('parser treats five-digit street numbers differently from trailing ZIP codes', () => {
+    const html = `
+      <li class="list-group-item py-0 head">
+        <span class="ical-date">07-17 (Friday) 6:00pm</span>
+        <ul><li class="list-group-item py-0">
+          <b class="ical_summary">JustDeeDeeMusic Live @ Bummin&rsquo; Beaver Brewery</b>
+          <div class="ical_details" id="bummin">
+            <span class="time">6:00pm-</span><span class="time">9:00pm;</span>
+            <span class="location">11610 E Washington St, Chagrin Falls, OH 44023</span>
+          </div>
+        </li></ul>
+      </li>
+    `;
+    const bookings = parseJddmWebsiteBookings(html, {
+        now: '2026-05-04T12:00:00-04:00',
+        year: 2026
+    });
+
+    assert.equal(bookings[0].address, '11610 E Washington St');
+    assert.equal(bookings[0].city, 'Chagrin Falls');
+    assert.equal(bookings[0].state, 'OH');
+    assert.equal(bookings[0].zip, '44023');
+});
+
+test('parser handles Ohio country labels without turning state into city', () => {
+    const html = `
+      <li class="list-group-item py-0 head">
+        <span class="ical-date">08-01 (Saturday) 9:00am</span>
+        <ul><li class="list-group-item py-0">
+          <b class="ical_summary">JustDeeDeeMusic Live @ Seville Farm Market</b>
+          <div class="ical_details" id="seville">
+            <span class="time">9:00am-</span><span class="time">12:00pm;</span>
+            <span class="location">73 W Main St, Seville, OH, United States, Ohio</span>
+          </div>
+        </li></ul>
+      </li>
+    `;
+    const bookings = parseJddmWebsiteBookings(html, {
+        now: '2026-05-04T12:00:00-04:00',
+        year: 2026
+    });
+
+    assert.equal(bookings[0].address, '73 W Main St');
+    assert.equal(bookings[0].city, 'Seville');
+    assert.equal(bookings[0].state, 'OH');
+    assert.equal(bookings[0].zip, '');
+});
+
 test('parser marks placeholders and private/public event flags safely', () => {
     const bookings = parseJddmWebsiteBookings(FIXTURE_HTML, {
         now: '2026-05-04T12:00:00-04:00',

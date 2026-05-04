@@ -36,6 +36,7 @@ const CSV_COLUMNS = {
     DRAFT_STATUS: ['draftStatus', 'draft status'],
     PRIORITY: ['priority', 'Rank'],
     BEST_FIT_SCORE: ['bestFitScore', 'best fit score'],
+    WEBSITE_BOOKING_EVENTS: ['websiteBookingEvents', 'website booking events', 'website event history'],
     PREFERRED_DAYS: ['preferredDays', 'preferred days', 'Days/Months'],
     GIG_HISTORY: ['gigHistory', 'gig history', '#Times'],
     DO_NOT_CONTACT: ['doNotContact', 'do not contact', 'DNC'],
@@ -139,6 +140,7 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
         draftStatus: getCSVValueFromAny(row, CSV_COLUMNS.DRAFT_STATUS),
         priority: getCSVValueFromAny(row, CSV_COLUMNS.PRIORITY),
         bestFitScore: getCSVValueFromAny(row, CSV_COLUMNS.BEST_FIT_SCORE),
+        websiteBookingEvents: getCSVValueFromAny(row, CSV_COLUMNS.WEBSITE_BOOKING_EVENTS),
         preferredDays: getCSVValueFromAny(row, CSV_COLUMNS.PREFERRED_DAYS),
         gigHistory: getCSVValueFromAny(row, CSV_COLUMNS.GIG_HISTORY),
         doNotContact: getCSVValueFromAny(row, CSV_COLUMNS.DO_NOT_CONTACT)
@@ -262,6 +264,7 @@ function processParsedResults(results) {
                 draftStatus: item.booking.draftStatus || item.draftStatus,
                 priority: item.booking.priority,
                 bestFitScore: item.booking.bestFitScore,
+                websiteBookingEvents: item.booking.websiteBookingEvents || item.websiteBookingEvents,
                 preferredDays: item.booking.preferredDays || item.preferredDays,
                 gigHistory: item.booking.gigHistory || item.gigHistory,
                 doNotContact: Boolean(item.booking.doNotContact),
