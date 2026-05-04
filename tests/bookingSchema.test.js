@@ -84,6 +84,14 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
     assert.equal(booked.isFollowUpDue, false);
     assert.equal(missingInfo.isMissingInfo, true);
     assert.equal(missingInfo.hasContactInfo, false);
+
+    const notFit = schema.normalizeVenue({
+        contactStatus: 'Not a Fit',
+        nextFollowUpDate: '2000-01-01'
+    });
+    assert.equal(notFit.isNotAFit, true);
+    assert.equal(notFit.isFollowUpDue, false);
+    assert.equal(notFit.isMissingInfo, false);
 });
 
 test('date helpers support common spreadsheet date formats', () => {
@@ -130,6 +138,12 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
             contactStatus: 'Not Contacted'
         },
         {
+            id: 'not-fit',
+            name: 'Not Fit Room',
+            contactStatus: 'Not a Fit',
+            nextFollowUpDate: '2000-01-01'
+        },
+        {
             id: 'dnc',
             name: 'Do Not Contact Hall',
             doNotContact: 'true',
@@ -141,6 +155,7 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.newProspects), ['prospect']);
     assert.deepEqual(ids(groups.interested), ['interested']);
     assert.deepEqual(ids(groups.booked), ['booked']);
+    assert.deepEqual(ids(groups.notAFit), ['not-fit']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['dnc']);
     assert.deepEqual(ids(groups.today), ['follow-up', 'interested', 'prospect', 'missing']);

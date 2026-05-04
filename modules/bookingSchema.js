@@ -187,6 +187,11 @@
             ? CONTACT_STATUS.DO_NOT_CONTACT
             : normalizeStatus(rawStatus, fallbackStatus);
         const doNotContact = explicitDnc || contactStatus === CONTACT_STATUS.DO_NOT_CONTACT;
+        const isClosedStatus = [
+            CONTACT_STATUS.BOOKED,
+            CONTACT_STATUS.DO_NOT_CONTACT,
+            CONTACT_STATUS.NOT_A_FIT
+        ].includes(contactStatus);
         const contactEmail = clean(venue.contactEmail) || extractEmail(bookingContact);
         const contactPhone = clean(venue.contactPhone) || extractPhone(bookingContact);
         const contactName = clean(venue.contactName) || inferContactName(bookingContact);
@@ -214,11 +219,12 @@
             eventTime: clean(venue.eventTime),
             doNotContact,
             hasContactInfo: Boolean(contactEmail || bookingUrl || website || contactPhone),
-            isFollowUpDue: !doNotContact && contactStatus !== CONTACT_STATUS.BOOKED && isDue(nextFollowUpDate),
+            isFollowUpDue: !doNotContact && !isClosedStatus && isDue(nextFollowUpDate),
             isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && Boolean(contactEmail),
             isInterested: !doNotContact && contactStatus === CONTACT_STATUS.INTERESTED,
             isBooked: contactStatus === CONTACT_STATUS.BOOKED,
-            isMissingInfo: !doNotContact && contactStatus !== CONTACT_STATUS.BOOKED && !contactEmail && !bookingUrl,
+            isNotAFit: contactStatus === CONTACT_STATUS.NOT_A_FIT,
+            isMissingInfo: !doNotContact && !isClosedStatus && !contactEmail && !bookingUrl,
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
         };
     }
@@ -234,6 +240,7 @@
         const newProspects = notDnc.filter(venue => venue.booking.isNewProspect);
         const interested = notDnc.filter(venue => venue.booking.isInterested);
         const booked = normalized.filter(venue => venue.booking.isBooked);
+        const notAFit = normalized.filter(venue => venue.booking.isNotAFit);
         const missingInfo = notDnc.filter(venue => venue.booking.isMissingInfo);
         const doNotContact = normalized.filter(venue => venue.booking.doNotContact);
         const today = [
@@ -248,6 +255,7 @@
             newProspects,
             interested,
             booked,
+            notAFit,
             missingInfo,
             doNotContact,
             all: normalized

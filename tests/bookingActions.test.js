@@ -81,6 +81,23 @@ test('mark interested, booked, and do-not-contact produce predictable next steps
     });
 });
 
+test('draft ready and not-a-fit actions produce predictable planner states', () => {
+    const bark = loadBookingModules();
+    const actions = bark.bookingActions.ACTION_TYPES;
+
+    assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_DRAFT_READY)), {
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.DRAFT_READY,
+        draftStatus: bark.bookingSchema.DRAFT_STATUS.DRAFT_READY,
+        doNotContact: false
+    });
+
+    assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_NOT_A_FIT)), {
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.NOT_A_FIT,
+        nextFollowUpDate: '',
+        doNotContact: false
+    });
+});
+
 test('raw field patch writes both legacy sheet headers and normalized CRM headers', () => {
     const bark = loadBookingModules();
     const rawFields = bark.bookingActions.buildRawFieldsPatch({

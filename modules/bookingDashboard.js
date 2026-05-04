@@ -11,6 +11,7 @@
         { id: 'interested', label: 'Interested' },
         { id: 'booked', label: 'Booked' },
         { id: 'missingInfo', label: 'Missing Info' },
+        { id: 'notAFit', label: 'Not a Fit' },
         { id: 'doNotContact', label: 'Do Not Contact' }
     ];
 
@@ -77,7 +78,7 @@
         const venues = repo && typeof repo.getAll === 'function' ? repo.getAll() : [];
         return schema && typeof schema.getDashboardGroups === 'function'
             ? schema.getDashboardGroups(venues)
-            : { today: [], followUps: [], newProspects: [], interested: [], booked: [], missingInfo: [], doNotContact: [], all: venues };
+            : { today: [], followUps: [], newProspects: [], interested: [], booked: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
     }
 
     function qs(id) {
@@ -382,7 +383,9 @@
         if (tabId === 'interested') return 'Interested lead';
         if (tabId === 'booked') return booking.eventDate ? `Booked: ${booking.eventDate}` : 'Booked';
         if (tabId === 'missingInfo') return 'Missing email or booking link';
+        if (tabId === 'notAFit') return 'Not a fit for booking';
         if (tabId === 'doNotContact') return 'Do not contact';
+        if (booking.isNotAFit) return 'Not a fit for booking';
         if (booking.isInterested) return 'Interested lead';
         if (booking.isNewProspect) return 'New prospect';
         if (booking.isMissingInfo) return 'Research contact info';
@@ -443,9 +446,11 @@
         const booking = venue.booking || {};
         if (!actions || !actions.ACTION_TYPES) return true;
         if (booking.doNotContact) return true;
+        if (actionType === actions.ACTION_TYPES.MARK_DRAFT_READY) return booking.contactStatus === 'Draft Ready' || booking.isBooked || booking.isNotAFit;
         if (actionType === actions.ACTION_TYPES.MARK_SENT) return booking.contactStatus === 'Sent' || booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_INTERESTED) return booking.isInterested || booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_BOOKED) return booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_NOT_A_FIT) return booking.isNotAFit || booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT) return Boolean(booking.doNotContact);
         return false;
     }
@@ -717,6 +722,7 @@
                 ${renderTemplateControl(venue)}
                 <div class="booking-card-actions">
                     <button type="button" data-booking-action="map" data-venue-id="${escapeHtml(venue.id)}">View Map</button>
+                    <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Edit</button>
                     <button type="button" data-booking-action="copy" data-venue-id="${escapeHtml(venue.id)}">Copy Info</button>
                     <button type="button" data-booking-action="copy-template" data-copy-target="subject" data-venue-id="${escapeHtml(venue.id)}">Copy Subject</button>
                     <button type="button" data-booking-action="copy-template" data-copy-target="body" data-venue-id="${escapeHtml(venue.id)}">Copy Body</button>
@@ -826,6 +832,14 @@
                 const card = button.closest('.booking-card');
                 if (button.dataset.bookingAction === 'map') {
                     focusVenueOnMap(venue);
+                    return;
+                }
+                if (button.dataset.bookingAction === 'edit') {
+                    if (typeof window.BARK.openVenueEditor === 'function') {
+                        window.BARK.openVenueEditor(venue);
+                    } else {
+                        setCardSaveStatus(card, 'Venue editor is not available yet.', 'error');
+                    }
                     return;
                 }
                 if (button.dataset.bookingAction === 'status') {

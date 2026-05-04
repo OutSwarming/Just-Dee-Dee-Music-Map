@@ -5,17 +5,21 @@
     window.BARK = window.BARK || {};
 
     const ACTION_TYPES = Object.freeze({
+        MARK_DRAFT_READY: 'markDraftReady',
         MARK_SENT: 'markSent',
         MARK_INTERESTED: 'markInterested',
         MARK_BOOKED: 'markBooked',
+        MARK_NOT_A_FIT: 'markNotAFit',
         MARK_DO_NOT_CONTACT: 'markDoNotContact',
         SET_FOLLOW_UP_DATE: 'setFollowUpDate'
     });
 
     const ACTION_DEFINITIONS = Object.freeze([
+        { type: ACTION_TYPES.MARK_DRAFT_READY, label: 'Draft Ready' },
         { type: ACTION_TYPES.MARK_SENT, label: 'Mark Sent' },
         { type: ACTION_TYPES.MARK_INTERESTED, label: 'Interested' },
         { type: ACTION_TYPES.MARK_BOOKED, label: 'Booked' },
+        { type: ACTION_TYPES.MARK_NOT_A_FIT, label: 'Not a Fit' },
         { type: ACTION_TYPES.MARK_DO_NOT_CONTACT, label: 'Do Not Contact', danger: true }
     ]);
 
@@ -72,6 +76,14 @@
         const statuses = schema.CONTACT_STATUS;
         const draftStatuses = schema.DRAFT_STATUS;
 
+        if (actionType === ACTION_TYPES.MARK_DRAFT_READY) {
+            return {
+                contactStatus: statuses.DRAFT_READY,
+                draftStatus: draftStatuses.DRAFT_READY,
+                doNotContact: false
+            };
+        }
+
         if (actionType === ACTION_TYPES.MARK_SENT) {
             return {
                 contactStatus: statuses.SENT,
@@ -93,6 +105,14 @@
         if (actionType === ACTION_TYPES.MARK_BOOKED) {
             return {
                 contactStatus: statuses.BOOKED,
+                nextFollowUpDate: '',
+                doNotContact: false
+            };
+        }
+
+        if (actionType === ACTION_TYPES.MARK_NOT_A_FIT) {
+            return {
+                contactStatus: statuses.NOT_A_FIT,
                 nextFollowUpDate: '',
                 doNotContact: false
             };
