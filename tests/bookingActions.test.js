@@ -101,6 +101,23 @@ test('raw field patch writes both legacy sheet headers and normalized CRM header
     assert.equal(rawFields.DNC, '');
 });
 
+test('manual follow-up date patch validates and writes only follow-up fields', () => {
+    const bark = loadBookingModules();
+    const patch = bark.bookingActions.buildFollowUpDatePatch('2026-06-01');
+    const payload = bark.bookingActions.buildFollowUpDateSavePayload({ id: 'venue-1' }, '2026-06-01');
+
+    assert.deepEqual(plain(patch), {
+        nextFollowUpDate: '2026-06-01'
+    });
+    assert.equal(payload.id, 'venue-1');
+    assert.equal(payload.actionType, bark.bookingActions.ACTION_TYPES.SET_FOLLOW_UP_DATE);
+    assert.equal(payload.rawFields.nextFollowUpDate, '2026-06-01');
+    assert.equal(payload.rawFields['next follow up date'], '2026-06-01');
+    assert.equal(Object.prototype.hasOwnProperty.call(payload.rawFields, 'Status'), false);
+    assert.throws(() => bark.bookingActions.buildFollowUpDatePatch(''), /required/);
+    assert.throws(() => bark.bookingActions.buildFollowUpDatePatch('not a date'), /not valid/);
+});
+
 test('mergeBookingPatch updates dashboard flags without dropping venue details', () => {
     const bark = loadBookingModules();
     const updated = bark.bookingActions.mergeBookingPatch({

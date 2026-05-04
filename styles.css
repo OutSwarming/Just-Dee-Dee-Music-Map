@@ -1541,6 +1541,61 @@ body.app-tab-active #slide-panel {
     color: #b91c1c;
 }
 
+.booking-followup-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.booking-followup-control label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+
+.booking-followup-control span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.booking-followup-control input,
+.booking-followup-control button {
+    min-height: 38px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.booking-followup-control input {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+    background: #ffffff;
+    color: #111827;
+}
+
+.booking-followup-control button {
+    padding: 7px 10px;
+    background: #111827;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.booking-followup-control button:disabled,
+.booking-followup-control input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .booking-card-save-status {
     min-height: 18px;
     margin: 10px 0 0;
@@ -1598,6 +1653,10 @@ body.app-tab-active #slide-panel {
 
     .booking-card-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .booking-followup-control {
+        grid-template-columns: 1fr;
     }
 }
 

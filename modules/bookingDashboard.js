@@ -144,6 +144,26 @@
         }).join('');
     }
 
+    function getFollowUpInputValue(venue) {
+        const value = clean(venue.booking && venue.booking.nextFollowUpDate);
+        return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+    }
+
+    function renderFollowUpControl(venue) {
+        const booking = venue.booking || {};
+        const disabled = booking.doNotContact ? ' disabled' : '';
+        const inputValue = getFollowUpInputValue(venue);
+        return `
+            <div class="booking-followup-control">
+                <label>
+                    <span>Next Follow-Up</span>
+                    <input type="date" data-booking-followup-date data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(inputValue)}"${disabled}>
+                </label>
+                <button type="button" data-booking-action="set-follow-up" data-venue-id="${escapeHtml(venue.id)}"${disabled}>Set Date</button>
+            </div>
+        `;
+    }
+
     function writeClipboardText(text) {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
             return navigator.clipboard.writeText(text);
@@ -262,6 +282,7 @@
                     ${mailtoHref ? `<a href="${escapeHtml(mailtoHref)}">Email Draft</a>` : '<button type="button" disabled>Email Draft</button>'}
                     ${renderStatusActions(venue)}
                 </div>
+                ${renderFollowUpControl(venue)}
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
         `;
@@ -282,6 +303,14 @@
                 button.disabled = true;
             } else if (button.dataset.wasDisabled !== '1') {
                 button.disabled = false;
+            }
+        });
+        card.querySelectorAll('input').forEach(input => {
+            if (isBusy) {
+                input.dataset.wasDisabled = input.disabled ? '1' : '0';
+                input.disabled = true;
+            } else if (input.dataset.wasDisabled !== '1') {
+                input.disabled = false;
             }
         });
     }
@@ -319,6 +348,32 @@
         }
     }
 
+    async function saveFollowUpDate(card, button, venue) {
+        const actions = getActionService();
+        if (!actions || typeof actions.saveFollowUpDate !== 'function') return;
+
+        const input = card && card.querySelector('[data-booking-followup-date]');
+        const nextDate = input ? input.value : '';
+        const previousText = button.textContent;
+
+        setCardButtonsBusy(card, true);
+        setCardSaveStatus(card, 'Saving follow-up date...', 'neutral');
+        button.textContent = 'Saving';
+
+        try {
+            await actions.saveFollowUpDate(venue, nextDate);
+            button.textContent = 'Saved';
+            setCardSaveStatus(card, 'Follow-up date saved.', 'success');
+            setTimeout(() => render(), 350);
+        } catch (error) {
+            console.error('[bookingDashboard] follow-up save failed:', error);
+            button.textContent = previousText;
+            setCardSaveStatus(card, error.message || 'Could not save follow-up date.', 'error');
+        } finally {
+            setCardButtonsBusy(card, false);
+        }
+    }
+
     function bindCardActions(container, data) {
         const byId = new Map((data.all || []).map(venue => [venue.id, venue]));
         container.querySelectorAll('[data-booking-action]').forEach(button => {
@@ -332,6 +387,10 @@
                 }
                 if (button.dataset.bookingAction === 'status') {
                     await saveVenueStatus(card, button, venue);
+                    return;
+                }
+                if (button.dataset.bookingAction === 'set-follow-up') {
+                    await saveFollowUpDate(card, button, venue);
                     return;
                 }
                 if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-email') {

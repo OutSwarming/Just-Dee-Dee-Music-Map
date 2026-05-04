@@ -8,7 +8,8 @@
         MARK_SENT: 'markSent',
         MARK_INTERESTED: 'markInterested',
         MARK_BOOKED: 'markBooked',
-        MARK_DO_NOT_CONTACT: 'markDoNotContact'
+        MARK_DO_NOT_CONTACT: 'markDoNotContact',
+        SET_FOLLOW_UP_DATE: 'setFollowUpDate'
     });
 
     const ACTION_DEFINITIONS = Object.freeze([
@@ -46,6 +47,18 @@
         const date = toLocalDate(value);
         date.setDate(date.getDate() + Number(days || 0));
         return date;
+    }
+
+    function normalizeDateInput(value) {
+        const text = clean(value);
+        if (!text) throw new Error('Follow-up date is required.');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+        const date = new Date(text);
+        if (Number.isNaN(date.getTime())) {
+            throw new Error('Follow-up date is not valid.');
+        }
+        return formatLocalDate(date);
     }
 
     function buildStatusPatch(actionType, options = {}) {
@@ -94,6 +107,12 @@
         }
 
         throw new Error(`Unknown booking action: ${actionType}`);
+    }
+
+    function buildFollowUpDatePatch(nextFollowUpDate) {
+        return {
+            nextFollowUpDate: normalizeDateInput(nextFollowUpDate)
+        };
     }
 
     function addAliases(rawFields, aliases, value) {
@@ -179,10 +198,48 @@
         };
     }
 
+    function buildFollowUpDateSavePayload(venue, nextFollowUpDate) {
+        const patch = buildFollowUpDatePatch(nextFollowUpDate);
+        return {
+            id: venue && venue.id,
+            actionType: ACTION_TYPES.SET_FOLLOW_UP_DATE,
+            patch,
+            rawFields: buildRawFieldsPatch(patch)
+        };
+    }
+
     async function saveStatus(venue, actionType, options = {}) {
         if (!venue || !venue.id) throw new Error('Venue id is required before saving status.');
 
         const payload = buildStatusSavePayload(venue, actionType, options);
+        const service = options.spreadsheetService || getSpreadsheetService();
+        if (!service || typeof service.saveVenue !== 'function' || (typeof service.isConfigured === 'function' && !service.isConfigured())) {
+            const error = new Error('Spreadsheet bridge is not configured yet.');
+            error.code = 'SPREADSHEET_BRIDGE_NOT_CONFIGURED';
+            throw error;
+        }
+
+        const result = await service.saveVenue({
+            id: venue.id,
+            rawFields: payload.rawFields
+        });
+
+        if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
+            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now() });
+        } else {
+            applyLocalStatus(venue.id, payload.patch);
+        }
+
+        return {
+            ...payload,
+            result
+        };
+    }
+
+    async function saveFollowUpDate(venue, nextFollowUpDate, options = {}) {
+        if (!venue || !venue.id) throw new Error('Venue id is required before saving follow-up date.');
+
+        const payload = buildFollowUpDateSavePayload(venue, nextFollowUpDate);
         const service = options.spreadsheetService || getSpreadsheetService();
         if (!service || typeof service.saveVenue !== 'function' || (typeof service.isConfigured === 'function' && !service.isConfigured())) {
             const error = new Error('Spreadsheet bridge is not configured yet.');
@@ -212,11 +269,15 @@
         ACTION_DEFINITIONS,
         formatLocalDate,
         addDays,
+        normalizeDateInput,
         buildStatusPatch,
+        buildFollowUpDatePatch,
         buildRawFieldsPatch,
         buildStatusSavePayload,
+        buildFollowUpDateSavePayload,
         mergeBookingPatch,
         applyLocalStatus,
-        saveStatus
+        saveStatus,
+        saveFollowUpDate
     };
 })();
