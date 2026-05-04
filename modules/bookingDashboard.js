@@ -10,6 +10,8 @@
         { id: 'newProspects', label: 'New Prospects' },
         { id: 'interested', label: 'Interested' },
         { id: 'booked', label: 'Booked' },
+        { id: 'upcomingGigs', label: 'Upcoming Gigs' },
+        { id: 'postGigFollowUps', label: 'Post-Gig Follow-Up' },
         { id: 'missingInfo', label: 'Missing Info' },
         { id: 'notAFit', label: 'Not a Fit' },
         { id: 'doNotContact', label: 'Do Not Contact' }
@@ -78,7 +80,7 @@
         const venues = repo && typeof repo.getAll === 'function' ? repo.getAll() : [];
         return schema && typeof schema.getDashboardGroups === 'function'
             ? schema.getDashboardGroups(venues)
-            : { today: [], followUps: [], newProspects: [], interested: [], booked: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
+            : { today: [], followUps: [], newProspects: [], interested: [], booked: [], upcomingGigs: [], postGigFollowUps: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
     }
 
     function qs(id) {
@@ -382,9 +384,13 @@
         if (tabId === 'newProspects') return booking.contactEmail ? 'Ready for first outreach' : 'Needs contact info';
         if (tabId === 'interested') return 'Interested lead';
         if (tabId === 'booked') return booking.eventDate ? `Booked: ${booking.eventDate}` : 'Booked';
+        if (tabId === 'upcomingGigs') return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
+        if (tabId === 'postGigFollowUps') return booking.eventDate ? `Post-gig follow-up: ${booking.eventDate}` : 'Post-gig follow-up';
         if (tabId === 'missingInfo') return 'Missing email or booking link';
         if (tabId === 'notAFit') return 'Not a fit for booking';
         if (tabId === 'doNotContact') return 'Do not contact';
+        if (booking.isPostGigFollowUpDue) return 'Post-gig follow-up due';
+        if (booking.isUpcomingGig) return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
         if (booking.isNotAFit) return 'Not a fit for booking';
         if (booking.isInterested) return 'Interested lead';
         if (booking.isNewProspect) return 'New prospect';
@@ -576,7 +582,7 @@
             ['Today', data.today.length],
             ['Follow-Ups', data.followUps.length],
             ['Prospects', data.newProspects.length],
-            ['Missing Info', data.missingInfo.length]
+            ['Gigs', data.upcomingGigs.length]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -587,6 +593,8 @@
 
     function getAgendaTargetTab(item) {
         if (!item) return 'today';
+        if (item.type === 'postGigFollowUp') return 'postGigFollowUps';
+        if (item.type === 'upcomingGig') return 'upcomingGigs';
         if (item.type === 'newProspect') return 'newProspects';
         if (item.type === 'missingInfo') return 'missingInfo';
         if (item.type === 'interested' || item.type === 'interestedDue') return 'interested';
@@ -703,6 +711,7 @@
         const website = getExternalUrl(booking.bookingUrl || venue.website || '');
         const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : booking.isInterested ? ' warm' : '';
         const hasEmailDraft = Boolean(getMailtoHref(venue));
+        const eventLabel = [booking.eventDate || venue.eventDate, booking.eventTime || venue.eventTime].filter(Boolean).join(' ');
 
         return `
             <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}">
@@ -716,6 +725,7 @@
                 <p class="booking-card-location">${escapeHtml(getVenueLocation(venue))}</p>
                 <div class="booking-card-meta">
                     <span>${escapeHtml(venue.venueType || venue.category || 'Other Venue')}</span>
+                    ${eventLabel ? `<span>Gig: ${escapeHtml(eventLabel)}</span>` : ''}
                     <span>${booking.contactEmail ? escapeHtml(booking.contactEmail) : 'Missing contact info'}</span>
                     <span>${escapeHtml(renderedEmail.label)} template</span>
                 </div>

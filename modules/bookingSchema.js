@@ -103,6 +103,18 @@
         return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
+    function isBeforeToday(value) {
+        const date = parseLocalDate(value);
+        if (!date) return false;
+        return date < startOfToday();
+    }
+
+    function isTodayOrFuture(value) {
+        const date = parseLocalDate(value);
+        if (!date) return false;
+        return date >= startOfToday();
+    }
+
     function isDue(value) {
         const date = parseLocalDate(value);
         if (!date) return false;
@@ -130,6 +142,15 @@
         return compareVenuePriority(a, b);
     }
 
+    function compareEventDate(a, b) {
+        const dateA = parseLocalDate(a.booking.eventDate);
+        const dateB = parseLocalDate(b.booking.eventDate);
+        const timeA = dateA ? dateA.getTime() : Number.MAX_SAFE_INTEGER;
+        const timeB = dateB ? dateB.getTime() : Number.MAX_SAFE_INTEGER;
+        if (timeA !== timeB) return timeA - timeB;
+        return clean(a.name).localeCompare(clean(b.name));
+    }
+
     function makeAgendaItem(venue, reason, suggestedAction, type) {
         return {
             venue,
@@ -140,7 +161,9 @@
             suggestedAction,
             status: venue.booking.contactStatus,
             nextFollowUpDate: venue.booking.nextFollowUpDate,
-            contactEmail: venue.booking.contactEmail
+            contactEmail: venue.booking.contactEmail,
+            eventDate: venue.booking.eventDate,
+            eventTime: venue.booking.eventTime
         };
     }
 
@@ -162,7 +185,9 @@
             booking.bookingUrl,
             booking.contactStatus,
             booking.draftStatus,
-            booking.nextFollowUpDate
+            booking.nextFollowUpDate,
+            booking.eventDate,
+            booking.eventTime
         ].filter(Boolean).join(' '));
     }
 
@@ -198,6 +223,10 @@
         const bookingUrl = clean(venue.bookingUrl);
         const website = clean(venue.website);
         const nextFollowUpDate = clean(venue.nextFollowUpDate);
+        const eventDate = clean(venue.eventDate);
+        const isBooked = contactStatus === CONTACT_STATUS.BOOKED;
+        const isUpcomingGig = isBooked && isTodayOrFuture(eventDate);
+        const isPostGigFollowUpDue = isBooked && isBeforeToday(eventDate) && (!nextFollowUpDate || isDue(nextFollowUpDate));
 
         return {
             contactName,
@@ -215,14 +244,16 @@
             bestFitScore: normalizeNumber(venue.bestFitScore, 0),
             preferredDays: clean(venue.preferredDays),
             gigHistory: clean(venue.gigHistory),
-            eventDate: clean(venue.eventDate),
+            eventDate,
             eventTime: clean(venue.eventTime),
             doNotContact,
             hasContactInfo: Boolean(contactEmail || bookingUrl || website || contactPhone),
             isFollowUpDue: !doNotContact && !isClosedStatus && isDue(nextFollowUpDate),
             isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && Boolean(contactEmail),
             isInterested: !doNotContact && contactStatus === CONTACT_STATUS.INTERESTED,
-            isBooked: contactStatus === CONTACT_STATUS.BOOKED,
+            isBooked,
+            isUpcomingGig,
+            isPostGigFollowUpDue,
             isNotAFit: contactStatus === CONTACT_STATUS.NOT_A_FIT,
             isMissingInfo: !doNotContact && !isClosedStatus && !contactEmail && !bookingUrl,
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
@@ -240,10 +271,13 @@
         const newProspects = notDnc.filter(venue => venue.booking.isNewProspect);
         const interested = notDnc.filter(venue => venue.booking.isInterested);
         const booked = normalized.filter(venue => venue.booking.isBooked);
+        const upcomingGigs = booked.filter(venue => venue.booking.isUpcomingGig).sort(compareEventDate);
+        const postGigFollowUps = booked.filter(venue => venue.booking.isPostGigFollowUpDue).sort(compareEventDate);
         const notAFit = normalized.filter(venue => venue.booking.isNotAFit);
         const missingInfo = notDnc.filter(venue => venue.booking.isMissingInfo);
         const doNotContact = normalized.filter(venue => venue.booking.doNotContact);
         const today = [
+            ...postGigFollowUps,
             ...followUps,
             ...interested.filter(venue => !followUps.includes(venue)),
             ...newProspects.filter(venue => !followUps.includes(venue)).slice(0, 20),
@@ -255,6 +289,8 @@
             newProspects,
             interested,
             booked,
+            upcomingGigs,
+            postGigFollowUps,
             notAFit,
             missingInfo,
             doNotContact,
@@ -283,9 +319,17 @@
         const interested = [...(groups.interested || [])]
             .filter(venue => !seen.has(venue.id))
             .sort(compareFollowUpDate);
+        const postGigFollowUps = [...(groups.postGigFollowUps || [])].sort(compareEventDate);
+        const upcomingGigs = [...(groups.upcomingGigs || [])].sort(compareEventDate);
         const newProspects = [...(groups.newProspects || [])].sort(compareVenuePriority);
         const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
 
+        add(
+            postGigFollowUps,
+            venue => `Booked gig needs thank-you${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
+            () => 'Send thank-you, then set rebooking follow-up',
+            'postGigFollowUp'
+        );
         add(
             interestedDue,
             venue => `Interested lead follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
@@ -303,6 +347,12 @@
             () => 'Interested lead needs a next step',
             () => 'Set follow-up date or mark booked',
             'interested'
+        );
+        add(
+            upcomingGigs,
+            venue => `Upcoming booked gig${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
+            () => 'Confirm details and prepare set',
+            'upcomingGig'
         );
         add(
             newProspects,
@@ -334,6 +384,8 @@
         extractEmail,
         extractPhone,
         parseLocalDate,
+        isBeforeToday,
+        isTodayOrFuture,
         isDue
     };
 })();

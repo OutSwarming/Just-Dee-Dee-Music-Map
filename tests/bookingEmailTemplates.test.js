@@ -78,6 +78,24 @@ test('suggested template switches to follow-up when a sent venue is due', () => 
     assert.match(rendered.body, /Follow Up Room/);
 });
 
+test('suggested template switches to thank-you for post-gig follow-up', () => {
+    const bark = loadBookingModules();
+    const booking = bark.bookingSchema.normalizeVenue({
+        contactStatus: 'Booked',
+        eventDate: '2000-07-04',
+        contactEmail: 'booked@example.com'
+    });
+    const rendered = bark.bookingEmailTemplates.renderTemplate(undefined, {
+        name: 'Past Gig Room',
+        venueType: 'Restaurant',
+        booking
+    });
+
+    assert.equal(rendered.type, bark.bookingEmailTemplates.TEMPLATE_TYPES.THANK_YOU);
+    assert.match(rendered.subject, /Thank you/);
+    assert.match(rendered.body, /Past Gig Room/);
+});
+
 test('mailto draft encodes the selected email template without sending anything', () => {
     const bark = loadBookingModules();
     const href = bark.bookingEmailTemplates.getMailtoHref({

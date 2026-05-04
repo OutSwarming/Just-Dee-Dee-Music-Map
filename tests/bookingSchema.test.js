@@ -78,10 +78,20 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
         name: 'Mystery Listening Room',
         contactStatus: 'Not Contacted'
     });
+    const upcomingGig = schema.normalizeVenue({
+        contactStatus: 'Booked',
+        eventDate: '2099-06-01'
+    });
+    const postGig = schema.normalizeVenue({
+        contactStatus: 'Booked',
+        eventDate: '2000-06-01'
+    });
 
     assert.equal(booked.contactStatus, schema.CONTACT_STATUS.BOOKED);
     assert.equal(booked.isBooked, true);
     assert.equal(booked.isFollowUpDue, false);
+    assert.equal(upcomingGig.isUpcomingGig, true);
+    assert.equal(postGig.isPostGigFollowUpDue, true);
     assert.equal(missingInfo.isMissingInfo, true);
     assert.equal(missingInfo.hasContactInfo, false);
 
@@ -133,6 +143,13 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
             eventDate: '2099-07-04'
         },
         {
+            id: 'post-gig',
+            name: 'Past Booked Room',
+            contactStatus: 'Booked',
+            eventDate: '2000-07-04',
+            contactEmail: 'past@example.com'
+        },
+        {
             id: 'missing',
             name: 'Missing Info Pub',
             contactStatus: 'Not Contacted'
@@ -154,11 +171,42 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.followUps), ['follow-up']);
     assert.deepEqual(ids(groups.newProspects), ['prospect']);
     assert.deepEqual(ids(groups.interested), ['interested']);
-    assert.deepEqual(ids(groups.booked), ['booked']);
+    assert.deepEqual(ids(groups.booked), ['booked', 'post-gig']);
+    assert.deepEqual(ids(groups.upcomingGigs), ['booked']);
+    assert.deepEqual(ids(groups.postGigFollowUps), ['post-gig']);
     assert.deepEqual(ids(groups.notAFit), ['not-fit']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['dnc']);
-    assert.deepEqual(ids(groups.today), ['follow-up', 'interested', 'prospect', 'missing']);
+    assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'prospect', 'missing']);
+});
+
+test('daily agenda includes post-gig follow-through before upcoming gigs and prospects', () => {
+    const schema = loadBookingSchema();
+    const agenda = schema.getDailyAgenda([
+        {
+            id: 'prospect',
+            name: 'New Prospect Cafe',
+            contactStatus: 'Not Contacted',
+            contactEmail: 'hello@example.com'
+        },
+        {
+            id: 'upcoming',
+            name: 'Upcoming Festival',
+            contactStatus: 'Booked',
+            eventDate: '2099-07-04'
+        },
+        {
+            id: 'post-gig',
+            name: 'Past Gig Room',
+            contactStatus: 'Booked',
+            eventDate: '2000-07-04'
+        }
+    ], 3);
+
+    assert.deepEqual(Array.from(agenda, item => item.venueId), ['post-gig', 'upcoming', 'prospect']);
+    assert.equal(agenda[0].type, 'postGigFollowUp');
+    assert.match(agenda[0].suggestedAction, /thank-you/i);
+    assert.equal(agenda[1].type, 'upcomingGig');
 });
 
 test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects, and missing info', () => {

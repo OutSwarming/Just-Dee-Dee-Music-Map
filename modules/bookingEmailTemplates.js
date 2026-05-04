@@ -176,6 +176,9 @@
         const status = clean((venue.booking && venue.booking.contactStatus) || venue.contactStatus);
         const statuses = schema && schema.CONTACT_STATUS ? schema.CONTACT_STATUS : {};
 
+        if (venue.booking && venue.booking.isPostGigFollowUpDue) {
+            return TEMPLATE_TYPES.THANK_YOU;
+        }
         if ((venue.booking && venue.booking.isInterested) || status === statuses.INTERESTED) {
             return TEMPLATE_TYPES.INTERESTED_REPLY;
         }
