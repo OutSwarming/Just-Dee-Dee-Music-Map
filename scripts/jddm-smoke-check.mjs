@@ -64,6 +64,7 @@ assertCheck('Booking actions module is loaded', /modules\/bookingActions\.js/.te
 assertCheck('Booking dashboard module is loaded', /modules\/bookingDashboard\.js/.test(indexHtml));
 assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(bookingActions) && /savePriorityScore/.test(bookingActions));
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
+assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
 
 const dashboardVersion = matchVersion(
     bookingDashboard,

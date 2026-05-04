@@ -587,6 +587,50 @@
         return true;
     }
 
+    function getVenueMarker(venue) {
+        const manager = window.BARK.markerManager;
+        if (manager && manager.markers && typeof manager.markers.get === 'function') {
+            return manager.markers.get(venue.id) || venue.marker;
+        }
+        return venue.marker;
+    }
+
+    function waitForMapMove(map, callback) {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            if (typeof map.off === 'function') map.off('moveend', finish);
+            setTimeout(callback, 80);
+        };
+
+        if (typeof map.once === 'function') map.once('moveend', finish);
+        setTimeout(finish, window.lowGfxEnabled ? 120 : 900);
+    }
+
+    function syncMapMarkersNow() {
+        if (typeof window.BARK.invalidateMarkerVisibility === 'function') {
+            window.BARK.invalidateMarkerVisibility();
+        }
+        if (typeof window.syncState === 'function') {
+            window.BARK._pendingMarkerSync = false;
+            window.syncState();
+        }
+    }
+
+    function selectMapMarker(marker) {
+        if (!marker) return;
+
+        if (typeof marker.fire === 'function') marker.fire('click');
+
+        if (window.BARK.activePinMarker !== marker && typeof window.BARK.clearActivePin === 'function') {
+            window.BARK.clearActivePin();
+            window.BARK.activePinMarker = marker;
+        }
+
+        if (marker._icon) marker._icon.classList.add('active-pin');
+    }
+
     function focusVenueOnMap(venue) {
         const mapTab = document.querySelector('.nav-item[data-target="map-view"]');
         if (mapTab) mapTab.click();
@@ -594,13 +638,34 @@
         setTimeout(() => {
             const lat = Number(venue.lat);
             const lng = Number(venue.lng);
-            if (window.map && Number.isFinite(lat) && Number.isFinite(lng)) {
-                window.map.setView([lat, lng], Math.max(window.map.getZoom(), 13), { animate: true });
-            }
-            if (venue.marker && typeof venue.marker.fire === 'function') {
-                venue.marker.fire('click');
-            }
-        }, 120);
+            const map = window.map;
+            if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+            if (typeof map.invalidateSize === 'function') map.invalidateSize();
+            const targetZoom = Math.max(map.getZoom(), 16);
+            map.setView([lat, lng], targetZoom, {
+                animate: !window.lowGfxEnabled,
+                duration: window.lowGfxEnabled ? 0 : 0.35
+            });
+
+            waitForMapMove(map, () => {
+                syncMapMarkersNow();
+                const marker = getVenueMarker(venue);
+                if (!marker) return;
+
+                const clusterLayer = window.BARK.markerClusterGroup;
+                if (
+                    clusterLayer &&
+                    typeof clusterLayer.zoomToShowLayer === 'function' &&
+                    (!marker._icon || marker._barkLayerType === 'cluster')
+                ) {
+                    clusterLayer.zoomToShowLayer(marker, () => setTimeout(() => selectMapMarker(marker), 80));
+                    return;
+                }
+
+                selectMapMarker(marker);
+            });
+        }, 160);
     }
 
     function renderStats(data) {
