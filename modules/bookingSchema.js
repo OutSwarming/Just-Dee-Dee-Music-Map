@@ -152,7 +152,7 @@
             isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && Boolean(contactEmail),
             isInterested: !doNotContact && contactStatus === CONTACT_STATUS.INTERESTED,
             isBooked: contactStatus === CONTACT_STATUS.BOOKED,
-            isMissingInfo: !doNotContact && !contactEmail && !bookingUrl,
+            isMissingInfo: !doNotContact && contactStatus !== CONTACT_STATUS.BOOKED && !contactEmail && !bookingUrl,
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
         };
     }

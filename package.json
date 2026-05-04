@@ -2,6 +2,8 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
+    "test": "npm run test:booking",
+    "test:booking": "node --test tests/bookingSchema.test.js tests/bookingEmailTemplates.test.js",
     "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
     "sheet:import-coordinates": "node scripts/import-sheet-coordinates.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",

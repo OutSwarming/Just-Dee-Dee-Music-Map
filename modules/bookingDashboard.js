@@ -38,6 +38,10 @@
         return window.BARK.bookingSchema;
     }
 
+    function getTemplateService() {
+        return window.BARK.bookingEmailTemplates;
+    }
+
     function getDashboardData() {
         const repo = getRepo();
         const schema = getSchema();
@@ -69,25 +73,17 @@
         return booking.contactStatus || 'Ready to review';
     }
 
-    function getSubject(venue) {
-        return `Live acoustic music booking inquiry - Just Dee Dee Music`;
-    }
+    function getRenderedEmail(venue) {
+        const templates = getTemplateService();
+        if (templates && typeof templates.renderTemplate === 'function') {
+            return templates.renderTemplate(undefined, venue);
+        }
 
-    function getEmailBody(venue) {
-        const booking = venue.booking || {};
-        const contactName = booking.contactName || 'there';
-        const venueName = venue.name || 'your venue';
-        const venueType = venue.venueType || venue.category || 'venue';
-        const city = venue.city || 'Northeast Ohio';
-
-        return [
-            `Hi ${contactName},`,
+        const subject = 'Live acoustic music booking inquiry - Just Dee Dee Music';
+        const body = [
+            'Hi there,',
             '',
-            `I am reaching out on behalf of Just Dee Dee Music. Dee Dee performs acoustic rock, pop, country, and folk covers across Northeast Ohio, with a flexible setlist that works well for breweries, wineries, restaurants, festivals, coffee shops, pubs, and private events.`,
-            '',
-            `I saw ${venueName} is a ${venueType} in ${city} and thought Dee Dee could be a strong fit for an upcoming date.`,
-            '',
-            'Would you be the right person to ask about booking availability?',
+            'I am reaching out on behalf of Just Dee Dee Music about live acoustic music booking availability.',
             '',
             'Thank you,',
             'Dee Dee',
@@ -96,16 +92,21 @@
             'JustDeeDeeMusic@gmail.com',
             'https://www.justdeedeemusic.com/'
         ].join('\n');
+        return {
+            type: 'firstOutreach',
+            label: 'First Outreach',
+            subject,
+            body,
+            fullText: [`Subject: ${subject}`, '', body].join('\n')
+        };
     }
 
     function getMailtoHref(venue) {
-        const booking = venue.booking || {};
-        if (!booking.contactEmail) return '';
-        const params = new URLSearchParams({
-            subject: getSubject(venue),
-            body: getEmailBody(venue)
-        });
-        return `mailto:${encodeURIComponent(booking.contactEmail)}?${params.toString()}`;
+        const templates = getTemplateService();
+        if (templates && typeof templates.getMailtoHref === 'function') {
+            return templates.getMailtoHref(venue);
+        }
+        return '';
     }
 
     function getExternalUrl(value) {
@@ -114,6 +115,23 @@
         if (/^https?:\/\//i.test(url)) return url;
         if (/^[a-z0-9.-]+\.[a-z]{2,}/i.test(url)) return `https://${url}`;
         return '';
+    }
+
+    function writeClipboardText(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            return navigator.clipboard.writeText(text);
+        }
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return Promise.resolve();
     }
 
     function copyVenueInfo(venue) {
@@ -129,20 +147,11 @@
             booking.bookingUrl ? `Booking: ${booking.bookingUrl}` : ''
         ].filter(Boolean).join('\n');
 
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-            return navigator.clipboard.writeText(text);
-        }
+        return writeClipboardText(text);
+    }
 
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.setAttribute('readonly', 'readonly');
-        textarea.style.position = 'fixed';
-        textarea.style.left = '-9999px';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        return Promise.resolve();
+    function copyEmailDraft(venue) {
+        return writeClipboardText(getRenderedEmail(venue).fullText);
     }
 
     function focusVenueOnMap(venue) {
@@ -199,6 +208,7 @@
     function renderVenueCard(venue, tabId) {
         const booking = venue.booking || {};
         const mailtoHref = getMailtoHref(venue);
+        const renderedEmail = getRenderedEmail(venue);
         const website = getExternalUrl(booking.bookingUrl || venue.website || '');
         const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : booking.isInterested ? ' warm' : '';
 
@@ -215,10 +225,12 @@
                 <div class="booking-card-meta">
                     <span>${escapeHtml(venue.venueType || venue.category || 'Other Venue')}</span>
                     <span>${booking.contactEmail ? escapeHtml(booking.contactEmail) : 'Missing contact info'}</span>
+                    <span>${escapeHtml(renderedEmail.label)} template</span>
                 </div>
                 <div class="booking-card-actions">
                     <button type="button" data-booking-action="map" data-venue-id="${escapeHtml(venue.id)}">View Map</button>
                     <button type="button" data-booking-action="copy" data-venue-id="${escapeHtml(venue.id)}">Copy Info</button>
+                    <button type="button" data-booking-action="copy-email" data-venue-id="${escapeHtml(venue.id)}">Copy Email</button>
                     ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener">Website</a>` : '<button type="button" disabled>Website</button>'}
                     ${mailtoHref ? `<a href="${escapeHtml(mailtoHref)}">Email Draft</a>` : '<button type="button" disabled>Email Draft</button>'}
                 </div>
@@ -236,11 +248,15 @@
                     focusVenueOnMap(venue);
                     return;
                 }
-                if (button.dataset.bookingAction === 'copy') {
+                if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-email') {
                     const previousText = button.textContent;
                     button.disabled = true;
                     try {
-                        await copyVenueInfo(venue);
+                        if (button.dataset.bookingAction === 'copy-email') {
+                            await copyEmailDraft(venue);
+                        } else {
+                            await copyVenueInfo(venue);
+                        }
                         button.textContent = 'Copied';
                     } catch (error) {
                         console.error('[bookingDashboard] copy failed:', error);
