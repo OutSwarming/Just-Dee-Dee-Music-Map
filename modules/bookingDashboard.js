@@ -14,9 +14,24 @@
         { id: 'doNotContact', label: 'Do Not Contact' }
     ];
 
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-safe-booking-columns';
+    const REQUIRED_BOOKING_HEADERS = [
+        'contactStatus',
+        'draftStatus',
+        'lastContactedDate',
+        'nextFollowUpDate',
+        'doNotContact'
+    ];
+
     let activeTab = 'today';
     let unsubscribeRepo = null;
     let searchQuery = '';
+    let bridgeHealth = {
+        checking: false,
+        checkedAt: null,
+        result: null,
+        error: null
+    };
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -47,6 +62,10 @@
         return window.BARK.bookingActions;
     }
 
+    function getSpreadsheetService() {
+        return window.BARK.services && window.BARK.services.spreadsheet;
+    }
+
     function getDashboardData() {
         const repo = getRepo();
         const schema = getSchema();
@@ -67,6 +86,167 @@
 
     function getVenueLocation(venue) {
         return [venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(', ') || 'Northeast Ohio';
+    }
+
+    function getBridgeGeneratedHeaders(health = {}) {
+        return (health.generatedColumns || health.columns || [])
+            .map(column => clean(column && column.header))
+            .filter(Boolean);
+    }
+
+    function getMissingBookingHeaders(health = {}) {
+        const generatedHeaders = getBridgeGeneratedHeaders(health).map(header => header.toLowerCase());
+        return REQUIRED_BOOKING_HEADERS.filter(header => !generatedHeaders.includes(header.toLowerCase()));
+    }
+
+    function getBridgeHealthSummary(configStatus = {}, state = bridgeHealth) {
+        if (!configStatus.configured) {
+            return {
+                tone: 'warning',
+                label: 'Sheet bridge not configured',
+                detail: 'The planner can read loaded map data, but spreadsheet edits need the Apps Script web app URL.',
+                actionLabel: 'Check Sheet',
+                actionDisabled: true
+            };
+        }
+
+        if (state && state.checking) {
+            return {
+                tone: 'neutral',
+                label: 'Checking sheet bridge',
+                detail: 'Verifying the Apps Script deployment before booking edits.',
+                actionLabel: 'Checking',
+                actionDisabled: true
+            };
+        }
+
+        if (state && state.error) {
+            return {
+                tone: 'error',
+                label: 'Sheet bridge needs attention',
+                detail: state.error.message || 'Could not reach the spreadsheet bridge.',
+                actionLabel: 'Retry',
+                actionDisabled: false
+            };
+        }
+
+        const health = state && state.result;
+        if (!health) {
+            return {
+                tone: 'neutral',
+                label: 'Sheet bridge configured',
+                detail: 'Run a quick check before editing live booking data.',
+                actionLabel: 'Check Sheet',
+                actionDisabled: false
+            };
+        }
+
+        const missingHeaders = getMissingBookingHeaders(health);
+        if (health.schemaVersion !== EXPECTED_SPREADSHEET_SCHEMA_VERSION) {
+            return {
+                tone: 'warning',
+                label: 'Apps Script redeploy needed',
+                detail: `Connected to ${health.sheetName || 'the sheet'}, but the bridge version is ${health.schemaVersion || 'unknown'}. Deploy the safe booking-column script before live edits.`,
+                actionLabel: 'Recheck',
+                actionDisabled: false
+            };
+        }
+
+        if (missingHeaders.length) {
+            return {
+                tone: 'warning',
+                label: 'Booking columns missing',
+                detail: `Missing: ${missingHeaders.join(', ')}. Reopen the Apps Script bridge after deployment and run setup.`,
+                actionLabel: 'Recheck',
+                actionDisabled: false
+            };
+        }
+
+        return {
+            tone: 'success',
+            label: 'Sheet bridge ready',
+            detail: `${health.sheetName || 'Google Sheet'} is using the safe booking-column bridge.`,
+            actionLabel: 'Recheck',
+            actionDisabled: false
+        };
+    }
+
+    function formatCheckedAt(value) {
+        if (!value) return '';
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                hour: 'numeric',
+                minute: '2-digit'
+            }).format(value);
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function renderSheetBridgeHealth() {
+        const root = qs('booking-sheet-health');
+        if (!root) return;
+
+        const service = getSpreadsheetService();
+        const configStatus = service && typeof service.getConfigStatus === 'function'
+            ? service.getConfigStatus()
+            : { configured: false, apiUrl: '' };
+        const summary = getBridgeHealthSummary(configStatus, bridgeHealth);
+        const checkedAt = formatCheckedAt(bridgeHealth.checkedAt);
+
+        root.dataset.tone = summary.tone;
+        root.innerHTML = `
+            <div>
+                <p class="booking-kicker">Sheet Sync</p>
+                <strong>${escapeHtml(summary.label)}</strong>
+                <span>${escapeHtml(summary.detail)}</span>
+                ${checkedAt ? `<small>Last checked ${escapeHtml(checkedAt)}</small>` : ''}
+            </div>
+            <button id="booking-sheet-health-check" type="button"${summary.actionDisabled ? ' disabled' : ''}>${escapeHtml(summary.actionLabel)}</button>
+        `;
+
+        const button = qs('booking-sheet-health-check');
+        if (button) button.addEventListener('click', () => checkSheetBridgeHealth(true));
+    }
+
+    async function checkSheetBridgeHealth(userInitiated = false) {
+        const service = getSpreadsheetService();
+        const configStatus = service && typeof service.getConfigStatus === 'function'
+            ? service.getConfigStatus()
+            : { configured: false };
+
+        if (!configStatus.configured || !service || typeof service.getHealth !== 'function') {
+            bridgeHealth = { checking: false, checkedAt: null, result: null, error: null };
+            renderSheetBridgeHealth();
+            return;
+        }
+
+        bridgeHealth = {
+            ...bridgeHealth,
+            checking: true,
+            error: null
+        };
+        renderSheetBridgeHealth();
+
+        try {
+            const result = await service.getHealth();
+            bridgeHealth = {
+                checking: false,
+                checkedAt: new Date(),
+                result,
+                error: null
+            };
+        } catch (error) {
+            if (userInitiated) console.error('[bookingDashboard] sheet health check failed:', error);
+            bridgeHealth = {
+                checking: false,
+                checkedAt: new Date(),
+                result: null,
+                error
+            };
+        }
+
+        renderSheetBridgeHealth();
     }
 
     function getActionReason(venue, tabId) {
@@ -606,6 +786,7 @@
         const root = qs('booking-planner-dashboard');
         if (!root) return;
         const data = getDashboardData();
+        renderSheetBridgeHealth();
         renderStats(data);
         renderAgenda(data);
         renderSearchControls();
@@ -617,6 +798,7 @@
     function init() {
         bindSearchControls();
         render();
+        checkSheetBridgeHealth(false);
         const repo = getRepo();
         if (repo && typeof repo.subscribe === 'function' && !unsubscribeRepo) {
             unsubscribeRepo = repo.subscribe(() => render());
@@ -626,7 +808,9 @@
     window.BARK.bookingDashboard = {
         init,
         render,
-        getDashboardData
+        getDashboardData,
+        getBridgeHealthSummary,
+        getMissingBookingHeaders
     };
 
     document.addEventListener('DOMContentLoaded', init);

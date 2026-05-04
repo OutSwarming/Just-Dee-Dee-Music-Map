@@ -1342,6 +1342,77 @@ body.app-tab-active #slide-panel {
     white-space: nowrap;
 }
 
+.booking-sheet-health {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 12px 0 0;
+    padding: 13px 14px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.booking-sheet-health strong,
+.booking-sheet-health span,
+.booking-sheet-health small {
+    display: block;
+}
+
+.booking-sheet-health strong {
+    color: #111827;
+    font-size: 15px;
+    line-height: 1.25;
+}
+
+.booking-sheet-health span {
+    margin-top: 3px;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.booking-sheet-health small {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.booking-sheet-health button {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 8px;
+    background: #111827;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.booking-sheet-health button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.booking-sheet-health[data-tone="success"] {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
+.booking-sheet-health[data-tone="warning"] {
+    border-color: #fcd34d;
+    background: #fffbeb;
+}
+
+.booking-sheet-health[data-tone="error"] {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
 .booking-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1846,6 +1917,15 @@ body.app-tab-active #slide-panel {
     .booking-dashboard-header {
         flex-direction: column;
         gap: 12px;
+    }
+
+    .booking-sheet-health {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .booking-sheet-health button {
+        width: 100%;
     }
 
     .booking-stats {

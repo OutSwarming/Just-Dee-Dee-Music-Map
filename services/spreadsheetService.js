@@ -89,6 +89,14 @@
         return request('getVenue', { id: venueId });
     }
 
+    async function getHealth() {
+        return request('health');
+    }
+
+    async function getSchema() {
+        return request('schema');
+    }
+
     async function saveVenue({ id, venue, rawFields }) {
         return request('saveVenue', { id, venue, rawFields });
     }
@@ -100,6 +108,8 @@
     window.BARK.services.spreadsheet = {
         isConfigured,
         getConfigStatus,
+        getHealth,
+        getSchema,
         getVenue,
         saveVenue,
         setPlayed
