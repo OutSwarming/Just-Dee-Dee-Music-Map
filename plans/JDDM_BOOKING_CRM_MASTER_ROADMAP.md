@@ -21,13 +21,14 @@ Done:
 - Priority and Best Fit scoring controls exist.
 - Apps Script safe-column logic now includes `contactStatus`, `draftStatus`, `lastContactedDate`, `nextFollowUpDate`, `doNotContact`, `priority`, and `bestFitScore`.
 - Public Just Dee Dee website booking pull/preview script exists for future event review.
+- Public website/archive past booking history is staged in JSON and CSV for later Sheet merge review.
 - Automated checks include booking tests and the JDDM smoke gate.
 
 Not done yet:
 
 - Live Apps Script redeploy for the newest `priority` / `bestFitScore` bridge schema.
 - Real Google Sheet write QA on a disposable test venue row.
-- Sheet merge workflow for approved website bookings.
+- Sheet merge workflow for approved website future/past bookings.
 - Tester bug sweep.
 - UI redesign / mobile polish pass.
 - Client handoff guide. This is intentionally delayed until after testing, bug fixes, and redesign.
@@ -229,17 +230,18 @@ Deliverable: status buttons save reliable next steps.
 
 ### Phase 5A - Website Booking Pull Preview
 
-Goal: pull future public bookings from the Just Dee Dee website without writing to the Sheet.
+Goal: pull future and recoverable past public bookings from the Just Dee Dee website without writing to the Sheet.
 
 Work:
 
 - Read `https://www.justdeedeemusic.com/calendar/`.
+- Read current homepage event widget and public Web Archive snapshots when building past history.
 - Parse rendered Simple Google iCalendar Widget events.
 - Normalize date, time, venue, location, private/public placeholder flags, and notes.
 - Deduplicate obvious duplicate website calendar entries.
 - Keep output as review JSON until a merge workflow is approved.
 
-Deliverable: `npm run bookings:website:preview` shows future booking records ready for review.
+Deliverable: `npm run bookings:website:preview` shows future booking records and `npm run bookings:website:history` stages recoverable past booking history for review.
 
 ### Phase 6 - Tester QA + Bug Fixing
 
@@ -458,6 +460,7 @@ rg -n "LEMONSQUEEZY|paywall-title|Upgrade" index.html modules services tests pac
 | JDDM-030 | Live Apps Script redeploy | P0 | 6 | Needs Owner | Live bridge reports `2026-05-04-priority-scoring` |
 | JDDM-031 | Website booking pull preview | P1 | 5A | Done | Public website calendar produces future normalized booking records without Sheet writes |
 | JDDM-032 | Approved website booking Sheet merge | P1 | 5A | Backlog | Reviewed website bookings can update matching venue/event fields safely |
+| JDDM-033 | Website/archive past booking staging | P1 | 5A | Done | Public website/archive sources stage past booking JSON/CSV without Sheet writes |
 
 ## Bug Tracker Categories
 

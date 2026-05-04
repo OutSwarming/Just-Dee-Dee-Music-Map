@@ -15,12 +15,18 @@ const CATEGORY_RULES = [
 export function parseJddmWebsiteBookings(html, options = {}) {
     const sourceUrl = options.sourceUrl || 'https://www.justdeedeemusic.com/calendar/';
     const now = options.now ? new Date(options.now) : new Date();
-    const year = Number(options.year || now.getFullYear());
+    const snapshotDate = options.snapshotDate ? new Date(options.snapshotDate) : null;
+    const year = Number(options.year || (snapshotDate || now).getFullYear());
+    const pastWindowDays = Number(options.pastWindowDays || 45);
     const headBlocks = extractDateBlocks(html);
     const bookings = [];
 
     headBlocks.forEach((block, blockIndex) => {
-        const dateInfo = parseDateLabel(block.dateLabel, year);
+        const dateInfo = parseDateLabel(block.dateLabel, {
+            year,
+            snapshotDate,
+            pastWindowDays
+        });
         if (!dateInfo) return;
 
         block.eventHtmlBlocks.forEach((eventHtml, eventIndex) => {
@@ -53,6 +59,7 @@ export function parseJddmWebsiteBookings(html, options = {}) {
                 isPrivateEvent: privateEvent,
                 isPublicPlaceholder: publicPlaceholder,
                 sourceUrl,
+                sourceCapturedAt: options.sourceCapturedAt || '',
                 sourceBlockIndex: blockIndex,
                 notes: buildNotes({ title, location, privateEvent, publicPlaceholder })
             });
@@ -69,6 +76,45 @@ export function filterFutureBookings(bookings, options = {}) {
     return bookings.filter((booking) => {
         const eventDate = parseIsoDate(booking.eventDate);
         return eventDate && eventDate >= today;
+    });
+}
+
+export function filterPastBookings(bookings, options = {}) {
+    const now = options.now ? new Date(options.now) : new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return bookings.filter((booking) => {
+        const eventDate = parseIsoDate(booking.eventDate);
+        return eventDate && eventDate < today;
+    });
+}
+
+export function mergeJddmWebsiteBookings(collections) {
+    const seen = new Map();
+    const merged = [];
+
+    collections.flat().forEach((booking) => {
+        const key = getBookingMergeKey(booking);
+        const existing = seen.get(key);
+
+        if (!existing) {
+            const next = {
+                ...booking,
+                sourceUrls: [booking.sourceUrl].filter(Boolean),
+                sourceCapturedAts: [booking.sourceCapturedAt].filter(Boolean)
+            };
+            seen.set(key, next);
+            merged.push(next);
+            return;
+        }
+
+        mergeBookingInto(existing, booking);
+    });
+
+    return mergeSparseSameTimeBookings(merged).sort((a, b) => {
+        const dateCompare = String(a.eventDate || '').localeCompare(String(b.eventDate || ''));
+        if (dateCompare) return dateCompare;
+        return String(a.eventTime || '').localeCompare(String(b.eventTime || ''));
     });
 }
 
@@ -110,15 +156,33 @@ function extractDetails(eventHtml) {
     };
 }
 
-function parseDateLabel(label, year) {
+function parseDateLabel(label, options) {
     const match = normalizeWhitespace(label).match(/^(\d{1,2})-(\d{1,2})\s+\(([^)]+)\)\s+(.+)$/);
     if (!match) return null;
+    const month = Number(match[1]);
+    const day = Number(match[2]);
+    const year = inferEventYear(month, day, options);
 
     return {
-        isoDate: `${year}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`,
+        isoDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
         dayName: match[3],
         time: match[4]
     };
+}
+
+function inferEventYear(month, day, options) {
+    const baseYear = Number(options.year);
+    if (!options.snapshotDate || Number.isNaN(options.snapshotDate.getTime())) return baseYear;
+
+    const candidate = new Date(baseYear, month - 1, day);
+    const lowerBound = new Date(
+        options.snapshotDate.getFullYear(),
+        options.snapshotDate.getMonth(),
+        options.snapshotDate.getDate()
+    );
+    lowerBound.setDate(lowerBound.getDate() - Number(options.pastWindowDays || 45));
+
+    return candidate < lowerBound ? baseYear + 1 : baseYear;
 }
 
 function deriveVenueName(title, location) {
@@ -225,6 +289,108 @@ function dedupeBookings(bookings) {
     });
 
     return deduped;
+}
+
+function getBookingMergeKey(booking) {
+    return [
+        booking.eventDate,
+        normalizeTime(booking.eventTime),
+        normalizeDedupeText([
+            booking.address,
+            booking.city,
+            booking.state,
+            booking.zip
+        ].filter(Boolean).join(' ') || booking.location || booking.venueName || booking.title)
+    ].join('|');
+}
+
+function mergeBookingInto(existing, booking) {
+    [
+        'eventEndTime',
+        'venueName',
+        'venueType',
+        'location',
+        'address',
+        'city',
+        'state',
+        'zip'
+    ].forEach((field) => {
+        if (!existing[field] && booking[field]) existing[field] = booking[field];
+    });
+
+    if (existing.isPublicPlaceholder && !booking.isPublicPlaceholder) {
+        existing.title = booking.title || existing.title;
+        existing.venueName = booking.venueName || existing.venueName;
+        existing.venueType = booking.venueType || existing.venueType;
+        existing.isPublicPlaceholder = false;
+    }
+
+    existing.duplicateTitles = unique([
+        ...(existing.duplicateTitles || []),
+        ...(booking.duplicateTitles || []),
+        booking.title
+    ].filter((title) => title && title !== existing.title));
+    existing.sourceUrls = unique([...(existing.sourceUrls || []), booking.sourceUrl].filter(Boolean));
+    existing.sourceCapturedAts = unique([
+        ...(existing.sourceCapturedAts || []),
+        booking.sourceCapturedAt
+    ].filter(Boolean));
+
+    if (booking.notes && !String(existing.notes || '').includes(booking.notes)) {
+        existing.notes = `${existing.notes || ''}\n${booking.notes}`.trim();
+    }
+}
+
+function mergeSparseSameTimeBookings(bookings) {
+    const merged = [];
+
+    bookings.forEach((booking) => {
+        const match = merged.find((candidate) => shouldMergeSameTimeBooking(candidate, booking));
+        if (!match) {
+            merged.push(booking);
+            return;
+        }
+
+        if (scoreBookingCompleteness(booking) > scoreBookingCompleteness(match)) {
+            const richer = { ...booking };
+            const poorer = { ...match };
+            Object.assign(match, richer);
+            mergeBookingInto(match, poorer);
+            return;
+        }
+
+        mergeBookingInto(match, booking);
+    });
+
+    return merged;
+}
+
+function shouldMergeSameTimeBooking(a, b) {
+    if (a.eventDate !== b.eventDate || normalizeTime(a.eventTime) !== normalizeTime(b.eventTime)) return false;
+    if (a.isPublicPlaceholder || b.isPublicPlaceholder) return true;
+
+    const aVenue = normalizeDedupeText(a.venueName || a.title);
+    const bVenue = normalizeDedupeText(b.venueName || b.title);
+    if (!aVenue || !bVenue) return false;
+
+    const hasSparseLocation = !a.location || !b.location;
+    return hasSparseLocation && (aVenue === bVenue || aVenue.includes(bVenue) || bVenue.includes(aVenue));
+}
+
+function scoreBookingCompleteness(booking) {
+    return [
+        booking.location,
+        booking.address,
+        booking.city,
+        booking.state,
+        booking.zip,
+        booking.eventEndTime,
+        !booking.isPublicPlaceholder
+    ].filter(Boolean).length;
+}
+
+function unique(values) {
+    return [...new Set(values)];
 }
 
 function makeEventId(date, time, title, blockIndex, eventIndex) {

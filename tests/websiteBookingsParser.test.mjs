@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     filterFutureBookings,
+    filterPastBookings,
+    mergeJddmWebsiteBookings,
     parseJddmWebsiteBookings
 } from '../scripts/lib/jddmWebsiteBookingsParser.mjs';
 
@@ -124,4 +126,122 @@ test('parser marks placeholders and private/public event flags safely', () => {
     assert.equal(placeholder.isPublicPlaceholder, true);
     assert.equal(placeholder.venueType, 'Other Venue');
     assert.match(placeholder.notes, /venue\/location may still need confirmation/);
+});
+
+test('parser infers next-year events from archived year-end snapshots', () => {
+    const html = `
+      <li class="list-group-item py-0 head">
+        <span class="ical-date">12-22 (Monday) 12:00am</span>
+        <ul><li class="list-group-item py-0">
+          <b class="ical_summary">JDDM Holiday Tour</b>
+          <div class="ical_details" id="holiday"></div>
+        </li></ul>
+      </li>
+      <li class="list-group-item py-0 head">
+        <span class="ical-date">01-16 (Friday) 6:00pm</span>
+        <ul><li class="list-group-item py-0">
+          <b class="ical_summary">JustDeeDeeMusic Live @ Hallidays Winery</b>
+          <div class="ical_details" id="hallidays">
+            <span class="time">6:00pm-</span><span class="time">9:00pm;</span>
+            <span class="location">2400 NE River Rd, Lake Milton, OH 44429</span>
+          </div>
+        </li></ul>
+      </li>
+    `;
+    const bookings = parseJddmWebsiteBookings(html, {
+        snapshotDate: '2025-12-07T02:42:47Z',
+        now: '2026-05-04T12:00:00-04:00'
+    });
+
+    assert.equal(bookings[0].eventDate, '2025-12-22');
+    assert.equal(bookings[1].eventDate, '2026-01-16');
+});
+
+test('history helpers merge duplicate source captures and filter past events', () => {
+    const olderCapture = [{
+        eventId: 'old',
+        eventDate: '2025-10-01',
+        eventTime: '7:00pm',
+        title: 'JustDeeDeeMusic Live @ Brighten Brewing Company',
+        venueName: 'Brighten Brewing Company',
+        location: '1374 S Cleve-Mass Rd, Copley, OH 44321',
+        address: '1374 S Cleve-Mass Rd',
+        city: 'Copley',
+        state: 'OH',
+        zip: '44321',
+        sourceUrl: 'https://web.archive.org/example-a',
+        sourceCapturedAt: '2025-09-16T02:15:55.000Z'
+    }];
+    const newerCapture = [{
+        ...olderCapture[0],
+        eventId: 'new',
+        sourceUrl: 'https://web.archive.org/example-b',
+        sourceCapturedAt: '2025-11-12T12:28:35.000Z'
+    }];
+
+    const merged = mergeJddmWebsiteBookings([olderCapture, newerCapture]);
+    const past = filterPastBookings(merged, { now: '2026-05-04T12:00:00-04:00' });
+
+    assert.equal(merged.length, 1);
+    assert.deepEqual(merged[0].sourceUrls, [
+        'https://web.archive.org/example-a',
+        'https://web.archive.org/example-b'
+    ]);
+    assert.equal(past.length, 1);
+});
+
+test('history merge folds placeholders and sparse same-time venue duplicates into richer rows', () => {
+    const rich = {
+        eventId: 'rich',
+        eventDate: '2026-04-24',
+        eventTime: '6:00pm',
+        title: 'JustDeeDeeMusic Live @ Bait House Brewery',
+        venueName: 'Bait House Brewery',
+        location: '223 Meigs St, Sandusky, OH 44870',
+        address: '223 Meigs St',
+        city: 'Sandusky',
+        state: 'OH',
+        zip: '44870',
+        sourceUrl: 'https://web.archive.org/rich',
+        sourceCapturedAt: '2026-02-19T02:40:38.000Z'
+    };
+    const placeholder = {
+        eventId: 'placeholder',
+        eventDate: '2026-04-24',
+        eventTime: '6:00pm',
+        title: 'JDDM 2026 Scheduled Public Event',
+        venueName: 'Scheduled Public Event',
+        isPublicPlaceholder: true,
+        sourceUrl: 'https://web.archive.org/placeholder',
+        sourceCapturedAt: '2025-11-12T17:28:35.000Z'
+    };
+    const sparse = {
+        eventId: 'sparse',
+        eventDate: '2026-04-16',
+        eventTime: '6:00pm',
+        title: 'cc Saloon',
+        venueName: 'cc Saloon',
+        sourceUrl: 'https://web.archive.org/sparse',
+        sourceCapturedAt: '2026-03-13T17:23:22.000Z'
+    };
+    const sparseRich = {
+        eventId: 'sparse-rich',
+        eventDate: '2026-04-16',
+        eventTime: '6:00pm',
+        title: 'JustDeeDeeMusic Live @ CC Saloon',
+        venueName: 'CC Saloon',
+        location: '893 Main St, Grafton, OH 44044',
+        address: '893 Main St',
+        city: 'Grafton',
+        state: 'OH',
+        zip: '44044',
+        sourceUrl: 'https://web.archive.org/sparse-rich',
+        sourceCapturedAt: '2026-02-19T02:40:38.000Z'
+    };
+
+    const merged = mergeJddmWebsiteBookings([[placeholder, rich, sparse, sparseRich]]);
+
+    assert.equal(merged.length, 2);
+    assert.equal(merged.find((booking) => booking.eventDate === '2026-04-24').venueName, 'Bait House Brewery');
+    assert.equal(merged.find((booking) => booking.eventDate === '2026-04-16').location, '893 Main St, Grafton, OH 44044');
 });

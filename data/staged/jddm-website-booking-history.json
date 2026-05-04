@@ -1,0 +1,1140 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-04T08:36:15.265Z",
+  "mode": "public-site-and-archive-past-booking-history",
+  "cutoffDate": "2026-05-04",
+  "sourceCount": 16,
+  "recoveredEventCount": 83,
+  "pastEventCount": 33,
+  "coverage": {
+    "earliestEventDate": "2025-10-18",
+    "latestEventDate": "2026-04-26"
+  },
+  "sources": [
+    {
+      "ok": true,
+      "sourceUrl": "https://www.justdeedeemusic.com/calendar/",
+      "capturedAt": "2026-05-04T08:35:52.038Z",
+      "parsedEventCount": 48
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://www.justdeedeemusic.com/",
+      "capturedAt": "2026-05-04T08:35:52.038Z",
+      "parsedEventCount": 15
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20250916021555id_/https://www.justdeedeemusic.com/calendar/",
+      "capturedAt": "2025-09-16T06:15:55.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "capturedAt": "2025-11-12T17:28:35.000Z",
+      "parsedEventCount": 34
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20231217163654id_/http://www.justdeedeemusic.com/",
+      "capturedAt": "2023-12-17T21:36:54.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20240903203540id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2024-09-04T00:35:40.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20241231151846id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2024-12-31T20:18:46.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20250228191446id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-03-01T00:14:46.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20250609062903id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-06-09T10:29:03.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20250916002133id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-09-16T04:21:33.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20251009035354id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-10-09T07:53:54.000Z",
+      "parsedEventCount": 0
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-11-12T15:16:32.000Z",
+      "parsedEventCount": 34
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2025-12-07T07:42:47.000Z",
+      "parsedEventCount": 7
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2026-01-21T01:28:24.000Z",
+      "parsedEventCount": 9
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2026-02-19T01:20:25.000Z",
+      "parsedEventCount": 12
+    },
+    {
+      "ok": true,
+      "sourceUrl": "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/",
+      "capturedAt": "2026-03-13T17:23:22.000Z",
+      "parsedEventCount": 13
+    }
+  ],
+  "limitations": [
+    "This file stages events recoverable from the public website and public Web Archive snapshots only.",
+    "It is not guaranteed to be all-time history unless the original Google Calendar/ICS export is provided.",
+    "No Google Sheet writes were performed."
+  ],
+  "bookings": [
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_31_53l2fq97g3ocsm83q9mgrd3r1o",
+      "eventDate": "2025-10-18",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JDDM 2026 Scheduled Public Event",
+      "venueName": "Scheduled Public Event",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": true,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 30,
+      "notes": "Website calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_32_3vc1vn87flbp0nrujtlb66rpu4",
+      "eventDate": "2025-11-15",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JDDM 2026 Scheduled Public Event",
+      "venueName": "Scheduled Public Event",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": true,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 31,
+      "notes": "Website calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_1_e1098313778598536",
+      "eventDate": "2025-11-16",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 0,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_2_e1254884286652537",
+      "eventDate": "2025-11-19",
+      "eventDay": "Wednesday",
+      "eventTime": "6:30pm",
+      "eventEndTime": "8:30pm",
+      "title": "JustDeeDeeMusc Live @ Little Birdie Wine Nest",
+      "venueName": "Little Birdie Wine Nest",
+      "venueType": "Winery",
+      "location": "6060 Broadview Rd, Parma, OH 44134",
+      "address": "6060 Broadview Rd",
+      "city": "Parma",
+      "state": "OH",
+      "zip": "44134",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 1,
+      "notes": "Website calendar title: JustDeeDeeMusc Live @ Little Birdie Wine Nest\nWebsite calendar location: 6060 Broadview Rd, Parma, OH 44134",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_3_e1275463064335538",
+      "eventDate": "2025-11-28",
+      "eventDay": "Friday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueType": "Winery",
+      "location": "2400 NE River Rd, Lake Milton, OH 44429",
+      "address": "2400 NE River Rd",
+      "city": "Lake Milton",
+      "state": "OH",
+      "zip": "44429",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 2,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Hallidays Winery\nWebsite calendar location: 2400 NE River Rd, Lake Milton, OH 44429",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_4_e2032028537569591",
+      "eventDate": "2025-12-03",
+      "eventDay": "Wednesday",
+      "eventTime": "7:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueType": "Brewery",
+      "location": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "address": "1374 S Cleve-Mass Rd",
+      "city": "Copley",
+      "state": "OH",
+      "zip": "44321",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 3,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Brighten Brewing Company\nWebsite calendar location: 1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_1_e4134306200145483",
+      "eventDate": "2025-12-06",
+      "eventDay": "Saturday",
+      "eventTime": "5:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueType": "Pub/Bar",
+      "location": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "address": "1925 N Cleveland Massillon Rd",
+      "city": "Akron",
+      "state": "OH",
+      "zip": "44333",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2025-12-07T07:42:47.000Z",
+      "sourceBlockIndex": 0,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ The Pint & Pie Works\nWebsite calendar location: 1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-12-07T07:42:47.000Z"
+      ]
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_5_e4134306200145483",
+      "eventDate": "2025-12-06",
+      "eventDay": "Saturday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueType": "Pub/Bar",
+      "location": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "address": "1925 N Cleveland Massillon Rd",
+      "city": "Akron",
+      "state": "OH",
+      "zip": "44333",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 4,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ The Pint & Pie Works\nWebsite calendar location: 1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_6_e1727627998216010",
+      "eventDate": "2025-12-13",
+      "eventDay": "Saturday",
+      "eventTime": "2:00pm",
+      "eventEndTime": "5:00pm",
+      "title": "JustDeeDeeMusic Live @ Markko Vineyard and Winery",
+      "venueName": "Markko Vineyard and Winery",
+      "venueType": "Winery",
+      "location": "4500 S Ridge Rd W, Conneaut, OH 44030",
+      "address": "4500 S Ridge Rd W",
+      "city": "Conneaut",
+      "state": "OH",
+      "zip": "44030",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 5,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Markko Vineyard and Winery\nWebsite calendar location: 4500 S Ridge Rd W, Conneaut, OH 44030",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_7_e825907726486888",
+      "eventDate": "2025-12-19",
+      "eventDay": "Friday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ CountyLine Saloon",
+      "venueName": "CountyLine Saloon",
+      "venueType": "Other Venue",
+      "location": "13007 Chippewa Rd, Brecksville, OH 44141",
+      "address": "13007 Chippewa Rd",
+      "city": "Brecksville",
+      "state": "OH",
+      "zip": "13007",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 6,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ CountyLine Saloon\nWebsite calendar location: 13007 Chippewa Rd, Brecksville, OH 44141",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_33_500cm7n7g4jil5fsdgib45uaod",
+      "eventDate": "2025-12-20",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JDDM 2026 Scheduled Public Event",
+      "venueName": "Scheduled Public Event",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": true,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 32,
+      "notes": "Website calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_34_0si5r9kv42tp7kanuvfh6s048e",
+      "eventDate": "2025-12-21",
+      "eventDay": "Monday",
+      "eventTime": "12:00am",
+      "eventEndTime": "",
+      "title": "JDDM Holiday Tour",
+      "venueName": "JDDM Holiday Tour",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 33,
+      "notes": "Website calendar title: JDDM Holiday Tour",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_8_e1098313775265203",
+      "eventDate": "2025-12-21",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 7,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_9_5r17uskdlr6dulgptqrcnm772i",
+      "eventDate": "2025-12-22",
+      "eventDay": "Monday",
+      "eventTime": "12:00am",
+      "eventEndTime": "",
+      "title": "JDDM Holiday Tour",
+      "venueName": "JDDM Holiday Tour",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 8,
+      "notes": "Website calendar title: JDDM Holiday Tour",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_10_e1275462201002291",
+      "eventDate": "2026-01-16",
+      "eventDay": "Friday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueType": "Winery",
+      "location": "2400 NE River Rd, Lake Milton, OH 44429",
+      "address": "2400 NE River Rd",
+      "city": "Lake Milton",
+      "state": "OH",
+      "zip": "44429",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 9,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Hallidays Winery\nWebsite calendar location: 2400 NE River Rd, Lake Milton, OH 44429",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_11_e1138037721292808",
+      "eventDate": "2026-01-18",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 10,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251207024247id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2025-12-07T07:42:47.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_1_e1645540990160517",
+      "eventDate": "2026-01-31",
+      "eventDay": "Saturday",
+      "eventTime": "5:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ The Tipsy Flamingo",
+      "venueName": "The Tipsy Flamingo",
+      "venueType": "Other Venue",
+      "location": "5775 Chevrolet Blvd, Parma, OH 44130",
+      "address": "5775 Chevrolet Blvd",
+      "city": "Parma",
+      "state": "OH",
+      "zip": "44130",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 0,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ The Tipsy Flamingo\nWebsite calendar location: 5775 Chevrolet Blvd, Parma, OH 44130",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_2_e1515433032858225",
+      "eventDate": "2026-02-05",
+      "eventDay": "Thursday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueType": "Other Venue",
+      "location": "6784 Ridge Rd, Wadsworth, OH 44281",
+      "address": "6784 Ridge Rd",
+      "city": "Wadsworth",
+      "state": "OH",
+      "zip": "44281",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 1,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Ridge & Rail\nWebsite calendar location: 6784 Ridge Rd, Wadsworth, OH 44281",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z"
+      ]
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_12_e1138037731292807",
+      "eventDate": "2026-02-15",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 11,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2026-01-21T01:28:24.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_4_e1620548799309819",
+      "eventDate": "2026-02-27",
+      "eventDay": "Friday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Bait House Brewery",
+      "venueName": "Bait House Brewery",
+      "venueType": "Brewery",
+      "location": "223 Meigs St, Sandusky, OH 44870",
+      "address": "223 Meigs St",
+      "city": "Sandusky",
+      "state": "OH",
+      "zip": "44870",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 3,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Bait House Brewery\nWebsite calendar location: 223 Meigs St, Sandusky, OH 44870\nWebsite calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2025-11-12T17:28:35.000Z"
+      ],
+      "duplicateTitles": [
+        "JDDM 2026 Scheduled Public Event"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_2_e763337543028058",
+      "eventDate": "2026-03-01",
+      "eventDay": "Sunday",
+      "eventTime": "4:30pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueType": "Other Venue",
+      "location": "6784 Ridge Rd, Wadsworth, OH 44281",
+      "address": "6784 Ridge Rd",
+      "city": "Wadsworth",
+      "state": "OH",
+      "zip": "44281",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-02-19T01:20:25.000Z",
+      "sourceBlockIndex": 1,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Ridge & Rail\nWebsite calendar location: 6784 Ridge Rd, Wadsworth, OH 44281",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-02-19T01:20:25.000Z"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_5_e1517398152667149",
+      "eventDate": "2026-03-04",
+      "eventDay": "Wednesday",
+      "eventTime": "7:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueType": "Brewery",
+      "location": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "address": "1374 S Cleve-Mass Rd",
+      "city": "Copley",
+      "state": "OH",
+      "zip": "44321",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 4,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Brighten Brewing Company\nWebsite calendar location: 1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_6_e1875932386385530",
+      "eventDate": "2026-03-07",
+      "eventDay": "Saturday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueType": "Brewery",
+      "location": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "address": "11610 E Washington St",
+      "city": "Chagrin Falls",
+      "state": "OH",
+      "zip": "11610",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 5,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Bummin' Beaver Brewery\nWebsite calendar location: 11610 E Washington St, Chagrin Falls, OH 44023\nWebsite calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2025-11-12T17:28:35.000Z"
+      ],
+      "duplicateTitles": [
+        "JDDM 2026 Scheduled Public Event"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_7_e2041207023333848",
+      "eventDate": "2026-03-14",
+      "eventDay": "Saturday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "8:00pm",
+      "title": "JustDeeDeeMusic Live @ Patina Porch",
+      "venueName": "Patina Porch",
+      "venueType": "Other Venue",
+      "location": "2434 W Monroe St, Sandusky, OH 44870",
+      "address": "2434 W Monroe St",
+      "city": "Sandusky",
+      "state": "OH",
+      "zip": "44870",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 6,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Patina Porch\nWebsite calendar location: 2434 W Monroe St, Sandusky, OH 44870\nWebsite calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z",
+        "2025-11-12T17:28:35.000Z"
+      ],
+      "duplicateTitles": [
+        "JDDM 2026 Scheduled Public Event"
+      ]
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_16_e1138037717959475",
+      "eventDate": "2026-03-15",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 15,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2026-01-21T01:28:24.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_9_e2015289449369675",
+      "eventDate": "2026-03-18",
+      "eventDay": "Wednesday",
+      "eventTime": "6:30pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusc Live @ Little Birdie Wine Nest",
+      "venueName": "Little Birdie Wine Nest",
+      "venueType": "Winery",
+      "location": "6060 Broadview Rd, Parma, OH 44134",
+      "address": "6060 Broadview Rd",
+      "city": "Parma",
+      "state": "OH",
+      "zip": "44134",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-01-21T01:28:24.000Z",
+      "sourceBlockIndex": 8,
+      "notes": "Website calendar title: JustDeeDeeMusc Live @ Little Birdie Wine Nest\nWebsite calendar location: 6060 Broadview Rd, Parma, OH 44134",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260120202824id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-01-21T01:28:24.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_7_e763337546361391",
+      "eventDate": "2026-03-25",
+      "eventDay": "Wednesday",
+      "eventTime": "7:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueType": "Other Venue",
+      "location": "6784 Ridge Rd, Wadsworth, OH 44281",
+      "address": "6784 Ridge Rd",
+      "city": "Wadsworth",
+      "state": "OH",
+      "zip": "44281",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-02-19T01:20:25.000Z",
+      "sourceBlockIndex": 6,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Ridge & Rail\nWebsite calendar location: 6784 Ridge Rd, Wadsworth, OH 44281",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_17_7r1qk8l0kvd2u73tdb5od44ft3",
+      "eventDate": "2026-03-27",
+      "eventDay": "Friday",
+      "eventTime": "12:00am",
+      "eventEndTime": "",
+      "title": "JDDM Spring Tour",
+      "venueName": "JDDM Spring Tour",
+      "venueType": "Other Venue",
+      "location": "",
+      "address": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 16,
+      "notes": "Website calendar title: JDDM Spring Tour",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_9_e1875932383052197",
+      "eventDate": "2026-04-11",
+      "eventDay": "Saturday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueType": "Brewery",
+      "location": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "address": "11610 E Washington St",
+      "city": "Chagrin Falls",
+      "state": "OH",
+      "zip": "11610",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-02-19T01:20:25.000Z",
+      "sourceBlockIndex": 8,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Bummin' Beaver Brewery\nWebsite calendar location: 11610 E Washington St, Chagrin Falls, OH 44023\nWebsite calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/"
+      ],
+      "sourceCapturedAts": [
+        "2026-02-19T01:20:25.000Z",
+        "2025-11-12T17:28:35.000Z"
+      ],
+      "duplicateTitles": [
+        "JDDM 2026 Scheduled Public Event"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_10_e1593805398634647",
+      "eventDate": "2026-04-16",
+      "eventDay": "Thursday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ CC Saloon",
+      "venueName": "CC Saloon",
+      "venueType": "Other Venue",
+      "location": "893 Main St, Grafton, OH 44044",
+      "address": "893 Main St",
+      "city": "Grafton",
+      "state": "OH",
+      "zip": "44044",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-02-19T01:20:25.000Z",
+      "sourceBlockIndex": 9,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ CC Saloon\nWebsite calendar location: 893 Main St, Grafton, OH 44044\nWebsite calendar title: cc Saloon",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": [
+        "cc Saloon"
+      ]
+    },
+    {
+      "eventId": "b97ac29e4-8687-4e82-95bc-e017e2e7719a_19_e1138037724626141",
+      "eventDate": "2026-04-19",
+      "eventDay": "Sunday",
+      "eventTime": "3:00pm",
+      "eventEndTime": "6:00pm",
+      "title": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueType": "Other Venue",
+      "location": "3232 Erhart Rd, Litchfield, OH 44253",
+      "address": "3232 Erhart Rd",
+      "city": "Litchfield",
+      "state": "OH",
+      "zip": "44253",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+      "sourceCapturedAt": "2025-11-12T17:28:35.000Z",
+      "sourceBlockIndex": 18,
+      "notes": "Website calendar title: JustDeeDeeMusic Open Mic @ Das Weinhaus\nWebsite calendar location: 3232 Erhart Rd, Litchfield, OH 44253",
+      "sourceUrls": [
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/",
+        "https://web.archive.org/web/20251112101632id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260218202025id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2025-11-12T17:28:35.000Z",
+        "2025-11-12T15:16:32.000Z",
+        "2026-02-19T01:20:25.000Z",
+        "2026-03-13T17:23:22.000Z"
+      ],
+      "duplicateTitles": []
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_9_e1620548795976486",
+      "eventDate": "2026-04-24",
+      "eventDay": "Friday",
+      "eventTime": "6:00pm",
+      "eventEndTime": "9:00pm",
+      "title": "JustDeeDeeMusic Live @ Bait House Brewery",
+      "venueName": "Bait House Brewery",
+      "venueType": "Brewery",
+      "location": "223 Meigs St, Sandusky, OH 44870",
+      "address": "223 Meigs St",
+      "city": "Sandusky",
+      "state": "OH",
+      "zip": "44870",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-03-13T17:23:22.000Z",
+      "sourceBlockIndex": 7,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Bait House Brewery\nWebsite calendar location: 223 Meigs St, Sandusky, OH 44870\nWebsite calendar title: JDDM 2026 Scheduled Public Event\nPublic event placeholder from website; venue/location may still need confirmation.",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/",
+        "https://web.archive.org/web/20251112122835id_/https://www.justdeedeemusic.com/calendar/"
+      ],
+      "sourceCapturedAts": [
+        "2026-03-13T17:23:22.000Z",
+        "2025-11-12T17:28:35.000Z"
+      ],
+      "duplicateTitles": [
+        "JDDM 2026 Scheduled Public Event"
+      ]
+    },
+    {
+      "eventId": "b1068354c-151f-444d-b369-aa9cd63428c8_10_e763337559694723",
+      "eventDate": "2026-04-26",
+      "eventDay": "Sunday",
+      "eventTime": "4:30pm",
+      "eventEndTime": "",
+      "title": "JustDeeDeeMusic Live @ Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueType": "Other Venue",
+      "location": "6784 Ridge Rd, Wadsworth, OH 44281",
+      "address": "6784 Ridge Rd",
+      "city": "Wadsworth",
+      "state": "OH",
+      "zip": "44281",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "sourceUrl": "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/",
+      "sourceCapturedAt": "2026-03-13T17:23:22.000Z",
+      "sourceBlockIndex": 8,
+      "notes": "Website calendar title: JustDeeDeeMusic Live @ Ridge & Rail\nWebsite calendar location: 6784 Ridge Rd, Wadsworth, OH 44281",
+      "sourceUrls": [
+        "https://web.archive.org/web/20260313132322id_/https://www.justdeedeemusic.com/"
+      ],
+      "sourceCapturedAts": [
+        "2026-03-13T17:23:22.000Z"
+      ]
+    }
+  ]
+}
