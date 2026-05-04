@@ -20,12 +20,14 @@ Done:
 - Manual follow-up date control exists.
 - Priority and Best Fit scoring controls exist.
 - Apps Script safe-column logic now includes `contactStatus`, `draftStatus`, `lastContactedDate`, `nextFollowUpDate`, `doNotContact`, `priority`, and `bestFitScore`.
+- Public Just Dee Dee website booking pull/preview script exists for future event review.
 - Automated checks include booking tests and the JDDM smoke gate.
 
 Not done yet:
 
 - Live Apps Script redeploy for the newest `priority` / `bestFitScore` bridge schema.
 - Real Google Sheet write QA on a disposable test venue row.
+- Sheet merge workflow for approved website bookings.
 - Tester bug sweep.
 - UI redesign / mobile polish pass.
 - Client handoff guide. This is intentionally delayed until after testing, bug fixes, and redesign.
@@ -224,6 +226,20 @@ Rules:
 - `Do Not Contact`: `doNotContact = true`, `contactStatus = Do Not Contact`.
 
 Deliverable: status buttons save reliable next steps.
+
+### Phase 5A - Website Booking Pull Preview
+
+Goal: pull future public bookings from the Just Dee Dee website without writing to the Sheet.
+
+Work:
+
+- Read `https://www.justdeedeemusic.com/calendar/`.
+- Parse rendered Simple Google iCalendar Widget events.
+- Normalize date, time, venue, location, private/public placeholder flags, and notes.
+- Deduplicate obvious duplicate website calendar entries.
+- Keep output as review JSON until a merge workflow is approved.
+
+Deliverable: `npm run bookings:website:preview` shows future booking records ready for review.
 
 ### Phase 6 - Tester QA + Bug Fixing
 
@@ -440,6 +456,8 @@ rg -n "LEMONSQUEEZY|paywall-title|Upgrade" index.html modules services tests pac
 | JDDM-028 | Bug fix pass | P1 | 6 | Next | P0/P1 bugs from tester QA are fixed and pushed |
 | JDDM-029 | UI redesign pass | P1 | 7 | Later | Map/planner/account feel polished on desktop and mobile |
 | JDDM-030 | Live Apps Script redeploy | P0 | 6 | Needs Owner | Live bridge reports `2026-05-04-priority-scoring` |
+| JDDM-031 | Website booking pull preview | P1 | 5A | Done | Public website calendar produces future normalized booking records without Sheet writes |
+| JDDM-032 | Approved website booking Sheet merge | P1 | 5A | Backlog | Reviewed website bookings can update matching venue/event fields safely |
 
 ## Bug Tracker Categories
 
