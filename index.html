@@ -20,7 +20,7 @@
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="styles.css?v=43">
-    <link rel="stylesheet" href="styles/mapStyles.css?v=6">
+    <link rel="stylesheet" href="styles/mapStyles.css?v=7">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
     <!-- PWA Manifest & App Icons -->
@@ -1008,18 +1008,16 @@
 
                 <!-- 5. Gamification: Leaderboard -->
                 <div class="profile-section-card" id="leaderboard-container"
-                    style="display: none !important; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
+                    style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #1e293b;">🏆 Global Leaderboard
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #1e293b;">Global Gig Tracker
                         </h3>
                         <span id="personal-rank-display"
-                            style="font-size: 11px; font-weight: 900; color: #f59e0b; background: #fffbeb; padding: 4px 10px; border-radius: 20px; border: 1px solid #fef3c7;">Rank:
-                            --</span>
+                            style="font-size: 11px; font-weight: 900; color: #0f766e; background: #ccfbf1; padding: 4px 10px; border-radius: 20px; border: 1px solid #99f6e4;">Live</span>
                     </div>
                     <ul id="leaderboard-list" style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
-                        <li style="color: #94a3b8; font-style: italic; text-align: center; padding: 20px 0;">Loading Top
-                            5...</li>
+                        <li style="color: #94a3b8; font-style: italic; text-align: center; padding: 20px 0;">Loading gig totals...</li>
                     </ul>
                     <div id="leaderboard-controls" style="margin-top: 15px; text-align: center;"></div>
                 </div>
@@ -1306,7 +1304,7 @@
     <script src="modules/settingsRegistry.js?v=1" defer></script>
     <script src="repos/ParkRepo.js?v=1" defer></script>
     <script src="repos/VaultRepo.js?v=3" defer></script>
-    <script src="modules/barkState.js?v=5" defer></script>
+    <script src="modules/barkState.js?v=6" defer></script>
     <script src="config/firebaseConfig.example.js?v=2" defer></script>
     <script src="modules/barkConfig.js?v=3" defer></script>
     <script src="config/domRefs.js?v=1" defer></script>
@@ -1328,9 +1326,9 @@
     <script src="modules/TripLayerManager.js?v=5" defer></script>
     <script src="modules/mapEngine.js?v=3" defer></script>
     <script src="modules/renderEngine.js?v=8" defer></script>
-    <script src="renderers/panelRenderer.js?v=6" defer></script>
+    <script src="renderers/panelRenderer.js?v=7" defer></script>
     <script src="modules/venueEditModal.js?v=4" defer></script>
-    <script src="modules/searchEngine.js?v=5" defer></script>
+    <script src="modules/searchEngine.js?v=6" defer></script>
     <script src="modules/bookingSchema.js?v=4" defer></script>
     <script src="modules/bookingEmailTemplates.js?v=2" defer></script>
     <script src="modules/bookingActions.js?v=4" defer></script>
@@ -1346,7 +1344,7 @@
     <script src="modules/uiController.js?v=9" defer></script>
 
     <!-- ENTRY POINT: Bootstrap Orchestrator (must load LAST) -->
-    <script src="core/app.js?v=29" defer></script>
+    <script src="core/app.js?v=30" defer></script>
     <!-- SCORING PROTOCOL MODAL -->
     <div id="scoring-modal" class="scoring-modal-overlay">
         <div class="scoring-modal-card">

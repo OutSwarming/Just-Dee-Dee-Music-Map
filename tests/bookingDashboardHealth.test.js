@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-05-04-website-events-staging',
+        schemaVersion: '2026-05-07-calendar-review-global-gigs',
         generatedColumns: [
             { header: 'Longitude' },
             { header: 'Latitude' },
@@ -68,7 +68,16 @@ function safeHealth(overrides = {}) {
             { header: 'doNotContact' },
             { header: 'priority' },
             { header: 'bestFitScore' },
-            { header: 'websiteBookingEvents' }
+            { header: 'websiteBookingEvents' },
+            { header: 'calendarGigEvents' },
+            { header: 'calendarPastGigEvents' },
+            { header: 'calendarFutureGigEvents' },
+            { header: 'calendarLastGigDate' },
+            { header: 'calendarNextGigDate' },
+            { header: 'calendarPastGigCount' },
+            { header: 'calendarFutureGigCount' },
+            { header: 'calendarTotalGigsPlayed' },
+            { header: 'calendarLastSyncedAt' }
         ],
         ...overrides
     };
@@ -124,7 +133,16 @@ test('booking dashboard identifies missing CRM headers from bridge health', () =
         'doNotContact',
         'priority',
         'bestFitScore',
-        'websiteBookingEvents'
+        'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt'
     ]);
 });
 

@@ -37,8 +37,18 @@ const CSV_COLUMNS = {
     PRIORITY: ['priority', 'Rank'],
     BEST_FIT_SCORE: ['bestFitScore', 'best fit score'],
     WEBSITE_BOOKING_EVENTS: ['websiteBookingEvents', 'website booking events', 'website event history'],
+    CALENDAR_GIG_EVENTS: ['calendarGigEvents', 'calendar gig events', 'calendar event history'],
+    CALENDAR_PAST_GIG_EVENTS: ['calendarPastGigEvents', 'calendar past gig events', 'past gig events'],
+    CALENDAR_FUTURE_GIG_EVENTS: ['calendarFutureGigEvents', 'calendar future gig events', 'future gig events'],
+    CALENDAR_LAST_GIG_DATE: ['calendarLastGigDate', 'calendar last gig date', 'lastGigDate', 'last gig date'],
+    CALENDAR_NEXT_GIG_DATE: ['calendarNextGigDate', 'calendar next gig date', 'nextGigDate', 'next gig date'],
+    CALENDAR_PAST_GIG_COUNT: ['calendarPastGigCount', 'calendar past gig count', 'pastGigs', 'past gigs'],
+    CALENDAR_FUTURE_GIG_COUNT: ['calendarFutureGigCount', 'calendar future gig count', 'futureGigs', 'future gigs'],
+    CALENDAR_TOTAL_GIGS_PLAYED: ['calendarTotalGigsPlayed', 'calendar total gigs played', 'totalGigsPlayed', 'total gigs played'],
+    CALENDAR_LAST_SYNCED_AT: ['calendarLastSyncedAt', 'calendar last synced at'],
     PREFERRED_DAYS: ['preferredDays', 'preferred days', 'Days/Months'],
-    GIG_HISTORY: ['gigHistory', 'gig history', '#Times'],
+    GIG_HISTORY: ['gigHistory', 'gig history'],
+    CONTACT_ATTEMPTS: ['contactAttempts', 'contact attempts', '#Times'],
     DO_NOT_CONTACT: ['doNotContact', 'do not contact', 'DNC'],
     EVENT_DATE: ['upcoming event date', 'event date', 'date'],
     EVENT_TIME: ['upcoming event time', 'event time', 'time'],
@@ -143,8 +153,18 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
         priority: getCSVValueFromAny(row, CSV_COLUMNS.PRIORITY),
         bestFitScore: getCSVValueFromAny(row, CSV_COLUMNS.BEST_FIT_SCORE),
         websiteBookingEvents: getCSVValueFromAny(row, CSV_COLUMNS.WEBSITE_BOOKING_EVENTS),
+        calendarGigEvents: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_GIG_EVENTS),
+        calendarPastGigEvents: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_PAST_GIG_EVENTS),
+        calendarFutureGigEvents: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_FUTURE_GIG_EVENTS),
+        calendarLastGigDate: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_LAST_GIG_DATE),
+        calendarNextGigDate: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_NEXT_GIG_DATE),
+        calendarPastGigCount: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_PAST_GIG_COUNT),
+        calendarFutureGigCount: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_FUTURE_GIG_COUNT),
+        calendarTotalGigsPlayed: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_TOTAL_GIGS_PLAYED),
+        calendarLastSyncedAt: getCSVValueFromAny(row, CSV_COLUMNS.CALENDAR_LAST_SYNCED_AT),
         preferredDays: getCSVValueFromAny(row, CSV_COLUMNS.PREFERRED_DAYS),
         gigHistory: getCSVValueFromAny(row, CSV_COLUMNS.GIG_HISTORY),
+        contactAttempts: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_ATTEMPTS),
         doNotContact: getCSVValueFromAny(row, CSV_COLUMNS.DO_NOT_CONTACT)
     };
 
@@ -267,8 +287,18 @@ function processParsedResults(results) {
                 priority: item.booking.priority,
                 bestFitScore: item.booking.bestFitScore,
                 websiteBookingEvents: item.booking.websiteBookingEvents || item.websiteBookingEvents,
+                calendarGigEvents: item.booking.calendarGigEvents || item.calendarGigEvents,
+                calendarPastGigEvents: item.booking.calendarPastGigEvents || item.calendarPastGigEvents,
+                calendarFutureGigEvents: item.booking.calendarFutureGigEvents || item.calendarFutureGigEvents,
+                calendarLastGigDate: item.booking.calendarLastGigDate || item.calendarLastGigDate,
+                calendarNextGigDate: item.booking.calendarNextGigDate || item.calendarNextGigDate,
+                calendarPastGigCount: item.booking.calendarPastGigCount || item.calendarPastGigCount,
+                calendarFutureGigCount: item.booking.calendarFutureGigCount || item.calendarFutureGigCount,
+                calendarTotalGigsPlayed: item.booking.calendarTotalGigsPlayed || item.calendarTotalGigsPlayed,
+                calendarLastSyncedAt: item.booking.calendarLastSyncedAt || item.calendarLastSyncedAt,
                 preferredDays: item.booking.preferredDays || item.preferredDays,
                 gigHistory: item.booking.gigHistory || item.gigHistory,
+                contactAttempts: item.booking.contactAttempts || item.contactAttempts,
                 doNotContact: Boolean(item.booking.doNotContact),
                 booking: item.booking,
                 eventDate: item.eventDate,
@@ -768,7 +798,11 @@ function loadData(options = {}) {
             premiumService.isPremium()
         );
         if (!isPremium && !cachedCsv) {
-            alert('Network disconnected. Cached venue data is unavailable on this device.');
+            if (window.BARK && typeof window.BARK.showTripToast === 'function') {
+                window.BARK.showTripToast('Network disconnected. Cached venue data is unavailable on this device.', { duration: 5200 });
+            } else {
+                console.warn('Network disconnected. Cached venue data is unavailable on this device.');
+            }
             clearMarkerLayersSafely();
         }
         return;

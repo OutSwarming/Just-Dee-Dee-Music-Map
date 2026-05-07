@@ -20,7 +20,7 @@
         { id: 'doNotContact', label: 'Do Not Contact' }
     ];
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-04-website-events-staging';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-07-calendar-review-global-gigs';
     const REQUIRED_BOOKING_HEADERS = [
         'contactStatus',
         'draftStatus',
@@ -29,7 +29,16 @@
         'doNotContact',
         'priority',
         'bestFitScore',
-        'websiteBookingEvents'
+        'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt'
     ];
 
     let activeTab = 'today';

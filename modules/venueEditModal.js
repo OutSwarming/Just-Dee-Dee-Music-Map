@@ -28,6 +28,15 @@
         'priority',
         'bestFitScore',
         'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt',
         'Yearly Booking',
         'Notes',
         'Longitude',
@@ -43,7 +52,16 @@
         'doNotContact',
         'priority',
         'bestFitScore',
-        'websiteBookingEvents'
+        'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt'
     ];
 
     let activeVenue = null;
@@ -352,6 +370,15 @@
             priority: getOptionalRawField(rawFields, ['priority', 'Priority', 'Rank'], venue.priority),
             bestFitScore: getOptionalRawField(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], venue.bestFitScore),
             websiteBookingEvents: getOptionalRawField(rawFields, ['websiteBookingEvents', 'website booking events'], venue.websiteBookingEvents),
+            calendarGigEvents: getOptionalRawField(rawFields, ['calendarGigEvents', 'calendar gig events'], venue.calendarGigEvents),
+            calendarPastGigEvents: getOptionalRawField(rawFields, ['calendarPastGigEvents', 'calendar past gig events'], venue.calendarPastGigEvents),
+            calendarFutureGigEvents: getOptionalRawField(rawFields, ['calendarFutureGigEvents', 'calendar future gig events'], venue.calendarFutureGigEvents),
+            calendarLastGigDate: getOptionalRawField(rawFields, ['calendarLastGigDate', 'calendar last gig date'], venue.calendarLastGigDate),
+            calendarNextGigDate: getOptionalRawField(rawFields, ['calendarNextGigDate', 'calendar next gig date'], venue.calendarNextGigDate),
+            calendarPastGigCount: getOptionalRawField(rawFields, ['calendarPastGigCount', 'calendar past gig count'], venue.calendarPastGigCount),
+            calendarFutureGigCount: getOptionalRawField(rawFields, ['calendarFutureGigCount', 'calendar future gig count'], venue.calendarFutureGigCount),
+            calendarTotalGigsPlayed: getOptionalRawField(rawFields, ['calendarTotalGigsPlayed', 'calendar total gigs played'], venue.calendarTotalGigsPlayed),
+            calendarLastSyncedAt: getOptionalRawField(rawFields, ['calendarLastSyncedAt', 'calendar last synced at'], venue.calendarLastSyncedAt),
             doNotContact: getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], venue.doNotContact)
         };
     }
@@ -391,6 +418,15 @@
                 priority: fields.priority,
                 bestFitScore: fields.bestFitScore,
                 websiteBookingEvents: fields.websiteBookingEvents,
+                calendarGigEvents: fields.calendarGigEvents,
+                calendarPastGigEvents: fields.calendarPastGigEvents,
+                calendarFutureGigEvents: fields.calendarFutureGigEvents,
+                calendarLastGigDate: fields.calendarLastGigDate,
+                calendarNextGigDate: fields.calendarNextGigDate,
+                calendarPastGigCount: fields.calendarPastGigCount,
+                calendarFutureGigCount: fields.calendarFutureGigCount,
+                calendarTotalGigsPlayed: fields.calendarTotalGigsPlayed,
+                calendarLastSyncedAt: fields.calendarLastSyncedAt,
                 doNotContact: Boolean(fields.doNotContact),
                 info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
             };

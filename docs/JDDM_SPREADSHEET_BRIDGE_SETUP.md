@@ -4,7 +4,7 @@ This app is hosted on GitHub Pages, so it cannot write to Google Sheets by itsel
 
 ## 1. Install the Bridge
 
-1. Open the JustDeeDee Music spreadsheet.
+1. Open the original working Just Dee Dee Music spreadsheet.
 2. Click `Extensions` > `Apps Script`.
 3. Delete any starter code in `Code.gs`.
 4. Paste the contents of:
@@ -27,12 +27,21 @@ This app is hosted on GitHub Pages, so it cannot write to Google Sheets by itsel
 
 ## 3. Connect the Map
 
-Paste the URL into `config/firebaseConfig.example.js`:
+The app is currently wired back to the original working bridge:
+
+```js
+window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyeskUlFOAAfBKjhVtHpDHfjKn_SOfzaN0CIorRvyRirS_hTzTjjwf5w5gB2qs9yiw8/exec";
+window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
+```
+
+If you deploy a replacement bridge later, paste the new `/exec` URL into `config/firebaseConfig.example.js`:
 
 ```js
 window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 ```
+
+The current `Code.gs` uses the active bound spreadsheet. Open the Apps Script editor from the spreadsheet itself with `Extensions` > `Apps Script`, then paste/deploy the bridge there.
 
 `JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. The app also refreshes immediately after a save when the bridge returns updated CSV.
 
@@ -69,8 +78,61 @@ The bridge appends these booking columns when missing. It does not insert them i
 - `priority`
 - `bestFitScore`
 - `websiteBookingEvents`
+- `calendarGigEvents`
+- `calendarPastGigEvents`
+- `calendarFutureGigEvents`
+- `calendarLastGigDate`
+- `calendarNextGigDate`
+- `calendarPastGigCount`
+- `calendarFutureGigCount`
+- `calendarTotalGigsPlayed`
+- `calendarLastSyncedAt`
 
 `websiteBookingEvents` is a holding column for reviewed website calendar events before a real merge. The bridge includes a `stageWebsiteBookingEvents` action that defaults to dry-run mode and writes only that holding column when explicitly run with `dryRun: false`.
+
+## Google Calendar Gig Sync
+
+The bridge can now pull Dee Dee's Google Calendar events and keep a durable `CalendarGigs` sheet up to date.
+
+Configured calendar IDs:
+
+- `justdeedeemusic@gmail.com`
+- `051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com`
+
+Configured public ICS fallback:
+
+- `https://calendar.google.com/calendar/ical/051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba%40group.calendar.google.com/public/basic.ics`
+
+Note: the `justdeedeemusic@gmail.com` public ICS URL returned 404 during local verification, so the live bridge uses Apps Script `CalendarApp` for that main calendar. The spreadsheet/script owner must have access to that calendar.
+
+After pasting the latest `Code.gs` and deploying:
+
+1. Open Apps Script from the original working spreadsheet.
+2. Save the updated `Code.gs`.
+3. Deploy a new version of the existing web app.
+4. Run `doGet` once from the Apps Script editor, or run `installJddmCalendarSyncTrigger` from the JDDM Map menu.
+5. Confirm the `CalendarGigs` sheet appears.
+6. Confirm venue rows gain `calendarGigEvents`, `calendarPastGigEvents`, `calendarFutureGigEvents`, `calendarLastGigDate`, `calendarNextGigDate`, `calendarPastGigCount`, `calendarFutureGigCount`, and `calendarTotalGigsPlayed` where matches are confident.
+7. Confirm the `CalendarDuplicateReview` sheet appears. Calendar-only public venues are staged there instead of being discarded.
+8. In `CalendarDuplicateReview`, use column Q (`isDuplicate`) as the review dropdown:
+   - `Yes` merges the calendar event into an existing venue when `duplicateVenueSiteId`, `duplicateVenueName`, or the auto-match can identify the duplicate.
+   - `No` promotes the calendar event as a new venue row.
+9. Confirm Apps Script has a `runJddmCalendarSyncTrigger` time trigger set to refresh every 5 minutes.
+
+The calendar sync is idempotent. It keys the durable gig table by `calendarEventId`/`gigId`, so running it again updates existing calendar gig rows instead of duplicating them.
+
+Private events and placeholder website events are preserved in `CalendarGigs` even when they cannot safely match a venue row.
+
+Local staging/review command:
+
+```bash
+npm run bookings:calendar:stage -- --write
+```
+
+This reads the exported `.ics` files from `~/Downloads/Google Calendar Export.ical`, then writes:
+
+- `data/staged/jddm-calendar-gigs.json`
+- `data/staged/jddm-calendar-gigs.csv`
 
 ## Coordinate Import
 

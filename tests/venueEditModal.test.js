@@ -70,7 +70,16 @@ test('venue editor always exposes generated booking CRM fields', () => {
         'doNotContact',
         'priority',
         'bestFitScore',
-        'websiteBookingEvents'
+        'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt'
     ].includes(header)), [
         'contactStatus',
         'draftStatus',
@@ -79,7 +88,16 @@ test('venue editor always exposes generated booking CRM fields', () => {
         'doNotContact',
         'priority',
         'bestFitScore',
-        'websiteBookingEvents'
+        'websiteBookingEvents',
+        'calendarGigEvents',
+        'calendarPastGigEvents',
+        'calendarFutureGigEvents',
+        'calendarLastGigDate',
+        'calendarNextGigDate',
+        'calendarPastGigCount',
+        'calendarFutureGigCount',
+        'calendarTotalGigsPlayed',
+        'calendarLastSyncedAt'
     ]);
 });
 
@@ -96,6 +114,15 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
         priority: '8',
         bestFitScore: '9',
         websiteBookingEvents: '2026-05-06 7:00pm Brighten Brewing Company',
+        calendarGigEvents: '2026-05-06 | 7:00pm-9:00pm | BOOKED | Brighten Brewing',
+        calendarPastGigEvents: '2025-05-06 | COMPLETED | Brighten Brewing',
+        calendarFutureGigEvents: '2026-05-06 | BOOKED | Brighten Brewing',
+        calendarLastGigDate: '2025-05-06',
+        calendarNextGigDate: '2026-05-06',
+        calendarPastGigCount: '3',
+        calendarFutureGigCount: '1',
+        calendarTotalGigsPlayed: '3',
+        calendarLastSyncedAt: '2026-05-06T20:00:00.000Z',
         doNotContact: 'Yes',
         Played: '',
         'private event': ''
@@ -119,6 +146,15 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
     assert.equal(fields.priority, '8');
     assert.equal(fields.bestFitScore, '9');
     assert.equal(fields.websiteBookingEvents, '2026-05-06 7:00pm Brighten Brewing Company');
+    assert.equal(fields.calendarGigEvents, '2026-05-06 | 7:00pm-9:00pm | BOOKED | Brighten Brewing');
+    assert.equal(fields.calendarPastGigEvents, '2025-05-06 | COMPLETED | Brighten Brewing');
+    assert.equal(fields.calendarFutureGigEvents, '2026-05-06 | BOOKED | Brighten Brewing');
+    assert.equal(fields.calendarLastGigDate, '2025-05-06');
+    assert.equal(fields.calendarNextGigDate, '2026-05-06');
+    assert.equal(fields.calendarPastGigCount, '3');
+    assert.equal(fields.calendarFutureGigCount, '1');
+    assert.equal(fields.calendarTotalGigsPlayed, '3');
+    assert.equal(fields.calendarLastSyncedAt, '2026-05-06T20:00:00.000Z');
     assert.equal(fields.doNotContact, true);
     assert.equal(fields.played, false);
     assert.equal(fields.privateEvent, false);

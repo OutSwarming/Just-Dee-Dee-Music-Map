@@ -575,71 +575,126 @@ function buildPersonalLeaderboardFallback(user, visitedPlaces, localScore, exact
     };
 }
 
+function parseGigCount(value) {
+    const parsed = Number(String(value === undefined || value === null ? '' : value).replace(/,/g, '').trim());
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function getTodayIsoDate() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function countCalendarEventLines(value) {
+    const today = getTodayIsoDate();
+    const counts = { past: 0, future: 0 };
+    String(value || '')
+        .split(/\n+/)
+        .map(line => line.trim())
+        .filter(line => line && !/^manual sheet history:/i.test(line))
+        .forEach(line => {
+            if (/\bPROPOSED\b/i.test(line)) return;
+            const match = line.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+            if (!match) return;
+            if (match[1] < today) counts.past += 1;
+            else counts.future += 1;
+        });
+    return counts;
+}
+
+function getVenueCalendarCounts(venue = {}) {
+    const booking = venue.booking || {};
+    const allEvents = venue.calendarGigEvents || booking.calendarGigEvents || '';
+    const parsedCounts = countCalendarEventLines(allEvents);
+    const pastCount = Math.max(
+        parseGigCount(venue.calendarPastGigCount),
+        parseGigCount(booking.calendarPastGigCount),
+        parseGigCount(venue.calendarTotalGigsPlayed),
+        parseGigCount(booking.calendarTotalGigsPlayed),
+        parsedCounts.past
+    );
+    const futureCount = Math.max(
+        parseGigCount(venue.calendarFutureGigCount),
+        parseGigCount(booking.calendarFutureGigCount),
+        parsedCounts.future
+    );
+
+    return { pastCount, futureCount };
+}
+
+function getGlobalGigTrackerStats() {
+    const parkRepo = getParkRepo();
+    const venues = parkRepo && typeof parkRepo.getAll === 'function' ? parkRepo.getAll() : [];
+    let pastGigs = 0;
+    let futureGigs = 0;
+    let differentPlaces = 0;
+
+    venues.forEach(venue => {
+        const counts = getVenueCalendarCounts(venue);
+        pastGigs += counts.pastCount;
+        futureGigs += counts.futureCount;
+        if (counts.pastCount > 0 || counts.futureCount > 0) differentPlaces += 1;
+    });
+
+    return {
+        pastGigs,
+        futureGigs,
+        differentPlaces,
+        venueCount: venues.length
+    };
+}
+
+function createGlobalGigTrackerRow(label, value, detail) {
+    const li = document.createElement('li');
+    li.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; margin-bottom: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0;';
+
+    const copy = document.createElement('div');
+    copy.style.cssText = 'display: flex; flex-direction: column; min-width: 0;';
+    const labelEl = document.createElement('span');
+    labelEl.style.cssText = 'font-size: 13px; font-weight: 900; color: #1e293b;';
+    labelEl.textContent = label;
+    copy.appendChild(labelEl);
+    if (detail) {
+        const detailEl = document.createElement('span');
+        detailEl.style.cssText = 'font-size: 11px; color: #64748b; margin-top: 2px;';
+        detailEl.textContent = detail;
+        copy.appendChild(detailEl);
+    }
+
+    const valueEl = document.createElement('span');
+    valueEl.style.cssText = 'font-size: 16px; font-weight: 900; color: #0f766e; background: #ccfbf1; border: 1px solid #99f6e4; padding: 4px 10px; border-radius: 999px;';
+    valueEl.textContent = Number(value || 0).toLocaleString();
+
+    li.appendChild(copy);
+    li.appendChild(valueEl);
+    return li;
+}
+
 function renderLeaderboard(topUsers) {
     if (topUsers) cachedLeaderboardData = topUsers;
     const data = cachedLeaderboardData;
 
+    const containerEl = document.getElementById('leaderboard-container');
     const listEl = document.getElementById('leaderboard-list');
     const rankEl = document.getElementById('personal-rank-display');
     const controlsEl = document.getElementById('leaderboard-controls');
     if (!listEl || !rankEl || !controlsEl) return;
-    const leaderboardRenderer = getLeaderboardRenderer();
-    if (!leaderboardRenderer) {
-        console.error('[profileEngine] leaderboardRenderer unavailable; leaderboard render skipped.');
-        return;
-    }
+    if (containerEl) containerEl.style.setProperty('display', 'block', 'important');
 
     listEl.innerHTML = '';
-    const uid = (typeof firebase !== 'undefined' && firebase.auth().currentUser) ? firebase.auth().currentUser.uid : null;
-    let personalRank = '--';
-    let personalUserObj = null;
-
-    data.forEach((user, index) => {
-        let rank = index + 1;
-        if (user.isPersonalFallback) rank = leaderboardRenderer.getSafeLeaderboardRank(user.exactRank);
-        if (user.uid === uid) { personalRank = rank; personalUserObj = user; }
-    });
-
-    if (rankEl) rankEl.textContent = 'Rank: ' + leaderboardRenderer.formatLeaderboardRank(personalRank);
-
-    data.forEach((user, index) => {
-        if (user.isPersonalFallback) return;
-        const rank = index + 1;
-        listEl.appendChild(leaderboardRenderer.createLeaderboardRow({
-            user,
-            rank,
-            currentUid: uid,
-            previousUser: data[rank - 2]
-        }));
-    });
-
-    if (personalUserObj && personalUserObj.isPersonalFallback) {
-        const exactRank = leaderboardRenderer.getSafeLeaderboardRank(personalUserObj.exactRank);
-        listEl.appendChild(leaderboardRenderer.createLeaderboardRow({
-            user: personalUserObj,
-            rank: exactRank,
-            currentUid: uid,
-            isPinnedSelf: true,
-            previousUser: data[exactRank - 2]
-        }));
-    }
-
-    if (data.length === 0) {
-        window.BARK.safeUpdateHTML('leaderboard-list', '<li style="color: #888; font-style: italic; text-align: center; padding: 10px 0;">No leaderboard data yet.</li>');
-    }
-
+    const stats = getGlobalGigTrackerStats();
+    if (rankEl) rankEl.textContent = 'Live';
+    listEl.appendChild(createGlobalGigTrackerRow('Past gigs', stats.pastGigs, 'Completed calendar gigs'));
+    listEl.appendChild(createGlobalGigTrackerRow('Future gigs', stats.futureGigs, 'Booked upcoming calendar dates'));
+    listEl.appendChild(createGlobalGigTrackerRow('Different places', stats.differentPlaces, 'Venues with at least one gig'));
     controlsEl.innerHTML = '';
-    if (window._lastLeaderboardDoc) {
-        const showMoreBtn = document.createElement('button');
-        showMoreBtn.id = 'lb-load-more-btn';
-        showMoreBtn.textContent = 'Show More (+5)';
-        showMoreBtn.style.cssText = 'width: 100%; background: rgba(0,0,0,0.05); border: 1px dashed rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; font-size: 13px; cursor: pointer; color: #555; font-weight: 700; margin-top: 5px;';
-        showMoreBtn.onclick = loadMoreLeaderboard;
-        controlsEl.appendChild(showMoreBtn);
-    }
+    if (!data.length && stats.venueCount === 0) controlsEl.textContent = 'Loading venue data...';
 }
 
 async function loadLeaderboard() {
+    renderLeaderboard(cachedLeaderboardData);
     if (typeof firebase === 'undefined') return;
     try {
         window.BARK.incrementRequestCount();
@@ -730,6 +785,12 @@ async function loadMoreLeaderboard() {
 }
 
 window.BARK.loadLeaderboard = loadLeaderboard;
+window.BARK.getGlobalGigTrackerStats = getGlobalGigTrackerStats;
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {
+        renderLeaderboard(cachedLeaderboardData);
+    });
+}
 
 // ====== RANK-UP CELEBRATION ======
 function showRankUpCelebration(oldTitle, newTitle) {
