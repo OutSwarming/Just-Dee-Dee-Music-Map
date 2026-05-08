@@ -13,7 +13,6 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    overflow: hidden;
     position: relative;
     display: flex;
     justify-content: center;
@@ -92,8 +91,8 @@ body.low-graphics .enamel-pin-wrapper:hover {
 }
 
 .custom-bark-marker.unvisited-marker .enamel-pin-wrapper {
-    opacity: 0.92;
-    transform: scale(0.95);
+    opacity: 0.96;
+    transform: scale(0.9);
 }
 
 /* 

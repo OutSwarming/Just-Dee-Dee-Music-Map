@@ -304,7 +304,24 @@ const visitedFilterEl = document.getElementById('visited-filter');
 if (visitedFilterEl) {
     const normalizeVenueFilterState = typeof window.BARK.normalizeVenueFilterState === 'function'
         ? window.BARK.normalizeVenueFilterState
-        : value => (['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all');
+        : value => {
+            const normalized = String(value || 'all').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            if (!normalized || normalized === 'all' || normalized === 'unvisited' || normalized.includes('all place')) return 'all';
+            if (normalized === 'played' || normalized === 'visited' || normalized.includes('played place')) return 'played';
+            if (normalized === 'booked' || normalized.includes('booked place') || normalized.includes('future gig')) return 'booked';
+            if (normalized === 'agenda' || normalized.includes('agenda') || normalized.includes('target')) return 'agenda';
+            if (
+                normalized === 'closed' ||
+                normalized.includes('not interested') ||
+                normalized.includes('not intrested') ||
+                normalized.includes('not a fit') ||
+                normalized.includes('closed') ||
+                normalized.includes('do not contact')
+            ) {
+                return 'closed';
+            }
+            return 'all';
+        };
     const syncLimitZoomForVenueFilter = (filterState) => {
         const shouldLimitZoomOut = normalizeVenueFilterState(filterState) === 'all';
         if (window.BARK && window.BARK.settings && typeof window.BARK.settings.set === 'function') {

@@ -117,7 +117,11 @@ function normalizeLooseStatus(value) {
 
 function isPlayedCrmStatus(value) {
     const raw = normalizeLooseStatus(value);
-    return raw === 'booked' || raw === 'played in the past' || raw === 'played in the past awaiting reply';
+    return raw === 'booked' ||
+        raw === 'played in the past' ||
+        raw === 'played in the past awaiting reply' ||
+        raw === 'open microphone' ||
+        raw === 'open mic';
 }
 
 function slugifyId(value) {
@@ -343,6 +347,17 @@ function processParsedResults(results) {
     if (duplicateVenueIdCount > 0) {
         console.warn(`[dataService] Skipped ${duplicateVenueIdCount} duplicate venue id row(s). Check the sheet before publishing.`);
     }
+
+    const mapStateSummary = newAllPoints.reduce((summary, point) => {
+        const state = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.getVenueMapState === 'function'
+            ? window.BARK.bookingSchema.getVenueMapState(point)
+            : 'default';
+        summary[state] = (summary[state] || 0) + 1;
+        return summary;
+    }, { default: 0, played: 0, booked: 0, closed: 0 });
+    window.BARK._venueMapStateSummary = Object.freeze({ ...mapStateSummary, total: newAllPoints.length });
+    window.BARK._venueMapStatusDataReady = !window.JDDM_SPREADSHEET_API_URL ||
+        ((mapStateSummary.played || 0) + (mapStateSummary.booked || 0) + (mapStateSummary.closed || 0)) > 0;
 
     const parkRepo = window.BARK.repos && window.BARK.repos.ParkRepo;
     if (!parkRepo || typeof parkRepo.replaceAll !== 'function') {

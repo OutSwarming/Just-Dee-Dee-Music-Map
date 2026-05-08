@@ -85,9 +85,9 @@ class MapMarkerConfig {
         if (state.isAgendaTarget) {
             return {
                 iconUrl: 'assets/images/jddm-not-played.jpg',
-                ringColor: '#2563eb',
-                pinColor: '#2563eb',
-                pinShadowColor: 'rgba(37, 99, 235, 0.45)',
+                ringColor: '#1d4ed8',
+                pinColor: '#1d4ed8',
+                pinShadowColor: 'rgba(29, 78, 216, 0.58)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-agenda agenda-marker',
                 isHighlighted: true,
@@ -99,9 +99,9 @@ class MapMarkerConfig {
         if (state.mapState === 'booked') {
             return {
                 iconUrl: 'assets/images/jddm-played.jpg',
-                ringColor: '#064e3b',
+                ringColor: '#065f46',
                 pinColor: '#064e3b',
-                pinShadowColor: 'rgba(6, 78, 59, 0.62)',
+                pinShadowColor: 'rgba(6, 95, 70, 0.68)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-booked booked-marker',
                 isHighlighted: true,
@@ -113,9 +113,9 @@ class MapMarkerConfig {
         if (state.mapState === 'played') {
             return {
                 iconUrl: 'assets/images/jddm-played.jpg',
-                ringColor: '#22c55e',
+                ringColor: '#84cc16',
                 pinColor: '#15803d',
-                pinShadowColor: 'rgba(34, 197, 94, 0.55)',
+                pinShadowColor: 'rgba(101, 163, 13, 0.62)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-played played-marker',
                 isHighlighted: true,
@@ -127,9 +127,9 @@ class MapMarkerConfig {
         if (state.mapState === 'closed') {
             return {
                 iconUrl: 'assets/images/jddm-not-played.jpg',
-                ringColor: '#7f1d1d',
+                ringColor: '#991b1b',
                 pinColor: '#7f1d1d',
-                pinShadowColor: 'rgba(127, 29, 29, 0.58)',
+                pinShadowColor: 'rgba(127, 29, 29, 0.66)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-closed closed-marker',
                 isHighlighted: true,
@@ -169,9 +169,9 @@ class MapMarkerConfig {
         const divIcon = L.divIcon({
             className: `custom-bark-marker ${stateClass} ${catClass} ${style.stateClass}`,
             html: markerHtml,
-            iconSize: [36, 36], // Increased slightly to account for the padding ring
-            iconAnchor: [18, 18], // Center it smoothly
-            popupAnchor: [0, -18]
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+            popupAnchor: [0, -21]
         });
 
         // Initialize and return the L.marker

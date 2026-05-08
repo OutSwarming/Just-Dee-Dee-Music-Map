@@ -49,15 +49,15 @@ test('marker pin styles follow CRM Status color rules', () => {
     const notInterested = config.getPinStyle({ contactStatus: 'Not Interested / Do Not Contact' });
     const ordinary = config.getPinStyle({ contactStatus: 'Not Contacted Yet' });
 
-    assert.equal(booked.ringColor, '#064e3b');
+    assert.equal(booked.ringColor, '#065f46');
     assert.equal(booked.mapState, 'booked');
-    assert.equal(played.ringColor, '#22c55e');
-    assert.equal(awaitingReply.ringColor, '#22c55e');
-    assert.equal(openMic.ringColor, '#22c55e');
+    assert.equal(played.ringColor, '#84cc16');
+    assert.equal(awaitingReply.ringColor, '#84cc16');
+    assert.equal(openMic.ringColor, '#84cc16');
     assert.equal(openMic.mapState, 'played');
-    assert.equal(closed.ringColor, '#7f1d1d');
+    assert.equal(closed.ringColor, '#991b1b');
     assert.equal(closed.mapState, 'closed');
-    assert.equal(notInterested.ringColor, '#7f1d1d');
+    assert.equal(notInterested.ringColor, '#991b1b');
     assert.equal(ordinary.ringColor, '#111827');
     assert.equal(ordinary.isHighlighted, false);
 });
@@ -71,7 +71,7 @@ test('agenda targets use the agenda marker state over status color', () => {
         contactStatus: 'Booked'
     });
 
-    assert.equal(style.ringColor, '#2563eb');
+    assert.equal(style.ringColor, '#1d4ed8');
     assert.equal(style.isAgendaTarget, true);
     assert.equal(style.stateClass.includes('agenda-marker'), true);
 });

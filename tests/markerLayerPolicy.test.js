@@ -57,3 +57,13 @@ test('limit zoom out only applies while all pins are visible', () => {
     assert.equal(lowGraphicsFiltered.getMarkerLayerPolicy(8).limitZoomOut, false);
     assert.equal(lowGraphicsFiltered.getMarkerLayerPolicy(8).minZoom, null);
 });
+
+test('venue filter labels normalize before marker policy decisions', () => {
+    const policy = loadPolicy({ visitedFilterState: 'Closed / Not Interested', limitZoomOut: true });
+
+    assert.equal(policy.normalizeVenueFilterState('Closed / Not Interested'), 'closed');
+    assert.equal(policy.normalizeVenueFilterState('On Agenda Places'), 'agenda');
+    assert.equal(policy.normalizeVenueFilterState('Booked Places'), 'booked');
+    assert.equal(policy.normalizeVenueFilterState('Played Places'), 'played');
+    assert.equal(policy.getMarkerLayerPolicy(8).limitZoomOut, false);
+});

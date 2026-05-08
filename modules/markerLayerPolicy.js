@@ -8,9 +8,22 @@ const LIMIT_ZOOM_OUT_MIN_ZOOM = 10;
 const PERFORMANCE_MIN_ZOOM = 5;
 
 function normalizeVenueFilterState(filter) {
-    const value = String(filter || 'all').trim();
-    if (value === 'visited') return 'played';
-    if (value === 'unvisited') return 'all';
+    const raw = String(filter || 'all').trim();
+    const value = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!value || value === 'all' || value === 'unvisited' || value.includes('all place')) return 'all';
+    if (value === 'played' || value === 'visited' || value.includes('played place')) return 'played';
+    if (value === 'booked' || value.includes('booked place') || value.includes('future gig')) return 'booked';
+    if (value === 'agenda' || value.includes('agenda') || value.includes('target')) return 'agenda';
+    if (
+        value === 'closed' ||
+        value.includes('not interested') ||
+        value.includes('not intrested') ||
+        value.includes('not a fit') ||
+        value.includes('closed') ||
+        value.includes('do not contact')
+    ) {
+        return 'closed';
+    }
     return ['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
 }
 
@@ -56,5 +69,6 @@ function getMarkerLayerPolicy(zoom) {
 
 BARK_GLOBAL.BARK.getRenderContext = getRenderContext;
 BARK_GLOBAL.BARK.getMarkerLayerPolicy = getMarkerLayerPolicy;
+BARK_GLOBAL.BARK.normalizeVenueFilterState = normalizeVenueFilterState;
 BARK_GLOBAL.BARK.DETAILED_BUBBLE_BREAKOUT_ZOOM = DETAILED_BUBBLE_BREAKOUT_ZOOM;
 BARK_GLOBAL.BARK.LIMIT_ZOOM_OUT_MIN_ZOOM = LIMIT_ZOOM_OUT_MIN_ZOOM;

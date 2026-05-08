@@ -162,9 +162,22 @@ function serializeSet(set) {
 }
 
 function normalizeVenueFilterState(filter) {
-    const value = String(filter || 'all').trim();
-    if (value === 'visited') return 'played';
-    if (value === 'unvisited') return 'all';
+    const raw = String(filter || 'all').trim();
+    const value = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!value || value === 'all' || value === 'unvisited' || value.includes('all place')) return 'all';
+    if (value === 'played' || value === 'visited' || value.includes('played place')) return 'played';
+    if (value === 'booked' || value.includes('booked place') || value.includes('future gig')) return 'booked';
+    if (value === 'agenda' || value.includes('agenda') || value.includes('target')) return 'agenda';
+    if (
+        value === 'closed' ||
+        value.includes('not interested') ||
+        value.includes('not intrested') ||
+        value.includes('not a fit') ||
+        value.includes('closed') ||
+        value.includes('do not contact')
+    ) {
+        return 'closed';
+    }
     return ['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
 }
 
@@ -196,6 +209,12 @@ function getAgendaTargetIdsForRender(points = []) {
 
 function matchesVenueStatusFilter(filterState, mapState, isAgendaTarget) {
     const normalizedFilter = normalizeVenueFilterState(filterState);
+    if (
+        window.BARK._venueMapStatusDataReady === false &&
+        ['played', 'booked', 'closed'].includes(normalizedFilter)
+    ) {
+        return true;
+    }
     if (normalizedFilter === 'played') return mapState === 'played';
     if (normalizedFilter === 'booked') return mapState === 'booked';
     if (normalizedFilter === 'closed') return mapState === 'closed';
@@ -386,6 +405,7 @@ window.BARK.invalidateVisitedIdsCache = function () {
     window.BARK.invalidateMarkerVisibility();
 };
 window.BARK.normalizeVenueFilterState = normalizeVenueFilterState;
+window.BARK.matchesVenueStatusFilter = matchesVenueStatusFilter;
 window.BARK.isAgendaTargetVenue = function (venue) {
     const ids = window.BARK._agendaTargetVenueIds;
     return Boolean(venue && venue.id && ids && ids.has(venue.id));
