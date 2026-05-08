@@ -116,7 +116,12 @@ function getGlobalSearchLockCopy() {
 }
 
 function alertGlobalSearchLocked() {
-    alert(getGlobalSearchLockCopy().alert);
+    const message = getGlobalSearchLockCopy().alert;
+    if (window.BARK && typeof window.BARK.showTripToast === 'function') {
+        window.BARK.showTripToast(message, { duration: 5200 });
+        return;
+    }
+    console.info('[JDDM Notice]', message);
 }
 
 function getLocalParkMatches(query, limit = SEARCH_SUGGESTION_LIMIT) {
@@ -330,7 +335,7 @@ function renderInlinePlannerSuggestions(type, query, matches) {
     if (matches.length === 0 && query.trim().length >= SEARCH_GLOBAL_MIN_LENGTH) {
         appendInlineStatus(
             suggestBox,
-            `No local B.A.R.K. matches for "${query}".`,
+            `No local venue matches for "${query}".`,
             'background: #f8fafc; color: #475569; font-weight: 700; border-top: 1px solid #e2e8f0;'
         );
     }
@@ -568,7 +573,7 @@ function initSearchEngine() {
 
                 if (topMatches.length === 0) {
                     appendSearchStatus(
-                        `No local B.A.R.K. matches for "${activeQuery}".`,
+                        `No local venue matches for "${activeQuery}".`,
                         'background: #f8fafc; color: #475569; font-weight: 700; border-top: 1px solid #e2e8f0;'
                     );
                 }
@@ -773,7 +778,11 @@ async function executeGeocode(query, targetType) {
                 window.BARK.activeSearchQuery = '';
             }
         }, () => {
-            alert("Could not get GPS location. Please check browser permissions.");
+            if (window.BARK && typeof window.BARK.showTripToast === 'function') {
+                window.BARK.showTripToast("Could not get GPS location. Please check browser permissions.", { duration: 4800 });
+            } else {
+                console.info('[JDDM Notice] Could not get GPS location. Please check browser permissions.');
+            }
             if (targetType === 'stop' && mainSearch) mainSearch.value = '';
         }, { enableHighAccuracy: true });
         return;

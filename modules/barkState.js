@@ -9,10 +9,40 @@ window.BARK.bootOrder = window.BARK.bootOrder || {};
 window.BARK.bootOrder.barkStateParsedAt = Date.now();
 
 // ====== APP VERSION ======
-let APP_VERSION = parseInt(localStorage.getItem('jddm_seen_version') || '26');
+let APP_VERSION = parseInt(localStorage.getItem('jddm_seen_version') || '12');
 console.log(`Just Dee Dee Music Map v${APP_VERSION}: ready`);
 window.BARK.APP_VERSION = APP_VERSION;
 window.BARK.setAppVersion = function (v) { APP_VERSION = v; window.BARK.APP_VERSION = v; };
+
+window.BARK.showTripToast = function showTripToast(message, options = {}) {
+    const text = String(message || '').trim();
+    if (!text) return;
+
+    const doc = window.document;
+    if (!doc || !doc.body) {
+        console.info('[JDDM Notice]', text);
+        return;
+    }
+
+    let toast = doc.getElementById('jddm-app-notice');
+    if (!toast) {
+        toast = doc.createElement('div');
+        toast.id = 'jddm-app-notice';
+        toast.className = 'trip-toast';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+        doc.body.appendChild(toast);
+    }
+
+    toast.textContent = text;
+    toast.classList.add('show');
+
+    clearTimeout(window.BARK._appNoticeTimer);
+    const duration = Number.isFinite(Number(options.duration)) ? Number(options.duration) : 3200;
+    window.BARK._appNoticeTimer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, duration);
+};
 
 // ====== SAFETY & COST CONTROLS ======
 let globalRequestCounter = 0;

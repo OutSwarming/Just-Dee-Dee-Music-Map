@@ -2398,6 +2398,265 @@ body.app-tab-active #slide-panel {
     }
 }
 
+/* ============================================================
+   Planner tab — iPhone portrait width reclaim + visual polish
+   Scoped to #planner-view only. Map / profile / other tabs
+   intentionally untouched.
+   ============================================================ */
+@media (max-width: 620px) {
+    #planner-view.ui-view {
+        padding: 14px 10px 96px;
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
+    }
+
+    #planner-view #booking-planner-dashboard.view-content {
+        padding: 4px 4px 24px;
+        gap: 14px;
+    }
+
+    #planner-view .booking-dashboard {
+        padding-bottom: 80px;
+    }
+
+    #planner-view .booking-dashboard-header {
+        padding: 18px 18px 20px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #111827 0%, #1f2937 60%, #312e81 100%);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.28);
+    }
+
+    #planner-view .booking-dashboard-header h2 {
+        font-size: 26px;
+        line-height: 1.12;
+    }
+
+    #planner-view .booking-dashboard-header p {
+        font-size: 14.5px;
+        line-height: 1.5;
+    }
+
+    #planner-view .booking-readonly-pill {
+        align-self: flex-start;
+        padding: 8px 12px;
+    }
+
+    #planner-view .booking-sheet-health,
+    #planner-view .booking-data-sync {
+        margin-top: 0;
+        padding: 14px 16px;
+        border-radius: 14px;
+        gap: 12px;
+    }
+
+    #planner-view .booking-sheet-health button,
+    #planner-view .booking-data-sync button {
+        min-height: 42px;
+        border-radius: 10px;
+        font-size: 13px;
+    }
+
+    #planner-view .booking-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin: 4px 0 4px;
+    }
+
+    #planner-view .booking-stat {
+        padding: 16px 10px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    #planner-view .booking-stat:active {
+        transform: translateY(1px);
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.10);
+    }
+
+    #planner-view .booking-stat strong {
+        font-size: 28px;
+        background: linear-gradient(135deg, #111827, #4338ca);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    #planner-view .booking-stat span {
+        margin-top: 8px;
+        font-size: 10.5px;
+        letter-spacing: 0.4px;
+    }
+
+    #planner-view .booking-agenda {
+        padding: 16px 14px;
+        border-radius: 16px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    #planner-view .booking-agenda-header h3 {
+        font-size: 19px;
+    }
+
+    #planner-view .booking-agenda-list {
+        gap: 10px;
+    }
+
+    #planner-view .booking-agenda-item {
+        padding: 12px;
+        border-radius: 12px;
+        gap: 10px 12px;
+    }
+
+    #planner-view .booking-agenda-item h4 {
+        font-size: 15px;
+    }
+
+    #planner-view .booking-agenda-item p {
+        font-size: 12.5px;
+        line-height: 1.4;
+    }
+
+    #planner-view .booking-agenda-switch {
+        padding: 6px;
+        margin: 12px 0;
+        border-radius: 14px;
+    }
+
+    #planner-view .booking-agenda-switch button {
+        min-height: 44px;
+        border-radius: 10px;
+        font-size: 12px;
+        gap: 6px;
+        padding: 8px 6px;
+    }
+
+    #planner-view .booking-search {
+        padding: 14px;
+        border-radius: 16px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    #planner-view .booking-search input,
+    #planner-view .booking-search button {
+        min-height: 44px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+
+    #planner-view .booking-tabs {
+        gap: 9px;
+        padding: 4px 0 14px;
+        margin-bottom: 6px;
+    }
+
+    #planner-view .booking-tab {
+        flex: 0 0 156px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 12.5px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    #planner-view .booking-tab strong {
+        font-size: 12.5px;
+    }
+
+    #planner-view .booking-tab span {
+        min-width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+
+    #planner-view .booking-list {
+        gap: 14px;
+    }
+
+    #planner-view .booking-card {
+        padding: 16px 14px;
+        border-radius: 16px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    #planner-view .booking-card h3 {
+        font-size: 18px;
+        line-height: 1.22;
+    }
+
+    #planner-view .booking-card-location {
+        font-size: 13.5px;
+    }
+
+    #planner-view .booking-card-meta {
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    #planner-view .booking-card-meta span,
+    #planner-view .booking-status {
+        padding: 6px 10px;
+        font-size: 11.5px;
+    }
+
+    #planner-view .booking-card-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        margin-top: 14px;
+    }
+
+    #planner-view .booking-card-actions button,
+    #planner-view .booking-card-actions a {
+        min-height: 44px;
+        border-radius: 12px;
+        font-size: 12.5px;
+    }
+
+    #planner-view .booking-followup-control,
+    #planner-view .booking-score-control {
+        padding: 12px;
+        border-radius: 14px;
+        margin-top: 12px;
+    }
+
+    #planner-view .booking-followup-control input,
+    #planner-view .booking-followup-control button,
+    #planner-view .booking-score-control input,
+    #planner-view .booking-score-control button {
+        min-height: 42px;
+        border-radius: 10px;
+    }
+
+    #planner-view .booking-empty {
+        padding: 28px 18px;
+        border-radius: 16px;
+        font-size: 14px;
+    }
+
+    #planner-view .booking-dashboard-note {
+        margin-top: 18px;
+        font-size: 12.5px;
+        line-height: 1.5;
+    }
+}
+
+/* iPhone 14/15/16/17 sweet spot — extra breathing room */
+@media (max-width: 430px) {
+    #planner-view.ui-view {
+        padding: 12px 8px 96px;
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+    }
+
+    #planner-view #booking-planner-dashboard.view-content {
+        padding: 2px 2px 24px;
+    }
+
+    #planner-view .booking-tab {
+        flex: 0 0 148px;
+    }
+}
+
 @media (min-width: 768px) {
     .glass-nav {
         bottom: 30px;
