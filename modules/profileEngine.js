@@ -593,8 +593,14 @@ function getTodayIsoDate() {
 }
 
 function parseProfileDateCandidate(value) {
+    if (value instanceof Date) return toProfileIsoDate(value);
     const text = String(value === undefined || value === null ? '' : value).trim();
     if (!text) return '';
+    if (!/\b\d{4}-\d{1,2}-\d{1,2}\b/.test(text) &&
+        !/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/.test(text) &&
+        !/\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i.test(text)) {
+        return '';
+    }
     const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (iso) {
         const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));

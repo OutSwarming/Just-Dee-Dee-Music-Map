@@ -415,6 +415,33 @@ test('purge recalculates gig counts from unique dates inside rich calendar text'
     assert.equal(row[headerIndex(headers, 'Total Gig Count')], 4);
 });
 
+test('purge ignores ZIP codes and historical ids when recalculating gig counts', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Status', 'Past Gigs', 'Past Gig Count', 'Total Gig Count'],
+        [[
+            'Lost Trail Winery',
+            'Played in the Past',
+            [
+                '2024-03-28 | COMPLETED | Lost Trail Winery | 5228 State St NE',
+                'OH 44721 | historical-2024-03-28-lost-trail-winery-live',
+                'last played=2024-03-28.'
+            ].join('; '),
+            '3',
+            '3'
+        ]]
+    );
+    const bridge = loadBridge(sheet);
+
+    bridge.purgeAndSetup_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
+
+    assert.equal(row[headerIndex(headers, 'Past Gigs')], '2024-03-28');
+    assert.equal(row[headerIndex(headers, 'Past Gig Count')], 1);
+    assert.equal(row[headerIndex(headers, 'Total Gig Count')], 1);
+});
+
 test('setup canonicalizes without adding duplicate generated columns', () => {
     const sheet = createFakeSheet(
         ['Venue Name', 'CRM Status', 'Email', 'Email/Contact', 'Phone', 'Phone Number', 'Gig Past Dates', 'extra'],

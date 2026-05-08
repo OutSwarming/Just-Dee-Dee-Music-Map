@@ -186,6 +186,20 @@ test('gig stats dedupe rich calendar history and ignore inflated total counts', 
     assert.equal(booking.calendarTotalGigsPlayed, 1);
 });
 
+test('gig stats do not count ZIP codes or historical ids as fake dates', () => {
+    const schema = loadBookingSchema();
+    const stats = schema.getVenueGigStats({
+        calendarPastGigEvents: [
+            '2024-03-28 | COMPLETED | Lost Trail Winery | 5228 State St NE',
+            'OH 44721 | historical-2024-03-28-lost-trail-winery-live',
+            'last played=2024-03-28.'
+        ].join('; ')
+    });
+
+    assert.deepEqual(stats.pastDates, ['2024-03-28']);
+    assert.equal(schema.extractGigDates('OH 44280 | historical venue id').length, 0);
+});
+
 test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-not-contact', () => {
     const schema = loadBookingSchema();
     const groups = schema.getDashboardGroups([
