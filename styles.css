@@ -984,6 +984,50 @@ body.app-tab-active #slide-panel {
     padding: 20px;
 }
 
+.crm-card-field-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.crm-card-field {
+    display: grid;
+    gap: 4px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.crm-card-label {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.crm-card-value {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.crm-card-value a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.crm-card-value a:hover {
+    text-decoration: underline;
+}
+
+.crm-card-field--wide .crm-card-value {
+    font-weight: 600;
+    white-space: normal;
+}
+
 .website-btn {
     display: block;
     background: #111;
