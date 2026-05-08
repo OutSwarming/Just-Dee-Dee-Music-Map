@@ -265,7 +265,6 @@ async function evaluateAchievements(visitedPlacesMap) {
 
     // Update Banner
     const titleEl = document.getElementById('current-title-label');
-    const scoreEl = document.getElementById('stat-score');
     const progressFill = document.getElementById('tier-progress-fill');
     const fractionEl = document.getElementById('rank-progress-fraction');
 
@@ -282,7 +281,7 @@ async function evaluateAchievements(visitedPlacesMap) {
         window._lastKnownRank = newTitle;
         titleEl.textContent = newTitle;
     }
-    if (scoreEl) scoreEl.textContent = achievements.totalScore;
+    renderWelcomeGigStats();
 
     if (userId) await syncScoreToLeaderboard();
 
@@ -480,40 +479,30 @@ async function evaluateAchievements(visitedPlacesMap) {
 window.BARK.evaluateAchievements = evaluateAchievements;
 
 // ====== STATS UI ======
-function updateStatsUI() {
+function renderWelcomeGigStats() {
     const scoreEl = document.getElementById('stat-score');
     const verifiedEl = document.getElementById('stat-verified');
     const regularEl = document.getElementById('stat-regular');
     const statesEl = document.getElementById('stat-states');
-    const parkRepo = getParkRepo();
-    const allPoints = parkRepo ? parkRepo.getAll() : [];
-    const visitedPlaces = getProfileVisitedPlacesArray();
 
     if (!scoreEl || !verifiedEl || !regularEl || !statesEl) return;
 
-    const statesSet = new Set();
-    allPoints.forEach(p => {
-        const isVisited = typeof window.BARK.isParkVisited === 'function'
-            ? window.BARK.isParkVisited(p)
-            : hasProfileVisitedPlace(p);
-        if (isVisited && p.state) {
-            const st = p.state.toString().split(/[,/]/);
-            st.forEach(s => {
-                const trimmed = s.trim().toUpperCase();
-                if (trimmed) statesSet.add(trimmed);
-            });
-        }
-    });
+    const stats = getGlobalGigTrackerStats();
+    const format = value => Number(value || 0).toLocaleString();
+
+    scoreEl.textContent = format(stats.pastGigs);
+    verifiedEl.textContent = format(stats.futureGigs);
+    regularEl.textContent = format(stats.differentPlaces);
+    statesEl.textContent = format(stats.venueCount);
+}
+
+function updateStatsUI() {
+    renderWelcomeGigStats();
+
+    const visitedPlaces = getProfileVisitedPlacesArray();
 
     const scoreSummary = window.BARK.calculateVisitScore(visitedPlaces, window.currentWalkPoints);
     const totalScore = scoreSummary.totalScore;
-    const verifiedCount = scoreSummary.verifiedCount;
-    const regularCount = scoreSummary.regularCount;
-
-    scoreEl.textContent = totalScore;
-    verifiedEl.textContent = verifiedCount;
-    regularEl.textContent = regularCount;
-    statesEl.textContent = statesSet.size;
 
     let level = 1;
     let max = 10;
@@ -695,7 +684,7 @@ function getGlobalGigTrackerStats() {
         const counts = getVenueCalendarCounts(venue);
         pastGigs += counts.pastCount;
         futureGigs += counts.futureCount;
-        if (counts.pastCount > 0 || counts.futureCount > 0) differentPlaces += 1;
+        if (counts.pastCount > 0) differentPlaces += 1;
     });
 
     return {
@@ -848,6 +837,7 @@ window.BARK.loadLeaderboard = loadLeaderboard;
 window.BARK.getGlobalGigTrackerStats = getGlobalGigTrackerStats;
 if (typeof window.addEventListener === 'function') {
     window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {
+        renderWelcomeGigStats();
         renderLeaderboard(cachedLeaderboardData);
     });
 }
