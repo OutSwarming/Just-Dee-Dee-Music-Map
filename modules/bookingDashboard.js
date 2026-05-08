@@ -4,7 +4,7 @@
 (function () {
     window.BARK = window.BARK || {};
 
-    const TABS = [
+    const LEGACY_TABS = [
         { id: 'today', label: 'Today' },
         { id: 'booked', label: 'Booked' },
         { id: 'planner', label: 'Planner' },
@@ -13,6 +13,22 @@
         { id: 'missingInfo', label: 'Needs Review' },
         { id: 'doNotContact', label: 'Closed / No Music' }
     ];
+
+    const STATE_TAB_ID = 'crmState';
+    const FALLBACK_STATE_SUMMARY = Object.freeze([
+        { status: 'Responded - Needs Action', label: 'Response!', tone: 'action' },
+        { status: 'Follow Up Needed', label: 'Follow Up', tone: 'action' },
+        { status: 'Needs Review', label: 'Needs Review', tone: 'review' },
+        { status: 'Booked', label: 'Booked', tone: 'booked' },
+        { status: 'Played in the Past - Awaiting Reply', label: 'Past Awaiting', tone: 'played' },
+        { status: 'Not Contacted Yet', label: 'New Prospects', tone: 'outreach' },
+        { status: 'Draft Ready', label: 'Draft Ready', tone: 'outreach' },
+        { status: 'Contacted - Waiting on Reply', label: 'Waiting Reply', tone: 'outreach' },
+        { status: 'Open Microphone', label: 'Open Mic', tone: 'openMic' },
+        { status: 'Played in the Past', label: 'Played Past', tone: 'played' },
+        { status: 'Told No / Closed / No Music', label: 'No / Closed', tone: 'closed' },
+        { status: 'Not Set', label: 'Not Set', tone: 'review' }
+    ]);
 
     const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-08-simplified-crm-statuses';
     const REQUIRED_BOOKING_HEADERS = [
@@ -35,7 +51,8 @@
         'Total Gig Count'
     ];
 
-    let activeTab = 'today';
+    let activeTab = STATE_TAB_ID;
+    let activeStatusState = '';
     let unsubscribeRepo = null;
     let searchQuery = '';
     let bridgeHealth = {
@@ -131,6 +148,98 @@
 
     function isWebsiteEventTab(tabId) {
         return tabId === 'websiteUpcoming' || tabId === 'websitePast';
+    }
+
+    function getSchemaStatusOrder() {
+        const schema = getSchema();
+        const statuses = schema && schema.CONTACT_STATUS ? schema.CONTACT_STATUS : {};
+        return [
+            statuses.RESPONDED_NEEDS_ACTION,
+            statuses.FOLLOW_UP_NEEDED,
+            statuses.NEEDS_REVIEW,
+            statuses.BOOKED,
+            statuses.PLAYED_IN_THE_PAST_AWAITING_REPLY,
+            statuses.NOT_CONTACTED,
+            statuses.DRAFT_READY,
+            statuses.WAITING_REPLY,
+            statuses.OPEN_MICROPHONE,
+            statuses.PLAYED_IN_THE_PAST,
+            statuses.TOLD_NO_CLOSED_NO_MUSIC,
+            statuses.NOT_SET
+        ].filter(Boolean);
+    }
+
+    function getFallbackStateMeta(status) {
+        return FALLBACK_STATE_SUMMARY.find(item => item.status === status) || { status, label: status, tone: 'neutral' };
+    }
+
+    function getStateTone(status, fallbackTone = 'neutral') {
+        return getFallbackStateMeta(status).tone || fallbackTone || 'neutral';
+    }
+
+    function getStateDisplayLabel(status) {
+        return getFallbackStateMeta(status).label || status || 'Current State';
+    }
+
+    function getStateSummaryItems(data = {}) {
+        const statusOrder = getSchemaStatusOrder();
+        const preferredOrder = statusOrder.length ? statusOrder : FALLBACK_STATE_SUMMARY.map(item => item.status);
+        const byStatus = new Map();
+
+        if (Array.isArray(data.stateSummary)) {
+            data.stateSummary.forEach(item => {
+                if (item && item.status) byStatus.set(item.status, item);
+            });
+        }
+
+        return preferredOrder.map(status => {
+            const source = byStatus.get(status) || {};
+            const venues = Array.isArray(source.venues)
+                ? source.venues
+                : data.statusGroups && Array.isArray(data.statusGroups[status])
+                    ? data.statusGroups[status]
+                    : [];
+            return {
+                status,
+                label: getStateDisplayLabel(status),
+                fullLabel: source.label || status,
+                count: Number.isFinite(Number(source.count)) ? Number(source.count) : venues.length,
+                venues,
+                tone: source.tone || getStateTone(status)
+            };
+        });
+    }
+
+    function getDefaultStatusState(data = {}) {
+        const items = getStateSummaryItems(data);
+        return (
+            items.find(item => item.count > 0 && item.status === 'Responded - Needs Action') ||
+            items.find(item => item.count > 0 && item.status === 'Follow Up Needed') ||
+            items.find(item => item.count > 0 && item.status === 'Needs Review') ||
+            items.find(item => item.count > 0 && item.status === 'Booked') ||
+            items.find(item => item.count > 0 && item.tone !== 'closed' && item.status !== 'Not Set') ||
+            items.find(item => item.count > 0) ||
+            items[0] ||
+            {}
+        ).status || '';
+    }
+
+    function syncActiveStatusState(data = {}) {
+        if (activeTab !== STATE_TAB_ID) return;
+        const items = getStateSummaryItems(data);
+        const statuses = new Set(items.map(item => item.status));
+        if (!activeStatusState || !statuses.has(activeStatusState)) {
+            activeStatusState = getDefaultStatusState(data);
+        }
+    }
+
+    function getActiveStatusVenues(data = {}) {
+        if (!activeStatusState) return [];
+        if (data.statusGroups && Array.isArray(data.statusGroups[activeStatusState])) {
+            return data.statusGroups[activeStatusState];
+        }
+        const item = getStateSummaryItems(data).find(candidate => candidate.status === activeStatusState);
+        return item && Array.isArray(item.venues) ? item.venues : [];
     }
 
     function normalizeSearchText(value) {
@@ -712,13 +821,15 @@
         const stats = qs('booking-planner-stats');
         if (!stats) return;
 
+        const stateItems = getStateSummaryItems(data);
+        const getCount = status => (stateItems.find(item => item.status === status) || {}).count || 0;
         stats.innerHTML = [
-            ['Today', data.today.length],
-            ['Booked', data.booked.length],
-            ['Planner', data.planner.length],
-            ['Follow-Ups', data.followUps.length],
-            ['Contacts', data.newProspects.length],
-            ['Needs Review', data.missingInfo.length]
+            ['Priority Cards', (data.dailyAgenda || []).length],
+            ['Responses', getCount('Responded - Needs Action')],
+            ['Follow-Ups', getCount('Follow Up Needed')],
+            ['Needs Review', getCount('Needs Review')],
+            ['Booked', getCount('Booked')],
+            ['New Prospects', getCount('Not Contacted Yet')]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -729,6 +840,7 @@
 
     function getAgendaTargetTab(item) {
         if (!item) return 'today';
+        if (item.status) return STATE_TAB_ID;
         if (item.type === 'postGigFollowUp') return 'postGigFollowUps';
         if (item.type === 'upcomingGig') return 'upcomingGigs';
         if (item.type === 'planner') return 'planner';
@@ -740,6 +852,18 @@
         return 'today';
     }
 
+    function getAgendaTargetState(item) {
+        return item && item.status ? item.status : '';
+    }
+
+    function getAgendaMetaLabel(item) {
+        return [
+            item && item.status ? item.status : '',
+            item && item.nextFollowUpDate ? `Follow-up ${item.nextFollowUpDate}` : '',
+            item && item.eventDate ? `Gig ${item.eventDate}` : ''
+        ].filter(Boolean).join(' | ');
+    }
+
     function renderAgenda(data) {
         const agenda = qs('booking-daily-agenda');
         if (!agenda) return;
@@ -749,11 +873,11 @@
             agenda.innerHTML = `
                 <div class="booking-agenda-header">
                     <div>
-                        <p class="booking-kicker">Daily Agenda</p>
+                        <p class="booking-kicker">Priority Cards</p>
                         <h3>All clear right now</h3>
                     </div>
                 </div>
-                <p class="booking-agenda-empty">No urgent booking actions are due. Check New Prospects or Needs Review when you are ready to keep building the list.</p>
+                <p class="booking-agenda-empty">No urgent booking actions are due.</p>
             `;
             return;
         }
@@ -761,21 +885,22 @@
         agenda.innerHTML = `
             <div class="booking-agenda-header">
                 <div>
-                    <p class="booking-kicker">Daily Agenda</p>
+                    <p class="booking-kicker">Priority Cards</p>
                     <h3>Top booking moves</h3>
                 </div>
                 <span>${items.length}</span>
             </div>
             <div class="booking-agenda-list">
                 ${items.map((item, index) => `
-                    <article class="booking-agenda-item">
+                    <article class="booking-agenda-item" data-priority-type="${escapeHtml(item.type || 'default')}" data-state-tone="${escapeHtml(getStateTone(item.status, 'neutral'))}">
                         <strong>${index + 1}</strong>
                         <div>
                             <h4>${escapeHtml(item.venueName)}</h4>
                             <p>${escapeHtml(item.reason)}</p>
-                            <span>${escapeHtml(item.suggestedAction)}</span>
+                            <span>${escapeHtml(getAgendaMetaLabel(item))}</span>
+                            <em>${escapeHtml(item.suggestedAction)}</em>
                         </div>
-                        <button type="button" data-agenda-action="open-list" data-venue-id="${escapeHtml(item.venueId)}" data-target-tab="${escapeHtml(getAgendaTargetTab(item))}">Open</button>
+                        <button type="button" data-agenda-action="open-list" data-venue-id="${escapeHtml(item.venueId)}" data-target-tab="${escapeHtml(getAgendaTargetTab(item))}" data-target-state="${escapeHtml(getAgendaTargetState(item))}">Open</button>
                     </article>
                 `).join('')}
             </div>
@@ -784,6 +909,8 @@
         agenda.querySelectorAll('[data-agenda-action="open-list"]').forEach(button => {
             button.addEventListener('click', () => {
                 activeTab = button.dataset.targetTab || 'today';
+                activeStatusState = activeTab === STATE_TAB_ID ? clean(button.dataset.targetState) : '';
+                searchQuery = '';
                 render();
                 setTimeout(() => {
                     const card = document.querySelector(`[data-booking-venue-id="${escapeSelector(button.dataset.venueId)}"]`);
@@ -829,15 +956,21 @@
         const tabs = qs('booking-planner-tabs');
         if (!tabs) return;
 
-        tabs.innerHTML = TABS.map(tab => {
-            const count = data[tab.id] ? data[tab.id].length : 0;
-            const active = tab.id === activeTab ? ' active' : '';
-            return `<button type="button" class="booking-tab${active}" data-booking-tab="${tab.id}">${escapeHtml(tab.label)} <span>${count}</span></button>`;
+        const items = getStateSummaryItems(data);
+        tabs.innerHTML = items.map(item => {
+            const active = activeTab === STATE_TAB_ID && item.status === activeStatusState ? ' active' : '';
+            return `
+                <button type="button" class="booking-tab booking-state-tab${active}" data-booking-state="${escapeHtml(item.status)}" data-state-tone="${escapeHtml(item.tone || 'neutral')}" title="${escapeHtml(item.fullLabel || item.status)}">
+                    <strong>${escapeHtml(item.label || item.status)}</strong>
+                    <span>${item.count}</span>
+                </button>
+            `;
         }).join('');
 
-        tabs.querySelectorAll('[data-booking-tab]').forEach(button => {
+        tabs.querySelectorAll('[data-booking-state]').forEach(button => {
             button.addEventListener('click', () => {
-                activeTab = button.dataset.bookingTab;
+                activeTab = STATE_TAB_ID;
+                activeStatusState = button.dataset.bookingState || getDefaultStatusState(data);
                 render();
             });
         });
@@ -1231,13 +1364,22 @@
         const list = qs('booking-planner-list');
         const empty = qs('booking-planner-empty');
         const searchStatus = qs('booking-planner-search-status');
-        const tabLabel = TABS.find(tab => tab.id === activeTab)?.label || 'Today';
         if (!list || !empty) return;
 
         const schema = getSchema();
         const query = clean(searchQuery);
         const activeIsWebsiteEventTab = isWebsiteEventTab(activeTab);
-        const sourceVenues = query ? (data.all || []) : (activeIsWebsiteEventTab ? [] : (data[activeTab] || []));
+        const activeIsStateTab = activeTab === STATE_TAB_ID;
+        const tabLabel = activeIsStateTab
+            ? activeStatusState || 'Current State'
+            : LEGACY_TABS.find(tab => tab.id === activeTab)?.label || 'Today';
+        const sourceVenues = query
+            ? (data.all || [])
+            : activeIsWebsiteEventTab
+                ? []
+                : activeIsStateTab
+                    ? getActiveStatusVenues(data)
+                    : (data[activeTab] || []);
         const venues = query && schema && typeof schema.filterVenues === 'function'
             ? schema.filterVenues(sourceVenues, query)
             : sourceVenues;
@@ -1279,7 +1421,7 @@
         empty.hidden = true;
         list.innerHTML = rows.slice(0, 120).map(row => row && row.kind === 'websiteEvent'
             ? renderWebsiteEventCard(row, activeTab, data)
-            : renderVenueCard(row, activeTab)
+            : renderVenueCard(row, activeIsStateTab ? activeStatusState : activeTab)
         ).join('');
         bindCardActions(list, data);
         bindWebsiteEventActions(list, data);
@@ -1297,6 +1439,7 @@
         const root = qs('booking-planner-dashboard');
         if (!root) return;
         const data = getDashboardData();
+        syncActiveStatusState(data);
         renderSheetBridgeHealth();
         renderVenueDataSync();
         renderStats(data);
@@ -1338,6 +1481,8 @@
         getBridgeHealthSummary,
         getMissingBookingHeaders,
         getDataFreshnessSummary,
+        getStateSummaryItems,
+        getDefaultStatusState,
         filterWebsiteEvents,
         findMatchingVenueForEvent
     };

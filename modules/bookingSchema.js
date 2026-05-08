@@ -241,6 +241,75 @@
         return clean(a.name).localeCompare(clean(b.name));
     }
 
+    const PLANNER_STATUS_ORDER = Object.freeze([
+        CONTACT_STATUS.RESPONDED_NEEDS_ACTION,
+        CONTACT_STATUS.FOLLOW_UP_NEEDED,
+        CONTACT_STATUS.NEEDS_REVIEW,
+        CONTACT_STATUS.BOOKED,
+        CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY,
+        CONTACT_STATUS.NOT_CONTACTED,
+        CONTACT_STATUS.DRAFT_READY,
+        CONTACT_STATUS.WAITING_REPLY,
+        CONTACT_STATUS.OPEN_MICROPHONE,
+        CONTACT_STATUS.PLAYED_IN_THE_PAST,
+        CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC,
+        CONTACT_STATUS.NOT_SET
+    ]);
+
+    function getStatusTone(status) {
+        if (status === CONTACT_STATUS.BOOKED) return 'booked';
+        if (status === CONTACT_STATUS.PLAYED_IN_THE_PAST || status === CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY) return 'played';
+        if (status === CONTACT_STATUS.OPEN_MICROPHONE) return 'openMic';
+        if (status === CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC) return 'closed';
+        if (status === CONTACT_STATUS.RESPONDED_NEEDS_ACTION || status === CONTACT_STATUS.FOLLOW_UP_NEEDED) return 'action';
+        if (status === CONTACT_STATUS.NEEDS_REVIEW || status === CONTACT_STATUS.NOT_SET) return 'review';
+        if (status === CONTACT_STATUS.NOT_CONTACTED || status === CONTACT_STATUS.DRAFT_READY || status === CONTACT_STATUS.WAITING_REPLY) return 'outreach';
+        return 'neutral';
+    }
+
+    function sortStatusVenues(status, venues = []) {
+        const rows = venues.slice();
+        if (status === CONTACT_STATUS.BOOKED) return rows.sort(compareEventDate);
+        if (
+            status === CONTACT_STATUS.FOLLOW_UP_NEEDED ||
+            status === CONTACT_STATUS.RESPONDED_NEEDS_ACTION ||
+            status === CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY ||
+            status === CONTACT_STATUS.WAITING_REPLY
+        ) {
+            return rows.sort(compareFollowUpDate);
+        }
+        return rows.sort(compareVenuePriority);
+    }
+
+    function buildStatusGroups(normalized = []) {
+        const statusGroups = {};
+        CONTACT_STATUS_VALUES.forEach(status => {
+            statusGroups[status] = [];
+        });
+
+        normalized.forEach(venue => {
+            const status = normalizeStatus(venue.booking && venue.booking.contactStatus, CONTACT_STATUS.NOT_SET);
+            if (!statusGroups[status]) statusGroups[status] = [];
+            statusGroups[status].push(venue);
+        });
+
+        Object.keys(statusGroups).forEach(status => {
+            statusGroups[status] = sortStatusVenues(status, statusGroups[status]);
+        });
+
+        return statusGroups;
+    }
+
+    function buildStateSummary(statusGroups = {}) {
+        return PLANNER_STATUS_ORDER.map(status => ({
+            status,
+            label: status,
+            count: Array.isArray(statusGroups[status]) ? statusGroups[status].length : 0,
+            venues: Array.isArray(statusGroups[status]) ? statusGroups[status] : [],
+            tone: getStatusTone(status)
+        }));
+    }
+
     function makeAgendaItem(venue, reason, suggestedAction, type, extra = {}) {
         return {
             venue,
@@ -482,6 +551,8 @@
         const notAFit = normalized.filter(venue => venue.booking.isNotAFit);
         const missingInfo = notDnc.filter(venue => venue.booking.isMissingInfo);
         const doNotContact = normalized.filter(venue => venue.booking.doNotContact);
+        const statusGroups = buildStatusGroups(normalized);
+        const stateSummary = buildStateSummary(statusGroups);
         const today = [
             ...postGigFollowUps,
             ...followUps,
@@ -503,6 +574,8 @@
             notAFit,
             missingInfo,
             doNotContact,
+            statusGroups,
+            stateSummary,
             all: normalized
         };
 

@@ -1554,6 +1554,28 @@ body.app-tab-active #slide-panel {
     border-radius: 8px;
 }
 
+.booking-agenda-item[data-state-tone="action"] {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.booking-agenda-item[data-state-tone="review"] {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.booking-agenda-item[data-state-tone="booked"],
+.booking-agenda-item[data-state-tone="played"],
+.booking-agenda-item[data-state-tone="openMic"] {
+    background: #ecfdf5;
+    border-color: #86efac;
+}
+
+.booking-agenda-item[data-state-tone="closed"] {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
 .booking-agenda-item > strong {
     display: inline-flex;
     width: 28px;
@@ -1592,6 +1614,15 @@ body.app-tab-active #slide-panel {
     font-size: 11px;
     font-weight: 900;
     text-transform: uppercase;
+}
+
+.booking-agenda-item em {
+    display: block;
+    margin-top: 4px;
+    color: #111827;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 900;
 }
 
 .booking-agenda-item button {
@@ -1676,29 +1707,98 @@ body.app-tab-active #slide-panel {
     padding: 2px 0 12px;
     margin-bottom: 4px;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
 }
 
 .booking-tab {
-    flex: 0 0 auto;
+    flex: 0 0 150px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
     border: 1px solid #e2e8f0;
     background: #ffffff;
     color: #475569;
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 10px 12px;
     font-size: 12px;
     font-weight: 900;
     cursor: pointer;
+    scroll-snap-align: start;
+    text-align: left;
+}
+
+.booking-tab strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.15;
 }
 
 .booking-tab.active {
-    background: #b45309;
-    border-color: #b45309;
+    background: #111827;
+    border-color: #111827;
     color: #ffffff;
 }
 
 .booking-tab span {
-    margin-left: 6px;
-    opacity: 0.8;
+    display: inline-flex;
+    min-width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #111827;
+    opacity: 1;
+    padding: 0 7px;
+}
+
+.booking-tab.active span {
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+}
+
+.booking-state-tab[data-state-tone="action"] {
+    border-color: #93c5fd;
+}
+
+.booking-state-tab[data-state-tone="review"] {
+    border-color: #fde68a;
+}
+
+.booking-state-tab[data-state-tone="booked"],
+.booking-state-tab[data-state-tone="played"],
+.booking-state-tab[data-state-tone="openMic"] {
+    border-color: #86efac;
+}
+
+.booking-state-tab[data-state-tone="closed"] {
+    border-color: #fca5a5;
+}
+
+.booking-state-tab[data-state-tone="action"].active {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.booking-state-tab[data-state-tone="review"].active {
+    background: #b45309;
+    border-color: #b45309;
+}
+
+.booking-state-tab[data-state-tone="booked"].active,
+.booking-state-tab[data-state-tone="played"].active,
+.booking-state-tab[data-state-tone="openMic"].active {
+    background: #047857;
+    border-color: #047857;
+}
+
+.booking-state-tab[data-state-tone="closed"].active {
+    background: #991b1b;
+    border-color: #991b1b;
 }
 
 .booking-list {

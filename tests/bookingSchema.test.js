@@ -224,6 +224,17 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['not-fit', 'dnc']);
     assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'priority', 'prospect', 'missing']);
+    assert.equal(groups.stateSummary.length, schema.CONTACT_STATUS_VALUES.length);
+    assert.deepEqual(Array.from(groups.stateSummary.slice(0, 4), item => item.status), [
+        schema.CONTACT_STATUS.RESPONDED_NEEDS_ACTION,
+        schema.CONTACT_STATUS.FOLLOW_UP_NEEDED,
+        schema.CONTACT_STATUS.NEEDS_REVIEW,
+        schema.CONTACT_STATUS.BOOKED
+    ]);
+    assert.equal(groups.statusGroups[schema.CONTACT_STATUS.BOOKED].length, 2);
+    assert.equal(groups.statusGroups[schema.CONTACT_STATUS.RESPONDED_NEEDS_ACTION].length, 1);
+    assert.equal(groups.statusGroups[schema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC].length, 2);
+    assert.equal(groups.stateSummary.reduce((sum, item) => sum + item.count, 0), groups.all.length);
 });
 
 test('daily agenda includes post-gig follow-through before upcoming gigs and prospects', () => {

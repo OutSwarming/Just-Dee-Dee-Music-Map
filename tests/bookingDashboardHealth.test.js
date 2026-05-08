@@ -162,3 +162,25 @@ test('booking dashboard summarizes venue data freshness states', () => {
     assert.equal(checking.actionDisabled, true);
     assert.equal(checking.label, 'Refreshing venue data');
 });
+
+test('booking dashboard orders CRM state summary by planning priority', () => {
+    const dashboard = loadBookingDashboard();
+    const summary = dashboard.getStateSummaryItems({
+        statusGroups: {
+            'Booked': [{ id: 'booked-1' }, { id: 'booked-2' }],
+            'Needs Review': [{ id: 'review-1' }],
+            'Told No / Closed / No Music': [{ id: 'closed-1' }]
+        }
+    });
+
+    assert.equal(summary.length, 12);
+    assert.deepEqual(Array.from(summary.slice(0, 4), item => item.label), [
+        'Response!',
+        'Follow Up',
+        'Needs Review',
+        'Booked'
+    ]);
+    assert.equal(summary.find(item => item.status === 'Booked').count, 2);
+    assert.equal(summary.find(item => item.status === 'Told No / Closed / No Music').tone, 'closed');
+    assert.equal(dashboard.getDefaultStatusState({ statusGroups: { 'Needs Review': [{ id: 'review-1' }] } }), 'Needs Review');
+});
