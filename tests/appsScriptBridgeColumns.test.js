@@ -234,6 +234,9 @@ function loadBridge(sheet, options = {}) {
                             },
                             getId() {
                                 return event.id || `event-${index}`;
+                            },
+                            isAllDayEvent() {
+                                return Boolean(event.isAllDay);
                             }
                         }));
                     }
@@ -447,7 +450,7 @@ test('setup preserves Status instead of deriving app state from sheet facts', ()
     ]);
 });
 
-test('calendar sync preserves Status while rolling gig dates forward', () => {
+test('calendar sync preserves Status while rebuilding future gig dates from current calendar', () => {
     const sheet = createFakeSheet(
         ['Place Name', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Longitude', 'Latitude'],
         [['Dragonfly Winery', 'dragonfly-winery-canal-fulton-oh-44614', 'Open Microphone', '1999-01-01', '2000-01-01; 2099-01-01', '-81.6', '40.8']]
@@ -470,9 +473,66 @@ test('calendar sync preserves Status while rolling gig dates forward', () => {
 
     assert.equal(row[headerIndex(headers, 'Status')], 'Open Microphone');
     assert.equal(row[headerIndex(headers, 'Past Gigs')], '1999-01-01; 2000-01-01');
-    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-01-01; 2099-02-01');
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-02-01');
     assert.equal(row[headerIndex(headers, 'Past Gig Count')], 2);
-    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 2);
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 1);
+});
+
+test('calendar sync fuzzy-matches venue names and adds missing future real gigs', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Address', 'City', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Notes'],
+        [['Brighten Brewing Company', '1375 S Main St', 'Cuyahoga Falls', 'brighten-brewing-company-cuyahoga-falls', 'Not Contacted Yet', '', '2099-01-01', '']]
+    );
+    const bridge = loadBridge(sheet, {
+        calendars: {
+            'justdeedeemusic@gmail.com': [
+                {
+                    title: 'Brighton Brewing',
+                    location: '',
+                    startTime: new Date('2099-02-02T12:00:00Z'),
+                    id: 'future-brighton'
+                },
+                {
+                    title: 'Pipe Creek Wharf',
+                    location: '49 Madison St, Sandusky, OH 44870',
+                    startTime: new Date('2099-03-03T12:00:00Z'),
+                    id: 'future-pipe-creek'
+                },
+                {
+                    title: 'Baci Winery - Proposed',
+                    location: '',
+                    startTime: new Date('2099-04-04T12:00:00Z'),
+                    id: 'proposed-baci'
+                },
+                {
+                    title: 'JDDM Summer Tour',
+                    location: '',
+                    startTime: new Date('2099-06-01T12:00:00Z'),
+                    id: 'tour-placeholder',
+                    isAllDay: true
+                }
+            ]
+        }
+    });
+
+    const result = bridge.syncCalendarGigEvents_({});
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const brighten = cleanSheet.values[1];
+    const added = cleanSheet.values.find(row => row[headerIndex(headers, 'Place Name')] === 'Pipe Creek Wharf');
+
+    assert.equal(result.eventCount, 2);
+    assert.equal(result.addedRows.length, 1);
+    assert.equal(brighten[headerIndex(headers, 'Status')], 'Not Contacted Yet');
+    assert.equal(brighten[headerIndex(headers, 'Future Gigs')], '2099-02-02');
+    assert.ok(added);
+    assert.equal(added[headerIndex(headers, 'Place Name')], 'Pipe Creek Wharf');
+    assert.equal(added[headerIndex(headers, 'Address')], '49 Madison St');
+    assert.equal(added[headerIndex(headers, 'City')], 'Sandusky');
+    assert.equal(added[headerIndex(headers, 'Zip')], '44870');
+    assert.equal(added[headerIndex(headers, 'Status')], 'Needs Review');
+    assert.equal(added[headerIndex(headers, 'Future Gigs')], '2099-03-03');
+    assert.match(added[headerIndex(headers, 'Notes')], /Google Calendar future gig/i);
 });
 
 test('setPlayed writes Status instead of legacy Played columns', () => {

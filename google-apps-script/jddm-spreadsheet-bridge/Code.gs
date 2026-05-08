@@ -994,6 +994,137 @@ function uniqueSortedDates_(dates) {
   return Object.keys(seen).sort();
 }
 
+var JDDM_CALENDAR_TOKEN_STOPWORDS = {
+  at: true,
+  and: true,
+  the: true,
+  with: true,
+  live: true,
+  music: true,
+  just: true,
+  dee: true,
+  deedeemusic: true,
+  jddm: true,
+  scheduled: true,
+  public: true,
+  private: true,
+  event: true,
+  open: true,
+  mic: true,
+  microphone: true
+};
+
+function safeCalendarEventCall_(event, methodName, fallback) {
+  try {
+    if (event && typeof event[methodName] === 'function') return event[methodName]();
+  } catch (error) {
+    return fallback;
+  }
+  return fallback;
+}
+
+function normalizeCalendarVenueName_(title) {
+  var text = clean_(title)
+    .replace(/^just\s*dee\s*dee\s*music\s+live\s*@\s*/i, '')
+    .replace(/^justdeedeemusic\s+live\s*@\s*/i, '')
+    .replace(/^live\s+music\s+with\s+just\s*dee\s*dee\s*music\s+at\s+/i, '')
+    .replace(/^live\s+music\s+with\s+justdeedeemusic\s+at\s+/i, '')
+    .replace(/\s+-\s*(proposed|hold)\s*$/i, '')
+    .replace(/\s+\((trial|proposed|hold)\)\s*$/i, '')
+    .trim();
+  return text || clean_(title);
+}
+
+function isRealCalendarGig_(event) {
+  var loose = normalizeKey_([event.title, event.location].join(' '));
+  if (!event.date || !event.title) return false;
+  if (/^camping\b|^flight\b|\bbirthday\b|^easter$/.test(loose)) return false;
+  if (/\b(proposed|hold)\b/.test(loose)) return false;
+  if (/^(jddm )?scheduled (public|private) event$/.test(loose)) return false;
+  if (/^(jddm )?private event$|^private event$/.test(loose)) return false;
+  if (event.isAllDay && /\btour\b/.test(loose)) return false;
+  if (event.isAllDay && !event.location && /\b(holiday|summer)\b/.test(loose)) return false;
+  return true;
+}
+
+function calendarTokenBase_(token) {
+  var text = clean_(token);
+  if (text.length > 5 && /ies$/.test(text)) return text.slice(0, -3) + 'y';
+  if (text.length > 5 && /ers$/.test(text)) return text.slice(0, -1);
+  if (text.length > 4 && /s$/.test(text)) return text.slice(0, -1);
+  return text;
+}
+
+function calendarTokens_(value) {
+  return normalizeKey_(value)
+    .split(' ')
+    .map(calendarTokenBase_)
+    .filter(function(token) {
+      return token.length > 2 && !JDDM_CALENDAR_TOKEN_STOPWORDS[token];
+    });
+}
+
+function editDistanceAtMostOne_(a, b) {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  var edits = 0;
+  var i = 0;
+  var j = 0;
+  while (i < a.length && j < b.length) {
+    if (a.charAt(i) === b.charAt(j)) {
+      i++;
+      j++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else {
+      i++;
+      j++;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+function calendarTokensMatch_(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (calendarTokenBase_(a) === calendarTokenBase_(b)) return true;
+  return Math.min(a.length, b.length) >= 5 && editDistanceAtMostOne_(a, b);
+}
+
+function calendarTokenScore_(eventTokens, rowTokens) {
+  var score = 0;
+  eventTokens.forEach(function(eventToken) {
+    for (var i = 0; i < rowTokens.length; i++) {
+      if (calendarTokensMatch_(eventToken, rowTokens[i])) {
+        score++;
+        break;
+      }
+    }
+  });
+  return score;
+}
+
+function parseCalendarLocation_(location) {
+  var result = { address: clean_(location), city: '', state: 'OH', zip: '' };
+  var parts = clean_(location).split(',').map(clean_).filter(Boolean);
+  if (parts.length >= 2) {
+    result.address = parts[0];
+    result.city = parts[1];
+  }
+  if (parts.length >= 3) {
+    var match = parts[2].match(/\b([A-Z]{2})\b\s*(\d{5})?/i);
+    if (match) {
+      result.state = match[1].toUpperCase();
+      result.zip = match[2] || '';
+    }
+  }
+  return result;
+}
+
 function getCalendarEvents_() {
   var start = new Date(2010, 0, 1);
   var end = new Date();
@@ -1006,54 +1137,86 @@ function getCalendarEvents_() {
       var title = clean_(event.getTitle());
       var location = clean_(event.getLocation());
       if (!title && !location) return;
-      events.push({
+      var nextEvent = {
         title: title,
+        venueName: normalizeCalendarVenueName_(title),
         location: location,
-        date: parseIsoDate_(event.getStartTime()),
-        id: calendarId + ':' + event.getId()
-      });
+        date: parseIsoDate_(safeCalendarEventCall_(event, 'getStartTime', null)),
+        id: calendarId + ':' + safeCalendarEventCall_(event, 'getId', ''),
+        isAllDay: Boolean(safeCalendarEventCall_(event, 'isAllDayEvent', false))
+      };
+      if (isRealCalendarGig_(nextEvent)) events.push(nextEvent);
     });
   });
   return events;
 }
 
 function findEventRow_(data, event) {
-  var eventText = normalizeKey_([event.title, event.location].join(' '));
+  var eventVenueKey = normalizeKey_(event.venueName || event.title);
+  var eventLocationKey = normalizeKey_(event.location);
+  var eventVenueTokens = calendarTokens_(event.venueName || event.title);
+  var eventTokens = calendarTokens_([event.venueName, event.title, event.location].join(' '));
   var bestRow = -1;
   var bestScore = 0;
   data.rows.forEach(function(row, index) {
     if (isBlankVenueRow_(row, data.headerMap)) return;
-    var rowText = normalizeKey_([
-      getByHeader_(row, data.headerMap, 'Venue Name'),
-      getByHeader_(row, data.headerMap, 'Address'),
-      getByHeader_(row, data.headerMap, 'City')
-    ].join(' '));
-    if (!rowText) return;
+    var rowName = getByHeader_(row, data.headerMap, 'Place Name') || getByHeader_(row, data.headerMap, 'Venue Name');
+    var rowAddress = getByHeader_(row, data.headerMap, 'Address');
+    var rowCity = getByHeader_(row, data.headerMap, 'City');
+    var rowNameKey = normalizeKey_(rowName);
+    var rowLocationKey = normalizeKey_([rowAddress, rowCity].join(' '));
+    var rowTokens = calendarTokens_([rowName, rowAddress, rowCity].join(' '));
+    var rowVenueTokens = calendarTokens_(rowName);
+    if (!rowNameKey && !rowLocationKey) return;
     var score = 0;
-    rowText.split(' ').forEach(function(token) {
-      if (token.length > 2 && eventText.indexOf(token) >= 0) score++;
-    });
+    if (eventVenueKey && rowNameKey && (eventVenueKey.indexOf(rowNameKey) >= 0 || rowNameKey.indexOf(eventVenueKey) >= 0)) score += 8;
+    if (eventLocationKey && rowLocationKey && rowLocationKey.length > 8 && eventLocationKey.indexOf(rowLocationKey) >= 0) score += 8;
+    score += calendarTokenScore_(eventVenueTokens, rowVenueTokens) * 2;
+    score += calendarTokenScore_(eventTokens, rowTokens);
     if (score > bestScore) {
       bestScore = score;
       bestRow = index + 2;
     }
   });
-  return bestScore >= 2 ? bestRow : -1;
+  return bestScore >= 4 ? bestRow : -1;
 }
 
 function appendVenueFromEvent_(data, event) {
-  var name = event.title || event.location || 'Calendar Venue';
+  var name = event.venueName || event.title || event.location || 'Calendar Venue';
+  var parsedLocation = parseCalendarLocation_(event.location);
   var row = JDDM_CANONICAL_HEADERS.map(function(header) {
     return '';
   });
   var map = makeHeaderMap_(JDDM_CANONICAL_HEADERS);
   setByHeader_(row, map, 'Place Name', name);
-  setByHeader_(row, map, 'Address', event.location);
-  setByHeader_(row, map, 'State', 'OH');
-  setByHeader_(row, map, 'Place ID', slugify_([name, event.location].join(' ')));
+  setByHeader_(row, map, 'Address', parsedLocation.address);
+  setByHeader_(row, map, 'City', parsedLocation.city);
+  setByHeader_(row, map, 'State', parsedLocation.state || 'OH');
+  setByHeader_(row, map, 'Zip', parsedLocation.zip);
+  setByHeader_(row, map, 'Place ID', slugify_([name, parsedLocation.city, parsedLocation.state].filter(Boolean).join(' ')));
   setByHeader_(row, map, 'Status', 'Needs Review');
+  setByHeader_(row, map, 'Notes', 'Created from Google Calendar future gig. Review venue details and coordinates.');
   data.sheet.appendRow(row);
   return data.sheet.getLastRow();
+}
+
+function summarizeCalendarEvent_(event) {
+  return {
+    id: event.id,
+    date: event.date,
+    title: event.title,
+    venueName: event.venueName,
+    location: event.location
+  };
+}
+
+function seedCalendarRowsWithExistingFuture_(data, target) {
+  data.rows.forEach(function(row, index) {
+    if (isBlankVenueRow_(row, data.headerMap)) return;
+    if (!splitDates_(getByHeader_(row, data.headerMap, 'Future Gigs')).length) return;
+    var rowNumber = index + 2;
+    if (!target[rowNumber]) target[rowNumber] = { past: [], future: [] };
+  });
 }
 
 function todayIso_() {
@@ -1066,14 +1229,27 @@ function syncCalendarGigEvents_(payload) {
   var today = todayIso_();
   var events = getCalendarEvents_();
   var touched = {};
+  var addMissing = payload && payload.addMissing !== undefined ? isTrue_(payload.addMissing) : true;
+  var replaceFutureGigs = !(payload && isFalse_(payload.replaceFutureGigs));
+  var addedRows = [];
+  var unmatchedFutureEvents = [];
+  var unmatchedPastEvents = [];
+
+  if (replaceFutureGigs) seedCalendarRowsWithExistingFuture_(data, touched);
 
   events.forEach(function(event) {
     if (!event.date) return;
     var rowNumber = findEventRow_(data, event);
-    if (rowNumber < 0 && !isTrue_(payload && payload.addMissing)) return;
     if (rowNumber < 0) {
-      rowNumber = appendVenueFromEvent_(data, event);
-      data = getData_();
+      if (event.date >= today && addMissing) {
+        rowNumber = appendVenueFromEvent_(data, event);
+        addedRows.push({ rowNumber: rowNumber, event: summarizeCalendarEvent_(event) });
+        data = getData_();
+      } else {
+        if (event.date >= today) unmatchedFutureEvents.push(summarizeCalendarEvent_(event));
+        else unmatchedPastEvents.push(summarizeCalendarEvent_(event));
+        return;
+      }
     }
     if (!touched[rowNumber]) touched[rowNumber] = { past: [], future: [] };
     if (event.date >= today) touched[rowNumber].future.push(event.date);
@@ -1085,13 +1261,13 @@ function syncCalendarGigEvents_(payload) {
     var row = data.rows[rowNumber - 2].slice();
     var currentPast = splitDates_(getByHeader_(row, data.headerMap, 'Past Gigs'));
     var currentFuture = splitDates_(getByHeader_(row, data.headerMap, 'Future Gigs'));
-    var allDates = uniqueSortedDates_(currentPast.concat(currentFuture, touched[rowNumber].past, touched[rowNumber].future));
-    var past = [];
-    var future = [];
-    allDates.forEach(function(date) {
-      if (date >= today) future.push(date);
-      else past.push(date);
+    var expiredFutureDates = currentFuture.filter(function(date) {
+      return date && date < today;
     });
+    var past = uniqueSortedDates_(currentPast.concat(expiredFutureDates, touched[rowNumber].past));
+    var future = replaceFutureGigs
+      ? uniqueSortedDates_(touched[rowNumber].future)
+      : uniqueSortedDates_(currentFuture.concat(touched[rowNumber].future));
     setByHeader_(row, data.headerMap, 'Past Gigs', past.join('; '));
     setByHeader_(row, data.headerMap, 'Future Gigs', future.join('; '));
     setByHeader_(row, data.headerMap, 'Last Played', past.length ? past[past.length - 1] : '');
@@ -1109,6 +1285,10 @@ function syncCalendarGigEvents_(payload) {
     action: 'syncCalendarGigEvents',
     eventCount: events.length,
     updatedRows: Object.keys(touched).length,
+    addedRows: addedRows,
+    unmatchedFutureEvents: unmatchedFutureEvents,
+    unmatchedPastEventCount: unmatchedPastEvents.length,
+    replaceFutureGigs: replaceFutureGigs,
     formatting: formatting
   };
 }
@@ -1125,7 +1305,7 @@ function installCalendarAutomation_() {
 }
 
 function runJddmCalendarSyncTrigger() {
-  return syncCalendarGigEvents_({ addMissing: false });
+  return syncCalendarGigEvents_({ addMissing: true });
 }
 
 function onEdit(e) {
@@ -1167,8 +1347,8 @@ function menuMigrateCrmStatuses() {
 }
 
 function menuSyncCalendarGigEvents() {
-  var result = syncCalendarGigEvents_({ addMissing: false });
-  SpreadsheetApp.getUi().alert('JDDM calendar sync complete. Updated rows=' + result.updatedRows + ', events=' + result.eventCount);
+  var result = syncCalendarGigEvents_({ addMissing: true });
+  SpreadsheetApp.getUi().alert('JDDM calendar sync complete. Updated rows=' + result.updatedRows + ', added rows=' + result.addedRows.length + ', events=' + result.eventCount);
 }
 
 function menuApplyRowHighlighting() {
