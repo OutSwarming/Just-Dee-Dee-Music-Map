@@ -927,6 +927,9 @@
     function getAgendaFactRows(item, data = {}) {
         const venue = getVenueForAgendaItem(item, data);
         const booking = venue.booking || {};
+        const gigStats = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.getVenueGigStats === 'function'
+            ? window.BARK.bookingSchema.getVenueGigStats(venue)
+            : null;
         const contactLine = [booking.contactName, booking.contactType].filter(Boolean).join(' | ');
         const emailOrPhone = booking.contactEmail || booking.contactPhone || '';
         const scoreLine = [booking.priority ? `Priority ${booking.priority}` : '', booking.bestFitScore ? `Fit ${booking.bestFitScore}` : ''].filter(Boolean).join(' | ');
@@ -954,8 +957,8 @@
         if (item.type === 'upcomingGig' || item.type === 'postGigFollowUp') {
             rows.push(['Gig', [formatAgendaDate(booking.eventDate), booking.eventTime].filter(Boolean).join(' ') || 'Date not set']);
             rows.push(['Contact', contactLine || booking.contactEmail || 'Booking contact not set']);
-            rows.push(['Future', booking.calendarFutureGigEvents || formatAgendaDate(booking.calendarNextGigDate) || 'No future list']);
-            rows.push(['Past Count', String(booking.calendarPastGigCount || 0)]);
+            rows.push(['Future', (gigStats && gigStats.futureDates && gigStats.futureDates.length ? gigStats.futureDates.join('; ') : '') || formatAgendaDate(booking.calendarNextGigDate) || 'No future list']);
+            rows.push(['Past Gigs', String((gigStats && gigStats.pastCount) || booking.calendarPastGigCount || 0)]);
             return rows;
         }
 

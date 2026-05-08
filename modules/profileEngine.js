@@ -580,11 +580,53 @@ function parseGigCount(value) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function toProfileIsoDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function getTodayIsoDate() {
     const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
+    return toProfileIsoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+function parseProfileDateCandidate(value) {
+    const text = String(value === undefined || value === null ? '' : value).trim();
+    if (!text) return '';
+    const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (iso) {
+        const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+        return toProfileIsoDate(date);
+    }
+    const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (slash) {
+        const year = Number(slash[3].length === 2 ? `20${slash[3]}` : slash[3]);
+        const date = new Date(year, Number(slash[1]) - 1, Number(slash[2]));
+        return toProfileIsoDate(date);
+    }
+    const parsed = new Date(text);
+    return toProfileIsoDate(parsed);
+}
+
+function extractProfileGigDates(value) {
+    const text = String(value || '').trim();
+    if (!text) return [];
+    const dates = new Set();
+    const add = candidate => {
+        const isoDate = parseProfileDateCandidate(candidate);
+        if (isoDate) dates.add(isoDate);
+    };
+
+    (text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || []).forEach(add);
+    (text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || []).forEach(add);
+    (text.match(/\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi) || []).forEach(add);
+    text.split(/[;\n]+/)
+        .map(part => part.trim().split('|')[0])
+        .forEach(add);
+
+    return Array.from(dates).sort();
 }
 
 function countCalendarEventLines(value) {
@@ -605,21 +647,33 @@ function countCalendarEventLines(value) {
 }
 
 function getVenueCalendarCounts(venue = {}) {
+    const schema = window.BARK && window.BARK.bookingSchema;
+    if (schema && typeof schema.getVenueGigStats === 'function') {
+        const stats = schema.getVenueGigStats(venue);
+        return {
+            pastCount: stats.pastCount || 0,
+            futureCount: stats.futureCount || 0
+        };
+    }
+
     const booking = venue.booking || {};
-    const allEvents = venue.calendarGigEvents || booking.calendarGigEvents || '';
-    const parsedCounts = countCalendarEventLines(allEvents);
-    const pastCount = Math.max(
-        parseGigCount(venue.calendarPastGigCount),
-        parseGigCount(booking.calendarPastGigCount),
-        parseGigCount(venue.calendarTotalGigsPlayed),
-        parseGigCount(booking.calendarTotalGigsPlayed),
-        parsedCounts.past
-    );
-    const futureCount = Math.max(
-        parseGigCount(venue.calendarFutureGigCount),
-        parseGigCount(booking.calendarFutureGigCount),
-        parsedCounts.future
-    );
+    const today = getTodayIsoDate();
+    const pastDates = new Set(extractProfileGigDates(venue.calendarPastGigEvents || booking.calendarPastGigEvents));
+    const futureDates = new Set();
+
+    extractProfileGigDates(venue.calendarFutureGigEvents || booking.calendarFutureGigEvents).forEach(date => {
+        if (date < today) pastDates.add(date);
+        else futureDates.add(date);
+    });
+
+    const parsedCounts = countCalendarEventLines(venue.calendarGigEvents || booking.calendarGigEvents || '');
+    const hasDateEvidence = pastDates.size > 0 || futureDates.size > 0 || parsedCounts.past > 0 || parsedCounts.future > 0;
+    const pastCount = hasDateEvidence
+        ? Math.max(pastDates.size, parsedCounts.past)
+        : parseGigCount(venue.calendarPastGigCount) || parseGigCount(booking.calendarPastGigCount);
+    const futureCount = hasDateEvidence
+        ? Math.max(futureDates.size, parsedCounts.future)
+        : parseGigCount(venue.calendarFutureGigCount) || parseGigCount(booking.calendarFutureGigCount);
 
     return { pastCount, futureCount };
 }

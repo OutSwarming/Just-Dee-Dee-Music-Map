@@ -433,11 +433,11 @@ function rowToCanonical_(row, sourceHeaderMap) {
   if (futureDates.length) next['Future Gigs'] = futureDates.join('; ');
   if (!next['Last Played'] && pastDates.length) next['Last Played'] = pastDates[pastDates.length - 1];
   if (!next['Next Booked'] && futureDates.length) next['Next Booked'] = futureDates[0];
-  var pastCount = toNumber_(next['Past Gig Count']) || pastDates.length;
-  var futureCount = toNumber_(next['Future Gig Count']) || futureDates.length;
+  var pastCount = pastDates.length || toNumber_(next['Past Gig Count']);
+  var futureCount = futureDates.length || toNumber_(next['Future Gig Count']);
   next['Past Gig Count'] = pastCount || '';
   next['Future Gig Count'] = futureCount || '';
-  next['Total Gig Count'] = toNumber_(next['Total Gig Count']) || pastCount + futureCount || '';
+  next['Total Gig Count'] = (pastCount || futureCount) ? pastCount + futureCount : (toNumber_(next['Total Gig Count']) || '');
   next.Status = normalizeCrmStatus_(next.Status) || 'Not Set';
   return JDDM_CANONICAL_HEADERS.map(function(header) { return next[header]; });
 }
@@ -977,13 +977,48 @@ function setPlayed_(payload) {
 function parseIsoDate_(value) {
   var text = clean_(value);
   if (!text) return '';
+  var iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return isoFromDateParts_(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  var slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slash) {
+    var slashYear = Number(slash[3].length === 2 ? '20' + slash[3] : slash[3]);
+    return isoFromDateParts_(slashYear, Number(slash[1]), Number(slash[2]));
+  }
   var date = value instanceof Date ? value : new Date(text);
   if (Number.isNaN(date.getTime())) return '';
   return Utilities.formatDate(date, JDDM_TIMEZONE, 'yyyy-MM-dd');
 }
 
+function isoFromDateParts_(year, month, day) {
+  var date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return '';
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
+  return [
+    String(year).padStart(4, '0'),
+    String(month).padStart(2, '0'),
+    String(day).padStart(2, '0')
+  ].join('-');
+}
+
 function splitDates_(value) {
-  return clean_(value).split(/[;\n,]+/).map(clean_).filter(Boolean);
+  var text = clean_(value);
+  if (!text) return [];
+
+  var dates = [];
+  function addDate(candidate) {
+    var date = parseIsoDate_(candidate);
+    if (date) dates.push(date);
+  }
+
+  (text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || []).forEach(addDate);
+  (text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || []).forEach(addDate);
+  (text.match(/\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi) || []).forEach(addDate);
+
+  text.split(/[;\n]+/)
+    .map(function(part) { return clean_(String(part).split('|')[0]); })
+    .forEach(addDate);
+
+  return uniqueSortedDates_(dates);
 }
 
 function uniqueSortedDates_(dates) {

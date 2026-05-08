@@ -372,6 +372,49 @@ test('purge keeps accurate scattered contact and gig data in canonical columns',
     assert.equal(headerIndex(headers, 'CRM Status'), -1);
 });
 
+test('purge recalculates gig counts from unique dates inside rich calendar text', () => {
+    const sheet = createFakeSheet(
+        [
+            'Place Name',
+            'Status',
+            'Past Gigs',
+            'Future Gigs',
+            'Past Gig Count',
+            'Future Gig Count',
+            'Total Gig Count'
+        ],
+        [[
+            'Bummin Beaver Brewery',
+            'Booked',
+            [
+                '2025-06-14',
+                '2025-06-14 2:00pm ET | COMPLETED | Bummin Beaver Brewery | 11610 E Washington St',
+                'Sat May 02 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'
+            ].join('; '),
+            [
+                '2099-07-31',
+                'Fri Jul 31 2099 00:00:00 GMT-0400 (Eastern Daylight Time)',
+                '2099-08-14 6:00pm ET | BOOKED | Bummin Beaver Brewery | 11610 E Washington St'
+            ].join('; '),
+            '68',
+            '14',
+            '82'
+        ]]
+    );
+    const bridge = loadBridge(sheet);
+
+    bridge.purgeAndSetup_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
+
+    assert.equal(row[headerIndex(headers, 'Past Gigs')], '2025-06-14; 2026-05-02');
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-07-31; 2099-08-14');
+    assert.equal(row[headerIndex(headers, 'Past Gig Count')], 2);
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 2);
+    assert.equal(row[headerIndex(headers, 'Total Gig Count')], 4);
+});
+
 test('setup canonicalizes without adding duplicate generated columns', () => {
     const sheet = createFakeSheet(
         ['Venue Name', 'CRM Status', 'Email', 'Email/Contact', 'Phone', 'Phone Number', 'Gig Past Dates', 'extra'],

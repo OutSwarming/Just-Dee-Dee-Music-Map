@@ -151,6 +151,41 @@ test('date helpers support common spreadsheet date formats', () => {
     assert.equal(schema.isDue(''), false);
 });
 
+test('gig stats dedupe rich calendar history and ignore inflated total counts', () => {
+    const schema = loadBookingSchema();
+    const stats = schema.getVenueGigStats({
+        calendarPastGigEvents: [
+            '2025-06-14',
+            '2025-06-14 2:00pm ET | COMPLETED | Castaway Craigs | 2114 Grandview Rd',
+            'Sat May 02 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'
+        ].join('; '),
+        calendarFutureGigEvents: [
+            '2099-07-31',
+            'Fri Jul 31 2099 00:00:00 GMT-0400 (Eastern Daylight Time)',
+            '2099-08-14 6:00pm ET | BOOKED | Bummin Beaver | 11610 E Washington St',
+            '2000-01-01'
+        ].join('; '),
+        calendarPastGigCount: '68',
+        calendarFutureGigCount: '14',
+        calendarTotalGigsPlayed: '82'
+    });
+
+    assert.deepEqual(stats.pastDates, ['2000-01-01', '2025-06-14', '2026-05-02']);
+    assert.deepEqual(stats.futureDates, ['2099-07-31', '2099-08-14']);
+    assert.equal(stats.pastCount, 3);
+    assert.equal(stats.futureCount, 2);
+    assert.equal(stats.totalCount, 5);
+
+    const booking = schema.normalizeVenue({
+        calendarPastGigEvents: '2025-06-14; 2025-06-14 2:00pm ET | COMPLETED | Venue',
+        calendarPastGigCount: '12',
+        calendarTotalGigsPlayed: '99'
+    });
+    assert.equal(booking.calendarPastGigCount, 1);
+    assert.equal(booking.calendarFutureGigCount, 0);
+    assert.equal(booking.calendarTotalGigsPlayed, 1);
+});
+
 test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-not-contact', () => {
     const schema = loadBookingSchema();
     const groups = schema.getDashboardGroups([

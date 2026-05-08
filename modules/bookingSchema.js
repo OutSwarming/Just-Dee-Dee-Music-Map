@@ -114,7 +114,7 @@
         const text = clean(value);
         if (!text) return null;
 
-        const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
         if (iso) {
             const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
             return Number.isNaN(date.getTime()) ? null : date;
@@ -129,6 +129,100 @@
 
         const parsed = new Date(text);
         return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function toIsoDate(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${date.getFullYear()}-${month}-${day}`;
+    }
+
+    function parseGigDateCandidate(value) {
+        const text = clean(value);
+        if (!text) return '';
+        const date = parseLocalDate(text);
+        return date ? toIsoDate(date) : '';
+    }
+
+    function extractGigDates(value) {
+        const text = clean(value);
+        if (!text) return [];
+
+        const dates = new Set();
+        const add = candidate => {
+            const isoDate = parseGigDateCandidate(candidate);
+            if (isoDate) dates.add(isoDate);
+        };
+
+        const isoMatches = text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || [];
+        isoMatches.forEach(add);
+
+        const slashMatches = text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || [];
+        slashMatches.forEach(add);
+
+        const monthMatches = text.match(/\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi) || [];
+        monthMatches.forEach(add);
+
+        text.split(/[;\n]+/)
+            .map(part => clean(part).split('|')[0])
+            .forEach(add);
+
+        return Array.from(dates).sort();
+    }
+
+    function getTodayIsoDate() {
+        return toIsoDate(startOfToday());
+    }
+
+    function getGigStatsFromText(pastText, futureText, combinedText, lastGigDate, nextGigDate, fallbackPastCount, fallbackFutureCount, fallbackTotalCount) {
+        const today = getTodayIsoDate();
+        const pastDates = new Set(extractGigDates(pastText));
+        const futureDates = new Set();
+
+        extractGigDates(futureText).forEach(date => {
+            if (date < today) pastDates.add(date);
+            else futureDates.add(date);
+        });
+
+        extractGigDates(combinedText).forEach(date => {
+            if (date < today) pastDates.add(date);
+            else futureDates.add(date);
+        });
+
+        const parsedLastGig = parseGigDateCandidate(lastGigDate);
+        if (parsedLastGig && !pastDates.size) pastDates.add(parsedLastGig);
+
+        const parsedNextGig = parseGigDateCandidate(nextGigDate);
+        if (parsedNextGig && !futureDates.size && parsedNextGig >= today) futureDates.add(parsedNextGig);
+
+        const hasDateEvidence = pastDates.size > 0 || futureDates.size > 0;
+        const pastCount = hasDateEvidence ? pastDates.size : normalizeNumber(fallbackPastCount, 0);
+        const futureCount = hasDateEvidence ? futureDates.size : normalizeNumber(fallbackFutureCount, 0);
+        const totalFallback = normalizeNumber(fallbackTotalCount, 0);
+        const totalCount = hasDateEvidence || pastCount || futureCount ? pastCount + futureCount : totalFallback;
+
+        return {
+            pastDates: Array.from(pastDates).sort(),
+            futureDates: Array.from(futureDates).sort(),
+            pastCount,
+            futureCount,
+            totalCount
+        };
+    }
+
+    function getVenueGigStats(venue = {}) {
+        const booking = venue.booking || {};
+        return getGigStatsFromText(
+            venue.calendarPastGigEvents || booking.calendarPastGigEvents,
+            venue.calendarFutureGigEvents || booking.calendarFutureGigEvents,
+            venue.calendarGigEvents || booking.calendarGigEvents,
+            venue.calendarLastGigDate || booking.calendarLastGigDate,
+            venue.calendarNextGigDate || booking.calendarNextGigDate,
+            venue.calendarPastGigCount || booking.calendarPastGigCount,
+            venue.calendarFutureGigCount || booking.calendarFutureGigCount,
+            venue.calendarTotalGigsPlayed || booking.calendarTotalGigsPlayed
+        );
     }
 
     function startOfToday() {
@@ -374,6 +468,7 @@
         const contactStatus = explicitDnc
             ? CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC
             : normalizeStatus(rawStatus, fallbackStatus);
+        const gigStats = getVenueGigStats(venue);
         const doNotContact = explicitDnc || contactStatus === CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC;
         const isClosedStatus = [
             CONTACT_STATUS.BOOKED,
@@ -430,9 +525,11 @@
             calendarFutureGigEvents: clean(venue.calendarFutureGigEvents),
             calendarLastGigDate: clean(venue.calendarLastGigDate),
             calendarNextGigDate: clean(venue.calendarNextGigDate),
-            calendarPastGigCount: normalizeNumber(venue.calendarPastGigCount, 0),
-            calendarFutureGigCount: normalizeNumber(venue.calendarFutureGigCount, 0),
-            calendarTotalGigsPlayed: normalizeNumber(venue.calendarTotalGigsPlayed, 0),
+            calendarPastGigCount: gigStats.pastCount,
+            calendarFutureGigCount: gigStats.futureCount,
+            calendarTotalGigsPlayed: gigStats.totalCount,
+            calendarPastGigDates: gigStats.pastDates,
+            calendarFutureGigDates: gigStats.futureDates,
             calendarLastSyncedAt: clean(venue.calendarLastSyncedAt),
             preferredDays: clean(venue.preferredDays),
             gigHistory: clean(venue.gigHistory),
@@ -782,6 +879,8 @@
         filterVenues,
         extractEmail,
         extractPhone,
+        extractGigDates,
+        getVenueGigStats,
         parseLocalDate,
         normalizeScore,
         isBeforeToday,
