@@ -56,28 +56,25 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-05-07-calendar-review-global-gigs',
+        schemaVersion: '2026-05-08-lean-status-storage',
         generatedColumns: [
+            { header: 'Place Name' },
+            { header: 'Address' },
+            { header: 'City' },
+            { header: 'Zip' },
+            { header: 'State' },
+            { header: 'Place ID' },
             { header: 'Longitude' },
             { header: 'Latitude' },
-            { header: 'Site ID' },
-            { header: 'contactStatus' },
-            { header: 'draftStatus' },
-            { header: 'lastContactedDate' },
-            { header: 'nextFollowUpDate' },
-            { header: 'doNotContact' },
-            { header: 'priority' },
-            { header: 'bestFitScore' },
-            { header: 'websiteBookingEvents' },
-            { header: 'calendarGigEvents' },
-            { header: 'calendarPastGigEvents' },
-            { header: 'calendarFutureGigEvents' },
-            { header: 'calendarLastGigDate' },
-            { header: 'calendarNextGigDate' },
-            { header: 'calendarPastGigCount' },
-            { header: 'calendarFutureGigCount' },
-            { header: 'calendarTotalGigsPlayed' },
-            { header: 'calendarLastSyncedAt' }
+            { header: 'Status' },
+            { header: 'Contact Name' },
+            { header: 'Email/Contact' },
+            { header: 'Phone Number' },
+            { header: 'Past Gigs' },
+            { header: 'Future Gigs' },
+            { header: 'Past Gig Count' },
+            { header: 'Future Gig Count' },
+            { header: 'Total Gig Count' }
         ],
         ...overrides
     };
@@ -96,7 +93,7 @@ test('booking dashboard reports safe sheet bridge as ready', () => {
 
     assert.equal(summary.tone, 'success');
     assert.equal(summary.label, 'Sheet bridge ready');
-    assert.match(summary.detail, /safe booking-column bridge/i);
+    assert.match(summary.detail, /clean storage bridge/i);
 });
 
 test('booking dashboard warns when Apps Script is still on an old schema version', () => {
@@ -112,7 +109,7 @@ test('booking dashboard warns when Apps Script is still on an old schema version
 
     assert.equal(summary.tone, 'warning');
     assert.equal(summary.label, 'Apps Script redeploy needed');
-    assert.match(summary.detail, /Deploy the safe booking-column script/i);
+    assert.match(summary.detail, /Deploy the clean storage bridge/i);
 });
 
 test('booking dashboard identifies missing CRM headers from bridge health', () => {
@@ -121,28 +118,25 @@ test('booking dashboard identifies missing CRM headers from bridge health', () =
         generatedColumns: [
             { header: 'Longitude' },
             { header: 'Latitude' },
-            { header: 'Site ID' },
-            { header: 'contactStatus' }
+            { header: 'Place ID' },
+            { header: 'Status' }
         ]
     }));
 
     assert.deepEqual(plain(missing), [
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
+        'Place Name',
+        'Address',
+        'City',
+        'Zip',
+        'State',
+        'Contact Name',
+        'Email/Contact',
+        'Phone Number',
+        'Past Gigs',
+        'Future Gigs',
+        'Past Gig Count',
+        'Future Gig Count',
+        'Total Gig Count'
     ]);
 });
 

@@ -187,6 +187,31 @@ test('venue editor focused CRM fields fall back to active pin identity', () => {
     assert.equal(fields.notes, '');
 });
 
+test('venue editor seeds focused CRM fields from the current pin before Sheets loads', () => {
+    const modal = loadVenueEditModal();
+    const rawFields = modal.buildInitialRawFields({
+        contactStatus: 'Booked',
+        lastContactedDate: '2026-05-01',
+        contactName: 'Jamie',
+        contactEmail: 'booking@example.com',
+        contactPhone: '330-555-1212',
+        contactType: 'Email',
+        nextFollowUpDate: '2026-05-15',
+        notes: 'Confirm outdoor power.'
+    });
+
+    assert.deepEqual(plain(rawFields), {
+        Status: 'Booked',
+        'Last Contacted': '2026-05-01',
+        'Contact Name': 'Jamie',
+        'Email/Contact': 'booking@example.com',
+        'Phone Number': '330-555-1212',
+        'Contact Type': 'Email',
+        'Next Follow Up': '2026-05-15',
+        Notes: 'Confirm outdoor power.'
+    });
+});
+
 test('venue editor treats green statuses as played for the map', () => {
     const modal = loadVenueEditModal();
 

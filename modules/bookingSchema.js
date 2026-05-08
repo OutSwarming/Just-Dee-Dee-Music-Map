@@ -375,7 +375,7 @@
             isPlayedPast,
             isPlayedPastAwaitingReply,
             isOpenMicrophone,
-            isPlayedForMap: isBooked || isPlayedPast,
+            isPlayedForMap: isBooked || isPlayedPast || isOpenMicrophone,
             isUpcomingGig,
             isPostGigFollowUpDue,
             isPriorityLead: !doNotContact && !isClosedStatus && (priority >= 7 || bestFitScore >= 8),
@@ -434,6 +434,33 @@
             CONTACT_STATUS.WAITING_REPLY,
             CONTACT_STATUS.NO_RESPONSE
         ].includes(status) && !clean(venue.booking.nextFollowUpDate);
+    }
+
+    function getVenueMapState(venue = {}) {
+        const booking = venue.booking && venue.booking.contactStatus
+            ? venue.booking
+            : normalizeVenue(venue);
+
+        if (booking.contactStatus === CONTACT_STATUS.BOOKED || booking.isBooked) return 'booked';
+        if (
+            booking.contactStatus === CONTACT_STATUS.PLAYED_IN_THE_PAST ||
+            booking.contactStatus === CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY ||
+            booking.contactStatus === CONTACT_STATUS.OPEN_MICROPHONE ||
+            booking.isPlayedPast ||
+            booking.isOpenMicrophone
+        ) {
+            return 'played';
+        }
+
+        return 'default';
+    }
+
+    function getAgendaTargetIds(venues = [], limit = 6) {
+        return new Set(
+            getDailyAgenda(venues, limit)
+                .map(item => item && item.venueId)
+                .filter(Boolean)
+        );
     }
 
     function getDashboardGroups(venues = []) {
@@ -572,6 +599,8 @@
         normalizeVenue,
         getDashboardGroups,
         getDailyAgenda,
+        getVenueMapState,
+        getAgendaTargetIds,
         filterVenues,
         extractEmail,
         extractPhone,

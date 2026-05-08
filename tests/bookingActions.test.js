@@ -75,7 +75,7 @@ test('mark interested, booked, and do-not-contact produce predictable next steps
     });
 
     assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_DO_NOT_CONTACT, { today })), {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.DO_NOT_CONTACT,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
         nextFollowUpDate: '',
         doNotContact: true
     });
@@ -98,7 +98,7 @@ test('draft ready and not-a-fit actions produce predictable planner states', () 
     });
 });
 
-test('raw field patch writes both legacy sheet headers and normalized CRM headers', () => {
+test('raw field patch writes only clean storage headers', () => {
     const bark = loadBookingModules();
     const rawFields = bark.bookingActions.buildRawFieldsPatch({
         contactStatus: bark.bookingSchema.CONTACT_STATUS.SENT,
@@ -109,13 +109,12 @@ test('raw field patch writes both legacy sheet headers and normalized CRM header
     });
 
     assert.equal(rawFields.Status, 'Sent');
-    assert.equal(rawFields.contactStatus, 'Sent');
-    assert.equal(rawFields.Contacted, '2026-05-04');
-    assert.equal(rawFields.lastContactedDate, '2026-05-04');
-    assert.equal(rawFields.nextFollowUpDate, '2026-05-11');
-    assert.equal(rawFields.draftStatus, 'Sent');
-    assert.equal(rawFields.doNotContact, '');
-    assert.equal(rawFields.DNC, '');
+    assert.equal(rawFields['Last Contacted'], '2026-05-04');
+    assert.equal(rawFields['Next Follow Up'], '2026-05-11');
+    assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'CRM Status'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'contactStatus'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'draftStatus'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'doNotContact'), false);
 });
 
 test('manual follow-up date patch validates and writes only follow-up fields', () => {
@@ -128,8 +127,7 @@ test('manual follow-up date patch validates and writes only follow-up fields', (
     });
     assert.equal(payload.id, 'venue-1');
     assert.equal(payload.actionType, bark.bookingActions.ACTION_TYPES.SET_FOLLOW_UP_DATE);
-    assert.equal(payload.rawFields.nextFollowUpDate, '2026-06-01');
-    assert.equal(payload.rawFields['next follow up date'], '2026-06-01');
+    assert.equal(payload.rawFields['Next Follow Up'], '2026-06-01');
     assert.equal(Object.prototype.hasOwnProperty.call(payload.rawFields, 'Status'), false);
     assert.throws(() => bark.bookingActions.buildFollowUpDatePatch(''), /required/);
     assert.throws(() => bark.bookingActions.buildFollowUpDatePatch('not a date'), /not valid/);
@@ -146,10 +144,10 @@ test('priority score patch validates and writes normalized score headers', () =>
     });
     assert.equal(payload.id, 'venue-1');
     assert.equal(payload.actionType, bark.bookingActions.ACTION_TYPES.SET_PRIORITY_SCORE);
-    assert.equal(payload.rawFields.priority, '8');
-    assert.equal(payload.rawFields.Rank, '8');
-    assert.equal(payload.rawFields.bestFitScore, '10');
-    assert.equal(payload.rawFields['best fit score'], '10');
+    assert.equal(payload.rawFields.Priority, '8');
+    assert.equal(Object.prototype.hasOwnProperty.call(payload.rawFields, 'Rank'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(payload.rawFields, 'bestFitScore'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(payload.rawFields, 'Best Fit Score'), false);
     assert.throws(() => bark.bookingActions.buildPriorityScorePatch('11', '4'), /between 0 and 10/);
     assert.throws(() => bark.bookingActions.buildPriorityScorePatch('high', '4'), /must be a number/);
 });

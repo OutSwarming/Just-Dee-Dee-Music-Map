@@ -161,6 +161,82 @@ function serializeSet(set) {
     return Array.from(set || []).sort().join(',');
 }
 
+function normalizeVenueFilterState(filter) {
+    const value = String(filter || 'all').trim();
+    if (value === 'visited') return 'played';
+    if (value === 'unvisited') return 'all';
+    return ['all', 'played', 'booked', 'agenda'].includes(value) ? value : 'all';
+}
+
+function getVenueMapStateForRender(venue, isVisited = false) {
+    const schema = window.BARK.bookingSchema;
+    if (schema && typeof schema.getVenueMapState === 'function') {
+        return schema.getVenueMapState(venue);
+    }
+    if (window.MapMarkerConfig && typeof window.MapMarkerConfig.getVenueMapState === 'function') {
+        return window.MapMarkerConfig.getVenueMapState(venue, isVisited);
+    }
+    return isVisited ? 'played' : 'default';
+}
+
+function getAgendaTargetIdsForRender(points = []) {
+    const schema = window.BARK.bookingSchema;
+    if (schema && typeof schema.getAgendaTargetIds === 'function') {
+        return schema.getAgendaTargetIds(points);
+    }
+    if (schema && typeof schema.getDailyAgenda === 'function') {
+        return new Set(
+            schema.getDailyAgenda(points)
+                .map(item => item && item.venueId)
+                .filter(Boolean)
+        );
+    }
+    return new Set();
+}
+
+function matchesVenueStatusFilter(filterState, mapState, isAgendaTarget) {
+    const normalizedFilter = normalizeVenueFilterState(filterState);
+    if (normalizedFilter === 'played') return mapState === 'played';
+    if (normalizedFilter === 'booked') return mapState === 'booked';
+    if (normalizedFilter === 'agenda') return Boolean(isAgendaTarget);
+    return true;
+}
+
+function applyMarkerVisualState(icon, item, isVisited, mapState, isAgendaTarget) {
+    if (!icon) return;
+    const style = window.MapMarkerConfig && typeof window.MapMarkerConfig.getPinStyle === 'function'
+        ? window.MapMarkerConfig.getPinStyle(item, isVisited, { mapState, isAgendaTarget })
+        : {
+            iconUrl: isVisited ? 'assets/images/jddm-played.jpg' : 'assets/images/jddm-not-played.jpg',
+            ringColor: isVisited ? '#86efac' : '#111827',
+            pinColor: isVisited ? '#15803d' : '#111827',
+            pinShadowColor: isVisited ? 'rgba(34, 197, 94, 0.38)' : 'rgba(17, 24, 39, 0.45)',
+            isHighlighted: Boolean(isVisited),
+            stateClass: isVisited ? 'venue-map-state-played played-marker' : 'venue-map-state-default'
+        };
+    const isHighlighted = Boolean(style.isHighlighted);
+
+    icon.classList.toggle('visited-pin', isHighlighted);
+    icon.classList.toggle('visited-marker', isHighlighted);
+    icon.classList.toggle('unvisited-marker', !isHighlighted);
+    icon.classList.toggle('venue-map-state-default', !isAgendaTarget && mapState === 'default');
+    icon.classList.toggle('venue-map-state-booked', !isAgendaTarget && mapState === 'booked');
+    icon.classList.toggle('venue-map-state-played', !isAgendaTarget && mapState === 'played');
+    icon.classList.toggle('venue-map-state-agenda', Boolean(isAgendaTarget));
+    icon.classList.toggle('booked-marker', !isAgendaTarget && mapState === 'booked');
+    icon.classList.toggle('played-marker', !isAgendaTarget && mapState === 'played');
+    icon.classList.toggle('agenda-marker', Boolean(isAgendaTarget));
+
+    icon.style.setProperty('--pin-color', style.pinColor, 'important');
+    icon.style.setProperty('--ring-color', style.ringColor, 'important');
+    icon.style.setProperty('--pin-shadow-color', style.pinShadowColor, 'important');
+
+    const markerImage = icon.querySelector('img');
+    if (markerImage && markerImage.getAttribute('src') !== style.iconUrl) {
+        markerImage.setAttribute('src', style.iconUrl);
+    }
+}
+
 function getVisitedIdsCacheKey() {
     if (typeof window.BARK._visitedIdsCacheKey === 'string') {
         return window.BARK._visitedIdsCacheKey;
@@ -306,6 +382,11 @@ window.BARK.invalidateVisitedIdsCache = function () {
     window.BARK._visitedIdsCacheKey = null;
     window.BARK.invalidateMarkerVisibility();
 };
+window.BARK.normalizeVenueFilterState = normalizeVenueFilterState;
+window.BARK.isAgendaTargetVenue = function (venue) {
+    const ids = window.BARK._agendaTargetVenueIds;
+    return Boolean(venue && venue.id && ids && ids.has(venue.id));
+};
 window.BARK.isMapVisibleByDefaultViewState = isMapVisibleByDefaultViewState;
 window.BARK.isMapViewActive = isMapVisibleByDefaultViewState;
 window.BARK.isUsableLeafletMap = isUsableLeafletMap;
@@ -381,7 +462,8 @@ function updateMarkers() {
     const activeSwagFilters = window.BARK.activeSwagFilters;
     const activeSearchQuery = window.BARK.activeSearchQuery;
     const activeTypeFilter = window.BARK.activeTypeFilter;
-    const visitedFilterState = window.BARK.visitedFilterState;
+    const visitedFilterState = normalizeVenueFilterState(window.BARK.visitedFilterState);
+    window.BARK.visitedFilterState = visitedFilterState;
     const _searchResultCache = window.BARK._searchResultCache;
     const queryNorm = window.BARK.normalizeText(activeSearchQuery);
     const cachedSearch = _searchResultCache || {};
@@ -400,6 +482,9 @@ function updateMarkers() {
     const markerClassUpdates = [];
 
     const markerDataRevision = window.BARK._markerDataRevision || 0;
+    const agendaTargetIds = getAgendaTargetIdsForRender(allPoints);
+    window.BARK._agendaTargetVenueIds = agendaTargetIds;
+
     if (window.BARK.markerManager && markerDataRevision !== lastSyncedMarkerDataRevision) {
         window.BARK.markerManager.sync(allPoints, { applyLayers: false });
         lastSyncedMarkerDataRevision = markerDataRevision;
@@ -425,8 +510,9 @@ function updateMarkers() {
         const isVisited = typeof window.BARK.isParkVisited === 'function'
             ? window.BARK.isParkVisited(item)
             : hasRenderVisitedPlace(item);
-        if (visitedFilterState === 'visited' && !isVisited) matchesVisited = false;
-        if (visitedFilterState === 'unvisited' && isVisited) matchesVisited = false;
+        const mapState = getVenueMapStateForRender(item, isVisited);
+        const isAgendaTarget = agendaTargetIds.has(item.id);
+        if (!matchesVenueStatusFilter(visitedFilterState, mapState, isAgendaTarget)) matchesVisited = false;
 
         // Trip stops no longer force park-marker visibility (Fix #19); the trip
         // overlay layer renders badges independently. Removing this OR-clause +
@@ -447,7 +533,7 @@ function updateMarkers() {
 
             if (item.marker._icon) {
                 item.marker._icon.classList.remove('marker-filter-hidden');
-                markerClassUpdates.push({ icon: item.marker._icon, isVisited });
+                markerClassUpdates.push({ icon: item.marker._icon, item, isVisited, mapState, isAgendaTarget });
             }
         } else {
             if (item.marker._icon) {
@@ -465,11 +551,9 @@ function updateMarkers() {
         window.BARK.markerManager.applyVisibility(allPoints, { forceReset: forceLayerReset });
     }
 
-    // 🏭 BATCH: Apply visited-pin class (avoids interleaved read/write layout thrash)
-    markerClassUpdates.forEach(({ icon, isVisited }) => {
-        icon.classList.toggle('visited-pin', isVisited);
-        icon.classList.toggle('visited-marker', isVisited);
-        icon.classList.toggle('unvisited-marker', !isVisited);
+    // 🏭 BATCH: Apply status-aware pin classes (avoids interleaved read/write layout thrash)
+    markerClassUpdates.forEach(({ icon, item, isVisited, mapState, isAgendaTarget }) => {
+        applyMarkerVisualState(icon, item, isVisited, mapState, isAgendaTarget);
     });
 
     if (window.BARK.tripLayer && typeof window.BARK.tripLayer.refreshBadgeStyles === 'function') {

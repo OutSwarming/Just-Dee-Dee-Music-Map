@@ -6,39 +6,33 @@
 
     const TABS = [
         { id: 'today', label: 'Today' },
+        { id: 'booked', label: 'Booked' },
+        { id: 'planner', label: 'Planner' },
         { id: 'followUps', label: 'Follow-Ups' },
         { id: 'newProspects', label: 'New Prospects' },
-        { id: 'priorityLeads', label: 'Priority' },
-        { id: 'interested', label: 'Interested' },
-        { id: 'booked', label: 'Booked' },
-        { id: 'upcomingGigs', label: 'Upcoming Gigs' },
-        { id: 'websiteUpcoming', label: 'Website Future' },
-        { id: 'websitePast', label: 'Website Past' },
-        { id: 'postGigFollowUps', label: 'Post-Gig Follow-Up' },
         { id: 'missingInfo', label: 'Missing Info' },
-        { id: 'notAFit', label: 'Not a Fit' },
-        { id: 'doNotContact', label: 'Do Not Contact' }
+        { id: 'doNotContact', label: 'Closed' }
     ];
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-07-calendar-review-global-gigs';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-08-lean-status-storage';
     const REQUIRED_BOOKING_HEADERS = [
-        'contactStatus',
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
+        'Place Name',
+        'Address',
+        'City',
+        'Zip',
+        'State',
+        'Place ID',
+        'Longitude',
+        'Latitude',
+        'Status',
+        'Contact Name',
+        'Email/Contact',
+        'Phone Number',
+        'Past Gigs',
+        'Future Gigs',
+        'Past Gig Count',
+        'Future Gig Count',
+        'Total Gig Count'
     ];
 
     let activeTab = 'today';
@@ -99,7 +93,7 @@
         const venues = repo && typeof repo.getAll === 'function' ? repo.getAll() : [];
         const data = schema && typeof schema.getDashboardGroups === 'function'
             ? schema.getDashboardGroups(venues)
-            : { today: [], followUps: [], newProspects: [], priorityLeads: [], interested: [], booked: [], upcomingGigs: [], postGigFollowUps: [], missingInfo: [], notAFit: [], doNotContact: [], all: venues };
+            : { today: [], followUps: [], newProspects: [], booked: [], planner: [], missingInfo: [], doNotContact: [], all: venues };
         const websiteService = getWebsiteBookingsService();
         const websiteGroups = websiteService && typeof websiteService.getWebsiteBookingGroups === 'function'
             ? websiteService.getWebsiteBookingGroups()
@@ -201,7 +195,7 @@
             return {
                 tone: 'warning',
                 label: 'Apps Script redeploy needed',
-                detail: `Connected to ${health.sheetName || 'the sheet'}, but the bridge version is ${health.schemaVersion || 'unknown'}. Deploy the safe booking-column script before live edits.`,
+                detail: `Connected to ${health.sheetName || 'the sheet'}, but the bridge version is ${health.schemaVersion || 'unknown'}. Deploy the clean storage bridge before live edits.`,
                 actionLabel: 'Recheck',
                 actionDisabled: false
             };
@@ -211,7 +205,7 @@
             return {
                 tone: 'warning',
                 label: 'Booking columns missing',
-                detail: `Missing: ${missingHeaders.join(', ')}. Reopen the Apps Script bridge after deployment and run setup.`,
+                detail: `Missing: ${missingHeaders.join(', ')}. Reopen the Apps Script bridge after deployment and run purge/setup.`,
                 actionLabel: 'Recheck',
                 actionDisabled: false
             };
@@ -220,7 +214,7 @@
         return {
             tone: 'success',
             label: 'Sheet bridge ready',
-            detail: `${health.sheetName || 'Google Sheet'} is using the safe booking-column bridge.`,
+            detail: `${health.sheetName || 'Google Sheet'} is using the clean storage bridge.`,
             actionLabel: 'Recheck',
             actionDisabled: false
         };
@@ -432,6 +426,7 @@
         if (tabId === 'priorityLeads') return `Priority ${booking.priority || 0} / Fit ${booking.bestFitScore || 0}`;
         if (tabId === 'interested') return 'Interested lead';
         if (tabId === 'booked') return booking.eventDate ? `Booked: ${booking.eventDate}` : 'Booked';
+        if (tabId === 'planner') return booking.isOpenMicrophone ? 'Open microphone venue' : 'Played in the past';
         if (tabId === 'upcomingGigs') return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
         if (tabId === 'postGigFollowUps') return booking.eventDate ? `Post-gig follow-up: ${booking.eventDate}` : 'Post-gig follow-up';
         if (tabId === 'missingInfo') return 'Missing email or booking link';
@@ -718,11 +713,11 @@
 
         stats.innerHTML = [
             ['Today', data.today.length],
+            ['Booked', data.booked.length],
+            ['Planner', data.planner.length],
             ['Follow-Ups', data.followUps.length],
-            ['Prospects', data.newProspects.length],
-            ['Priority', data.priorityLeads.length],
-            ['Web Future', data.websiteUpcoming.length],
-            ['Web Past', data.websitePast.length]
+            ['Contacts', data.newProspects.length],
+            ['Missing Info', data.missingInfo.length]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -735,6 +730,7 @@
         if (!item) return 'today';
         if (item.type === 'postGigFollowUp') return 'postGigFollowUps';
         if (item.type === 'upcomingGig') return 'upcomingGigs';
+        if (item.type === 'planner') return 'planner';
         if (item.type === 'priorityLead') return 'priorityLeads';
         if (item.type === 'newProspect') return 'newProspects';
         if (item.type === 'missingInfo') return 'missingInfo';

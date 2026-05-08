@@ -1505,8 +1505,8 @@ body.app-tab-active #slide-panel {
     gap: 10px;
     align-items: center;
     padding: 10px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
     border-radius: 8px;
 }
 
@@ -1517,8 +1517,8 @@ body.app-tab-active #slide-panel {
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    background: #fef3c7;
-    color: #92400e;
+    background: #2563eb;
+    color: #ffffff;
     font-size: 12px;
 }
 
@@ -1544,7 +1544,7 @@ body.app-tab-active #slide-panel {
 .booking-agenda-item span {
     display: block;
     margin-top: 4px;
-    color: #b45309;
+    color: #1d4ed8;
     font-size: 11px;
     font-weight: 900;
     text-transform: uppercase;
@@ -2106,6 +2106,34 @@ body.app-tab-active #slide-panel {
     border: 3px solid var(--ring-color, #2563eb) !important;
     border-radius: 50%;
     box-sizing: border-box;
+}
+
+.custom-bark-marker.venue-map-state-booked,
+.custom-bark-marker.venue-map-state-played,
+.custom-bark-marker.venue-map-state-agenda {
+    z-index: 520 !important;
+}
+
+.custom-bark-marker.venue-map-state-booked img {
+    border-color: #14532d !important;
+}
+
+.custom-bark-marker.venue-map-state-played img {
+    border-color: #86efac !important;
+}
+
+.custom-bark-marker.venue-map-state-agenda {
+    z-index: 560 !important;
+}
+
+.custom-bark-marker.venue-map-state-agenda .enamel-pin-wrapper {
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.22),
+        0 8px 18px rgba(37, 99, 235, 0.28) !important;
+}
+
+.custom-bark-marker.venue-map-state-agenda img {
+    border-color: #2563eb !important;
 }
 
 /* Legacy category classes kept for existing marker plumbing. */

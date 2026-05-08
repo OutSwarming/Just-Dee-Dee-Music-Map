@@ -302,9 +302,17 @@ if (toggleFilterBtn) {
 // ====== VISITED FILTER DROPDOWN ======
 const visitedFilterEl = document.getElementById('visited-filter');
 if (visitedFilterEl) {
+    const normalizeVenueFilterState = typeof window.BARK.normalizeVenueFilterState === 'function'
+        ? window.BARK.normalizeVenueFilterState
+        : value => (['all', 'played', 'booked', 'agenda'].includes(value) ? value : 'all');
+    window.BARK.visitedFilterState = normalizeVenueFilterState(window.BARK.visitedFilterState);
     visitedFilterEl.value = window.BARK.visitedFilterState;
+    if (visitedFilterEl.value !== window.BARK.visitedFilterState) {
+        window.BARK.visitedFilterState = 'all';
+        visitedFilterEl.value = 'all';
+    }
     visitedFilterEl.addEventListener('change', (e) => {
-        const requestedFilter = e.target.value;
+        const requestedFilter = normalizeVenueFilterState(e.target.value);
         const authPremiumUi = window.BARK && window.BARK.authPremiumUi;
         const allowedFilter = authPremiumUi && typeof authPremiumUi.getAllowedVisitedFilter === 'function'
             ? authPremiumUi.getAllowedVisitedFilter(requestedFilter)

@@ -6,58 +6,147 @@ const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 
-function createFakeSheet(initialHeaders) {
-    const headers = initialHeaders.slice();
+function createFakeSheet(initialHeaders, initialRows = []) {
+    const values = [initialHeaders.slice(), ...initialRows.map(row => row.slice())];
     const writes = [];
+    const deletedColumns = [];
+    const formatting = [];
+    let name = 'Venues';
 
-    function ensureLength(length) {
-        while (headers.length < length) headers.push('');
+    function ensureSize(rowCount, columnCount) {
+        while (values.length < rowCount) values.push([]);
+        values.forEach(row => {
+            while (row.length < columnCount) row.push('');
+        });
     }
 
-    const sheet = {
-        headers,
+    function range(row, column, numRows = 1, numColumns = 1) {
+        ensureSize(row + numRows - 1, column + numColumns - 1);
+        return {
+            getValues() {
+                return values.slice(row - 1, row - 1 + numRows).map(sourceRow => (
+                    sourceRow.slice(column - 1, column - 1 + numColumns)
+                ));
+            },
+            setValue(value) {
+                values[row - 1][column - 1] = value;
+                writes.push({ row, column, value });
+                return this;
+            },
+            setValues(nextValues) {
+                nextValues.forEach((nextRow, rowOffset) => {
+                    nextRow.forEach((value, columnOffset) => {
+                        values[row - 1 + rowOffset][column - 1 + columnOffset] = value;
+                    });
+                });
+                writes.push({ row, column, values: nextValues });
+                return this;
+            },
+            setNumberFormat() {
+                formatting.push({ type: 'numberFormat', row, column });
+                return this;
+            },
+            setDataValidation() {
+                formatting.push({ type: 'validation', row, column });
+                return this;
+            },
+            setFontWeight() {
+                formatting.push({ type: 'fontWeight', row, column });
+                return this;
+            },
+            setBackground() {
+                formatting.push({ type: 'background', row, column });
+                return this;
+            },
+            setFontColor() {
+                formatting.push({ type: 'fontColor', row, column });
+                return this;
+            },
+            setBackgrounds(backgrounds) {
+                formatting.push({ type: 'backgrounds', row, column, backgrounds });
+                return this;
+            },
+            setFontColors(fontColors) {
+                formatting.push({ type: 'fontColors', row, column, fontColors });
+                return this;
+            }
+        };
+    }
+
+    return {
+        values,
         writes,
+        deletedColumns,
+        formatting,
         getName() {
-            return 'Venues';
+            return name;
+        },
+        setName(nextName) {
+            name = nextName;
+            return this;
         },
         getLastColumn() {
-            return headers.length;
+            return values[0].length;
+        },
+        getLastRow() {
+            return values.length;
         },
         getMaxRows() {
-            return 100;
+            return Math.max(100, values.length);
         },
-        getRange(row, column, numRows = 1, numColumns = 1) {
-            return {
-                getValues() {
-                    ensureLength(column + numColumns - 1);
-                    return [headers.slice(column - 1, column + numColumns - 1)];
-                },
-                setValue(value) {
-                    ensureLength(column);
-                    headers[column - 1] = value;
-                    writes.push({ row, column, value });
-                    return this;
-                },
-                setValues(values) {
-                    const nextValues = values[0] || [];
-                    ensureLength(column + nextValues.length - 1);
-                    nextValues.forEach((value, index) => {
-                        headers[column - 1 + index] = value;
-                    });
-                    writes.push({ row, column, values });
-                    return this;
-                },
-                setNumberFormat() {
-                    return this;
-                }
-            };
+        getMaxColumns() {
+            return values[0].length;
+        },
+        getRange: range,
+        clear() {
+            values.splice(0, values.length, ['']);
+            return this;
+        },
+        deleteColumns(startColumn, count) {
+            values.forEach(row => row.splice(startColumn - 1, count));
+            deletedColumns.push({ startColumn, count });
+            return this;
+        },
+        deleteRows(startRow, count) {
+            values.splice(startRow - 1, count);
+            return this;
+        },
+        appendRow(row) {
+            values.push(row.slice());
+            return this;
+        },
+        setFrozenRows() {
+            return this;
+        },
+        setColumnWidth() {
+            return this;
         }
     };
-
-    return sheet;
 }
 
-function loadBridge(sheet) {
+function loadBridge(sheet, options = {}) {
+    const sheets = [sheet];
+    const calendars = options.calendars || {};
+    const spreadsheet = {
+        getSheets() {
+            return sheets.slice();
+        },
+        getSheetByName(name) {
+            return sheets.find(nextSheet => nextSheet.getName() === name) || null;
+        },
+        setActiveSheet() {},
+        moveActiveSheet() {},
+        insertSheet(name, index = sheets.length) {
+            const nextSheet = createFakeSheet(['']);
+            nextSheet.setName(name);
+            sheets.splice(index, 0, nextSheet);
+            return nextSheet;
+        },
+        deleteSheet(targetSheet) {
+            const index = sheets.indexOf(targetSheet);
+            if (index >= 0) sheets.splice(index, 1);
+        }
+    };
     const context = {
         console,
         Date,
@@ -69,15 +158,17 @@ function loadBridge(sheet) {
         Array,
         JSON,
         RegExp,
-        Maps: {},
         ContentService: {
             MimeType: {
                 JSON: 'application/json',
                 CSV: 'text/csv'
             },
-            createTextOutput() {
+            createTextOutput(text) {
                 return {
-                    setMimeType() {
+                    text,
+                    mimeType: '',
+                    setMimeType(mimeType) {
+                        this.mimeType = mimeType;
                         return this;
                     }
                 };
@@ -85,17 +176,31 @@ function loadBridge(sheet) {
         },
         SpreadsheetApp: {
             getActiveSpreadsheet() {
+                return spreadsheet;
+            },
+            newDataValidation() {
                 return {
-                    getSheets() {
-                        return [sheet];
+                    requireValueInList() {
+                        return this;
                     },
-                    getSheetByName() {
-                        return sheet;
+                    setAllowInvalid() {
+                        return this;
+                    },
+                    build() {
+                        return {};
                     }
                 };
             },
-            getActive() {
-                return {};
+            getUi() {
+                return {
+                    createMenu() {
+                        return {
+                            addItem() { return this; },
+                            addToUi() { return this; }
+                        };
+                    },
+                    alert() {}
+                };
             }
         },
         ScriptApp: {
@@ -104,18 +209,42 @@ function loadBridge(sheet) {
             },
             newTrigger() {
                 return {
-                    forSpreadsheet() {
-                        return this;
-                    },
-                    onEdit() {
-                        return this;
-                    },
-                    create() {
-                        return this;
-                    }
+                    timeBased() { return this; },
+                    everyMinutes() { return this; },
+                    create() { return this; }
                 };
             },
             deleteTrigger() {}
+        },
+        CalendarApp: {
+            getCalendarById(calendarId) {
+                const events = calendars[calendarId];
+                if (!events) return null;
+                return {
+                    getEvents() {
+                        return events.map((event, index) => ({
+                            getTitle() {
+                                return event.title || '';
+                            },
+                            getLocation() {
+                                return event.location || '';
+                            },
+                            getStartTime() {
+                                return event.startTime;
+                            },
+                            getId() {
+                                return event.id || `event-${index}`;
+                            }
+                        }));
+                    }
+                };
+            }
+        },
+        Utilities: {
+            formatDate(date, _timezone, format) {
+                if (format === 'yyyyMMdd-HHmmss') return '20260508-000000';
+                return date.toISOString().slice(0, 10);
+            }
         }
     };
     context.global = context;
@@ -130,105 +259,225 @@ function loadBridge(sheet) {
     return context;
 }
 
-function headerColumns(headers, header) {
-    return headers
-        .map((value, index) => String(value).trim().toLowerCase() === header.toLowerCase() ? index + 1 : 0)
-        .filter(Boolean);
+function headerIndex(headers, header) {
+    return headers.findIndex(value => String(value).trim().toLowerCase() === header.toLowerCase());
 }
 
 function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-const BOOKING_HEADERS = [
-    'contactStatus',
-    'draftStatus',
-    'lastContactedDate',
-    'nextFollowUpDate',
-    'doNotContact',
-    'priority',
-    'bestFitScore',
-    'websiteBookingEvents',
-    'calendarGigEvents',
-    'calendarPastGigEvents',
-    'calendarFutureGigEvents',
-    'calendarLastGigDate',
-    'calendarNextGigDate',
-    'calendarPastGigCount',
-    'calendarFutureGigCount',
-    'calendarTotalGigsPlayed',
-    'calendarLastSyncedAt'
-];
-
-test('booking CRM headers append after occupied spreadsheet columns', () => {
-    const headers = Array.from({ length: 25 }, (_, index) => `Existing ${index + 1}`);
-    headers[17] = 'Longitude';
-    headers[18] = 'Latitude';
-    headers[19] = 'Site ID';
-    const sheet = createFakeSheet(headers);
+test('purge keeps accurate scattered contact and gig data in canonical columns', () => {
+    const sheet = createFakeSheet(
+        [
+            'Place',
+            'Status',
+            'contactStatus',
+            'Email/Contact',
+            'Phone Number',
+            'calendarPastGigEvents',
+            'calendarFutureGigEvents',
+            'calendarLastGigDate',
+            'calendarNextGigDate',
+            'Longitude',
+            'Latitude',
+            'Site ID',
+            'Random Duplicate Noise'
+        ],
+        [[
+            'Bait House Brewery, 223 Meigs St, Sandusky, OH 44870',
+            'Ignored because contactStatus wins',
+            'Booked',
+            'booking@bait.example',
+            '440-555-1212',
+            '2025-01-02; 2025-03-04',
+            '2026-06-01',
+            '2025-03-04',
+            '2026-06-01',
+            '-82.707',
+            '41.448',
+            'bait-house-brewery',
+            'duplicate junk'
+        ]]
+    );
     const bridge = loadBridge(sheet);
 
-    const result = bridge.ensureGeneratedColumns_();
+    const result = bridge.purgeAndSetup_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
 
-    assert.equal(sheet.headers[20], 'Existing 21');
-    assert.equal(sheet.headers[21], 'Existing 22');
-    assert.equal(sheet.headers[22], 'Existing 23');
-    assert.equal(sheet.headers[23], 'Existing 24');
-    assert.equal(sheet.headers[24], 'Existing 25');
-    assert.deepEqual(sheet.writes.map(write => write.column), [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]);
-    assert.deepEqual(sheet.headers.slice(25, 42), BOOKING_HEADERS);
-    assert.equal(result.columns.find(column => column.key === 'contactStatus').column, 26);
-    assert.deepEqual(plain(result.changedHeaders), BOOKING_HEADERS);
+    assert.equal(result.archivedSheetName, null);
+    assert.equal(result.replacedSheet, true);
+    assert.equal(result.schemaVersion, '2026-05-08-lean-status-storage');
+    assert.deepEqual(plain(headers), plain(bridge.JDDM_CANONICAL_HEADERS));
+    assert.equal(row[headerIndex(headers, 'Place Name')], 'Bait House Brewery');
+    assert.equal(row[headerIndex(headers, 'Address')], '223 Meigs St');
+    assert.equal(row[headerIndex(headers, 'City')], 'Sandusky');
+    assert.equal(row[headerIndex(headers, 'State')], 'OH');
+    assert.equal(row[headerIndex(headers, 'Zip')], '44870');
+    assert.equal(row[headerIndex(headers, 'Status')], 'Booked');
+    assert.equal(row[headerIndex(headers, 'Email/Contact')], 'booking@bait.example');
+    assert.equal(row[headerIndex(headers, 'Phone Number')], '440-555-1212');
+    assert.equal(row[headerIndex(headers, 'Past Gigs')], '2025-01-02; 2025-03-04');
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2026-06-01');
+    assert.equal(row[headerIndex(headers, 'Past Gig Count')], 2);
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 1);
+    assert.equal(row[headerIndex(headers, 'Total Gig Count')], 3);
+    assert.equal(row[headerIndex(headers, 'Random Duplicate Noise')], undefined);
+    assert.equal(headers.length, bridge.JDDM_CANONICAL_HEADERS.length);
+    assert.equal(headers.filter(header => header === 'Status').length, 1);
+    assert.equal(headerIndex(headers, 'contactStatus'), -1);
+    assert.equal(headerIndex(headers, 'CRM Status'), -1);
 });
 
-test('existing booking CRM headers are reused instead of duplicated', () => {
-    const headers = Array.from({ length: 28 }, (_, index) => `Existing ${index + 1}`);
-    headers[17] = 'Longitude';
-    headers[18] = 'Latitude';
-    headers[19] = 'Site ID';
-    headers[21] = 'contactStatus';
-    headers[26] = 'nextFollowUpDate';
-    const sheet = createFakeSheet(headers);
+test('setup canonicalizes without adding duplicate generated columns', () => {
+    const sheet = createFakeSheet(
+        ['Venue Name', 'CRM Status', 'Email', 'Email/Contact', 'Phone', 'Phone Number', 'Gig Past Dates', 'extra'],
+        [['Brighten Brewing', 'Played in the Past', 'old@example.com', 'booking@brighten.example', '111', '222', '2024-01-01', 'noise']]
+    );
     const bridge = loadBridge(sheet);
 
-    const result = bridge.ensureGeneratedColumns_();
+    const result = bridge.setupComputerSection_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
 
-    assert.deepEqual(headerColumns(sheet.headers, 'contactStatus'), [22]);
-    assert.deepEqual(headerColumns(sheet.headers, 'nextFollowUpDate'), [27]);
-    assert.deepEqual(sheet.writes.map(write => write.column), [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]);
-    assert.deepEqual(sheet.writes.map(write => write.value), [
-        'draftStatus',
-        'lastContactedDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
+    assert.equal(result.ok, true);
+    assert.equal(result.replacedSheet, true);
+    assert.deepEqual(plain(headers), plain(bridge.JDDM_CANONICAL_HEADERS));
+    assert.equal(row[headerIndex(headers, 'Email/Contact')], 'booking@brighten.example');
+    assert.equal(row[headerIndex(headers, 'Phone Number')], '222');
+    assert.equal(row[headerIndex(headers, 'Status')], 'Played in the Past');
+    assert.equal(headerIndex(headers, 'extra'), -1);
+});
+
+test('venue row highlight is driven only by Status', () => {
+    const sheet = createFakeSheet([
+        'Venue Name',
+        'Status',
+        'Gig Future Count',
+        'Gig Last Played',
+        'Gig Past Dates'
     ]);
-    assert.equal(result.columns.find(column => column.key === 'contactStatus').column, 22);
-    assert.equal(result.columns.find(column => column.key === 'nextFollowUpDate').column, 27);
+    const bridge = loadBridge(sheet);
+    const headerMap = bridge.makeHeaderMap_(sheet.values[0]);
+    const noisyRow = ['Venue', '', '4', '2024-01-01', '2024-01-01'];
+
+    assert.equal(bridge.classifyVenueRowHighlight_(noisyRow, headerMap), 'NONE');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Booked', '', '', ''], headerMap), 'BOOKED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Played in the Past', '', '', ''], headerMap), 'PLAYED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Played in the Past - Awaiting Reply', '', '', ''], headerMap), 'PLAYED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Open Microphone', '', '', ''], headerMap), 'OPEN_MIC');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Closed and Not Booking', '', '', ''], headerMap), 'CLOSED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'No Live Music', '', '', ''], headerMap), 'CLOSED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Venue Said No to JDDM', '', '', ''], headerMap), 'CLOSED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Not Interested / Do Not Contact', '', '', ''], headerMap), 'CLOSED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Bad Fit / Too Far', '', '', ''], headerMap), 'CLOSED');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Closed / No Longer Operating', '', '', ''], headerMap), 'CLOSED');
 });
 
-test('preferred map columns append safely when their slots are occupied', () => {
-    const headers = Array.from({ length: 20 }, (_, index) => `Client Field ${index + 1}`);
-    const sheet = createFakeSheet(headers);
+test('setup preserves Status instead of deriving app state from sheet facts', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'City', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Longitude', 'Latitude', 'Notes'],
+        [
+            ['Past Only Room', 'Akron', 'past-only-room', 'Booked', '2025-01-01', '', '-81.1', '41.1', ''],
+            ['Waiting Past Room', 'Akron', 'waiting-past-room', 'Contacted - Waiting on Reply', '2025-02-01', '', '-81.2', '41.2', ''],
+            ['Future Room', 'Akron', 'future-room', 'Needs Review', '2025-03-01', '2026-07-01', '-81.3', '41.3', ''],
+            ['Open Mic Room', 'Akron', 'open-mic-room', 'Needs Review', '2025-04-01', '', '-81.4', '41.4', 'Open microphone'],
+            ['Closed Room', 'Akron', 'closed-room', 'Needs Review', '', '', '-81.5', '41.5', 'No live music'],
+            ['Dnc Room', 'Akron', 'dnc-room', 'Needs Review', '', '', '-81.6', '41.6', 'Not interested, do not contact'],
+            ['Harvest Saloon 15147 Pearl Rd', 'OH 44136. CLoSED', 'harvest-saloon-15147-pearl-rd-strongsville-oh-44136', 'Not Contacted Yet', '', '', '-81.7', '41.7', '']
+        ]
+    );
     const bridge = loadBridge(sheet);
 
-    const result = bridge.ensureGeneratedColumns_();
+    bridge.setupComputerSection_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const statuses = cleanSheet.values.slice(1, 8).map(row => row[headerIndex(headers, 'Status')]);
 
-    assert.equal(sheet.headers[17], 'Client Field 18');
-    assert.equal(sheet.headers[18], 'Client Field 19');
-    assert.equal(sheet.headers[19], 'Client Field 20');
-    assert.deepEqual(sheet.writes.map(write => write.column), [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]);
-    assert.deepEqual(plain(result.preservedHeaders).map(item => item.header), ['Longitude', 'Latitude', 'Site ID']);
-    assert.equal(result.columns.find(column => column.key === 'longitude').column, 21);
-    assert.equal(result.columns.find(column => column.key === 'siteId').column, 23);
+    assert.deepEqual(statuses, [
+        'Booked',
+        'Contacted - Waiting on Reply',
+        'Needs Review',
+        'Needs Review',
+        'Needs Review',
+        'Needs Review',
+        'Not Contacted Yet'
+    ]);
+});
+
+test('calendar sync preserves Status while rolling gig dates forward', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Longitude', 'Latitude'],
+        [['Dragonfly Winery', 'dragonfly-winery-canal-fulton-oh-44614', 'Open Microphone', '1999-01-01', '2000-01-01; 2099-01-01', '-81.6', '40.8']]
+    );
+    const bridge = loadBridge(sheet, {
+        calendars: {
+            'justdeedeemusic@gmail.com': [{
+                title: 'Dragonfly Winery',
+                location: '215 Market St W, Canal Fulton, OH',
+                startTime: new Date('2099-02-01T12:00:00Z'),
+                id: 'future-dragonfly'
+            }]
+        }
+    });
+
+    bridge.syncCalendarGigEvents_({ addMissing: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
+
+    assert.equal(row[headerIndex(headers, 'Status')], 'Open Microphone');
+    assert.equal(row[headerIndex(headers, 'Past Gigs')], '1999-01-01; 2000-01-01');
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-01-01; 2099-02-01');
+    assert.equal(row[headerIndex(headers, 'Past Gig Count')], 2);
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 2);
+});
+
+test('setPlayed writes Status instead of legacy Played columns', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status'],
+        [['The Venue', 'the-venue', 'Not Contacted Yet']]
+    );
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.setPlayed_({ id: 'the-venue', played: true });
+
+    assert.equal(result.ok, true);
+    assert.equal(sheet.values[1][2], 'Played in the Past');
+});
+
+test('health advertises the lean storage schema', () => {
+    const sheet = createFakeSheet(['Venue Name', 'CRM Status']);
+    const bridge = loadBridge(sheet);
+    const health = bridge.getHealth_();
+
+    assert.equal(health.schemaVersion, '2026-05-08-lean-status-storage');
+    assert.ok(health.storageColumns.includes('Place Name'));
+    assert.ok(health.sections.status.includes('Status'));
+    assert.ok(health.statusOptions.includes('Played in the Past - Awaiting Reply'));
+    assert.ok(health.generatedColumns.some(column => column.header === 'Future Gigs'));
+});
+
+test('calendar cleanup removes no-coordinate calendar-only rows', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Address', 'City', 'Place ID', 'Longitude', 'Latitude', 'Status', 'Past Gigs', 'Future Gigs', 'Email/Contact'],
+        [
+            ['Real Venue', '123 Main', 'Akron', 'real-venue', '-81.1', '41.1', 'Booked', '', '2026-06-01', ''],
+            ['Return from Vegas', '', '', 'return-from-vegas', '', '', 'Played in the Past', '2025-08-29', '', ''],
+            ['Missing Coordinates But Real Contact', '', '', 'missing-real-contact', '', '', 'Booked', '', '2026-06-01', 'booking@example.com']
+        ]
+    );
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.cleanupCalendarOnlyRows_({ applyFormatting: false });
+
+    assert.equal(result.removedRows, 1);
+    assert.deepEqual(sheet.values.map(row => row[0]), [
+        'Place Name',
+        'Real Venue',
+        'Missing Coordinates But Real Contact'
+    ]);
 });

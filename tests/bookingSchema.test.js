@@ -103,6 +103,9 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
     const awaitingReply = schema.normalizeVenue({
         contactStatus: 'Played in the Past - Awaiting Reply'
     });
+    const openMic = schema.normalizeVenue({
+        contactStatus: 'Open Microphone'
+    });
 
     assert.equal(booked.contactStatus, schema.CONTACT_STATUS.BOOKED);
     assert.equal(booked.isBooked, true);
@@ -111,6 +114,8 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
     assert.equal(postGig.isPostGigFollowUpDue, true);
     assert.equal(awaitingReply.isPlayedPast, true);
     assert.equal(awaitingReply.isPlayedPastAwaitingReply, true);
+    assert.equal(openMic.isOpenMicrophone, true);
+    assert.equal(openMic.isPlayedForMap, true);
     assert.equal(missingInfo.isMissingInfo, true);
     assert.equal(missingInfo.hasContactInfo, false);
 
@@ -121,6 +126,16 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
     assert.equal(notFit.isNotAFit, true);
     assert.equal(notFit.isFollowUpDue, false);
     assert.equal(notFit.isMissingInfo, false);
+});
+
+test('getVenueMapState maps only CRM Status into pin color states', () => {
+    const schema = loadBookingSchema();
+
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Booked' }), 'booked');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past' }), 'played');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past - Awaiting Reply' }), 'played');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Open Microphone' }), 'played');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Not Contacted Yet', played: true }), 'default');
 });
 
 test('date helpers support common spreadsheet date formats', () => {

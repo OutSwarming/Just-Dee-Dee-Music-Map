@@ -106,6 +106,20 @@
         return known;
     }
 
+    function buildInitialRawFields(venue = {}) {
+        const booking = venue.booking || {};
+        return {
+            Status: clean(booking.contactStatus || venue.contactStatus || venue.status),
+            'Last Contacted': clean(booking.lastContactedDate || venue.lastContactedDate),
+            'Contact Name': clean(booking.contactName || venue.contactName),
+            'Email/Contact': clean(booking.contactEmail || venue.contactEmail || venue.email),
+            'Phone Number': clean(booking.contactPhone || venue.contactPhone || venue.phone),
+            'Contact Type': clean(booking.contactType || venue.contactType),
+            'Next Follow Up': clean(booking.nextFollowUpDate || venue.nextFollowUpDate),
+            Notes: clean(venue.notes || venue.info)
+        };
+    }
+
     function toDateInputValue(value) {
         const text = clean(value);
         if (!text) return '';
@@ -410,7 +424,7 @@
     async function loadSourceRow() {
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
-            renderRawFields({});
+            renderRawFields(buildInitialRawFields(activeVenue));
             setStatus('Spreadsheet save is not connected yet. Deploy the Apps Script bridge and paste its URL into config/firebaseConfig.example.js.', 'warning');
             return;
         }
@@ -424,11 +438,18 @@
         }, 6000);
         try {
             const result = await service.getVenue(activeVenue.id);
-            if (result && result.rawFields) renderRawFields(result.rawFields);
+            if (result && result.rawFields) {
+                renderRawFields({
+                    ...buildInitialRawFields(activeVenue),
+                    ...result.rawFields
+                });
+            } else {
+                renderRawFields(buildInitialRawFields(activeVenue));
+            }
             setStatus('CRM fields loaded from the spreadsheet.', 'success');
         } catch (error) {
             console.error('[venueEditModal] failed to load source row:', error);
-            renderRawFields({});
+            renderRawFields(buildInitialRawFields(activeVenue));
             setStatus(error.message || 'Could not load source spreadsheet row.', 'error');
         } finally {
             clearTimeout(slowTimer);
@@ -513,7 +534,7 @@
         }
 
         activeVenue = { ...venue };
-        renderRawFields({});
+        renderRawFields(buildInitialRawFields(activeVenue));
         bindModalEvents();
         setStatus('', 'neutral');
         openModal();
@@ -524,6 +545,7 @@
     window.BARK.closeVenueEditor = closeModal;
     window.BARK.venueEditModal = {
         buildVenueFromRawFields,
+        buildInitialRawFields,
         getRenderableHeaders,
         collectRawFields,
         toDateInputValue

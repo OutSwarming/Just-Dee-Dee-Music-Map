@@ -130,7 +130,7 @@
 
         if (actionType === ACTION_TYPES.MARK_DO_NOT_CONTACT) {
             return {
-                contactStatus: statuses.DO_NOT_CONTACT,
+                contactStatus: statuses.CLOSED_AND_NOT_BOOKING || statuses.DO_NOT_CONTACT,
                 nextFollowUpDate: '',
                 doNotContact: true
             };
@@ -152,42 +152,23 @@
         };
     }
 
-    function addAliases(rawFields, aliases, value) {
-        aliases.forEach(header => {
-            rawFields[header] = value;
-        });
-    }
-
     function buildRawFieldsPatch(patch = {}) {
         const rawFields = {};
 
         if (Object.prototype.hasOwnProperty.call(patch, 'contactStatus')) {
-            addAliases(rawFields, ['Status', 'contactStatus', 'contact status'], clean(patch.contactStatus));
-        }
-
-        if (Object.prototype.hasOwnProperty.call(patch, 'draftStatus')) {
-            addAliases(rawFields, ['draftStatus', 'draft status'], clean(patch.draftStatus));
+            rawFields.Status = clean(patch.contactStatus);
         }
 
         if (Object.prototype.hasOwnProperty.call(patch, 'lastContactedDate')) {
-            addAliases(rawFields, ['Contacted', 'lastContactedDate', 'last contacted date'], clean(patch.lastContactedDate));
+            rawFields['Last Contacted'] = clean(patch.lastContactedDate);
         }
 
         if (Object.prototype.hasOwnProperty.call(patch, 'nextFollowUpDate')) {
-            addAliases(rawFields, ['nextFollowUpDate', 'next follow up date', 'next follow-up date'], clean(patch.nextFollowUpDate));
-        }
-
-        if (Object.prototype.hasOwnProperty.call(patch, 'doNotContact')) {
-            const value = patch.doNotContact ? 'Yes' : '';
-            addAliases(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], value);
+            rawFields['Next Follow Up'] = clean(patch.nextFollowUpDate);
         }
 
         if (Object.prototype.hasOwnProperty.call(patch, 'priority')) {
-            addAliases(rawFields, ['priority', 'Priority', 'Rank'], clean(patch.priority));
-        }
-
-        if (Object.prototype.hasOwnProperty.call(patch, 'bestFitScore')) {
-            addAliases(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], clean(patch.bestFitScore));
+            rawFields.Priority = clean(patch.priority);
         }
 
         return rawFields;

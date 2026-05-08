@@ -11,10 +11,8 @@ window.JDDM_FIREBASE_CONFIG = {
     measurementId: "G-KHN5ZF1G54"
 };
 
-// Optional: point the app at a published Google Sheets CSV after import testing.
-// window.JDDM_VENUE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/.../pub?output=csv";
-
-// Optional: Google Apps Script bridge for editing spreadsheet rows from marker cards.
-window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyeskUlFOAAfBKjhVtHpDHfjKn_SOfzaN0CIorRvyRirS_hTzTjjwf5w5gB2qs9yiw8/exec";
+// Google Apps Script bridge for editing spreadsheet rows from marker cards.
+// Clean storage bridge: one Status column controls row colors and map played state.
+window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 // window.JDDM_SPREADSHEET_EDIT_TOKEN = "";

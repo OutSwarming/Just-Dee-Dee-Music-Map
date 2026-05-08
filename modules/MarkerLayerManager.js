@@ -36,11 +36,19 @@ class MarkerLayerManager {
             parkData.pics,
             parkData.video,
             parkData.bookingContact,
+            parkData.contactStatus,
+            parkData.status,
+            parkData.contactType,
+            parkData.lastContactedDate,
+            parkData.nextFollowUpDate,
             parkData.eventDate,
             parkData.eventTime,
             parkData.privateEvent,
             parkData.played,
             parkData.visited,
+            parkData.booking && parkData.booking.contactStatus,
+            parkData.booking && parkData.booking.contactType,
+            parkData.booking && parkData.booking.nextFollowUpDate,
             parkData.lat,
             parkData.lng,
             parkData.parkCategory,
@@ -74,6 +82,13 @@ class MarkerLayerManager {
                 this._icon.classList.remove('visited-pin');
                 this._icon.classList.remove('visited-marker');
                 this._icon.classList.remove('unvisited-marker');
+                this._icon.classList.remove('venue-map-state-default');
+                this._icon.classList.remove('venue-map-state-booked');
+                this._icon.classList.remove('venue-map-state-played');
+                this._icon.classList.remove('venue-map-state-agenda');
+                this._icon.classList.remove('booked-marker');
+                this._icon.classList.remove('played-marker');
+                this._icon.classList.remove('agenda-marker');
                 this._icon.classList.remove('marker-filter-hidden');
             }
         });
@@ -120,20 +135,28 @@ class MarkerLayerManager {
 
         const isVisited = this.getVisitedState(marker._parkData);
         const style = MapMarkerConfig.getPinStyle(marker._parkData, isVisited);
+        const isHighlighted = Boolean(style.isHighlighted);
         marker._icon.classList.toggle('cat-national', style.categoryClass === 'cat-national');
         marker._icon.classList.toggle('cat-state', style.categoryClass === 'cat-state');
         marker._icon.classList.toggle('cat-venue', style.categoryClass === 'cat-venue');
-        marker._icon.classList.toggle('visited-pin', Boolean(isVisited));
-        marker._icon.classList.toggle('visited-marker', Boolean(isVisited));
-        marker._icon.classList.toggle('unvisited-marker', !isVisited);
+        marker._icon.classList.toggle('visited-pin', isHighlighted);
+        marker._icon.classList.toggle('visited-marker', isHighlighted);
+        marker._icon.classList.toggle('unvisited-marker', !isHighlighted);
+        marker._icon.classList.toggle('venue-map-state-default', !style.isAgendaTarget && style.mapState === 'default');
+        marker._icon.classList.toggle('venue-map-state-booked', !style.isAgendaTarget && style.mapState === 'booked');
+        marker._icon.classList.toggle('venue-map-state-played', !style.isAgendaTarget && style.mapState === 'played');
+        marker._icon.classList.toggle('venue-map-state-agenda', Boolean(style.isAgendaTarget));
+        marker._icon.classList.toggle('booked-marker', !style.isAgendaTarget && style.mapState === 'booked');
+        marker._icon.classList.toggle('played-marker', !style.isAgendaTarget && style.mapState === 'played');
+        marker._icon.classList.toggle('agenda-marker', Boolean(style.isAgendaTarget));
         // park-pin--in-trip hides the inner pin shape so the trip overlay badge
         // is the only visible marker at trip-stop locations. Re-applied on every
         // cluster `add` event (via bindMarkerEvents), so cluster rebuilds cannot
         // strip the class.
         marker._icon.classList.toggle('park-pin--in-trip', this.isInTripStop(marker._parkData));
-        marker._icon.style.setProperty('--pin-color', style.pinColor);
-        marker._icon.style.setProperty('--ring-color', style.ringColor);
-        marker._icon.style.setProperty('--pin-shadow-color', style.pinShadowColor);
+        marker._icon.style.setProperty('--pin-color', style.pinColor, 'important');
+        marker._icon.style.setProperty('--ring-color', style.ringColor, 'important');
+        marker._icon.style.setProperty('--pin-shadow-color', style.pinShadowColor, 'important');
 
         const markerImage = marker._icon.querySelector('img');
         if (markerImage && markerImage.getAttribute('src') !== style.iconUrl) {

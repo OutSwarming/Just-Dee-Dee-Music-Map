@@ -11,8 +11,8 @@ let pendingCSV = null;
 let pendingCSVOptions = null;
 
 const CSV_COLUMNS = {
-    ID: ['id', 'site id', 'Site ID', 'venue id', 'venue_id', 'place id', 'Park ID'],
-    NAME: ['venue name', 'name', 'location', 'Location', 'park name'],
+    ID: ['id', 'place id', 'Place ID', 'site id', 'Site ID', 'venue id', 'venue_id', 'Park ID'],
+    NAME: ['place name', 'Place Name', 'venue name', 'name', 'location', 'Location', 'park name'],
     ADDRESS: ['address', 'street address', 'venue address'],
     CITY: ['city', 'town'],
     STATE: ['state', 'State'],
@@ -26,31 +26,32 @@ const CSV_COLUMNS = {
     CONTACT_NAME: ['contactName', 'contact name', 'Contact Name'],
     CONTACT_EMAIL: ['contactEmail', 'contact email', 'Email/Contact', 'email'],
     CONTACT_PHONE: ['contactPhone', 'contact phone', 'Phone Number', 'phone'],
+    CONTACT_TYPE: ['contactType', 'contact type', 'Contact Type', 'preferred contact method'],
     FACEBOOK_URL: ['facebookUrl', 'facebook url', 'facebook'],
     INSTAGRAM_URL: ['instagramUrl', 'instagram url', 'instagram'],
     BOOKING_URL: ['bookingUrl', 'booking url', 'booking link'],
     PRIVATE_NOTES: ['privateNotes', 'private notes'],
     LAST_CONTACTED_DATE: ['lastContactedDate', 'last contacted date', 'Contacted'],
     NEXT_FOLLOW_UP_DATE: ['nextFollowUpDate', 'next follow up date', 'next follow-up date'],
-    CONTACT_STATUS: ['contactStatus', 'contact status', 'Status'],
+    CONTACT_STATUS: ['CRM Status', 'crm status', 'contactStatus', 'contact status', 'Status'],
     DRAFT_STATUS: ['draftStatus', 'draft status'],
     PRIORITY: ['priority', 'Rank'],
     BEST_FIT_SCORE: ['bestFitScore', 'best fit score'],
     WEBSITE_BOOKING_EVENTS: ['websiteBookingEvents', 'website booking events', 'website event history'],
     CALENDAR_GIG_EVENTS: ['calendarGigEvents', 'calendar gig events', 'calendar event history'],
-    CALENDAR_PAST_GIG_EVENTS: ['calendarPastGigEvents', 'calendar past gig events', 'past gig events'],
-    CALENDAR_FUTURE_GIG_EVENTS: ['calendarFutureGigEvents', 'calendar future gig events', 'future gig events'],
-    CALENDAR_LAST_GIG_DATE: ['calendarLastGigDate', 'calendar last gig date', 'lastGigDate', 'last gig date'],
-    CALENDAR_NEXT_GIG_DATE: ['calendarNextGigDate', 'calendar next gig date', 'nextGigDate', 'next gig date'],
-    CALENDAR_PAST_GIG_COUNT: ['calendarPastGigCount', 'calendar past gig count', 'pastGigs', 'past gigs'],
-    CALENDAR_FUTURE_GIG_COUNT: ['calendarFutureGigCount', 'calendar future gig count', 'futureGigs', 'future gigs'],
-    CALENDAR_TOTAL_GIGS_PLAYED: ['calendarTotalGigsPlayed', 'calendar total gigs played', 'totalGigsPlayed', 'total gigs played'],
-    CALENDAR_LAST_SYNCED_AT: ['calendarLastSyncedAt', 'calendar last synced at'],
+    CALENDAR_PAST_GIG_EVENTS: ['Past Gigs', 'Gig Past Dates', 'calendarPastGigEvents', 'calendar past gig events', 'past gig events'],
+    CALENDAR_FUTURE_GIG_EVENTS: ['Future Gigs', 'Gig Future Dates', 'calendarFutureGigEvents', 'calendar future gig events', 'future gig events'],
+    CALENDAR_LAST_GIG_DATE: ['Last Played', 'Gig Last Played', 'calendarLastGigDate', 'calendar last gig date', 'lastGigDate', 'last gig date'],
+    CALENDAR_NEXT_GIG_DATE: ['Next Booked', 'Gig Next Booked', 'calendarNextGigDate', 'calendar next gig date', 'nextGigDate', 'next gig date'],
+    CALENDAR_PAST_GIG_COUNT: ['Past Gig Count', 'Gig Past Count', 'calendarPastGigCount', 'calendar past gig count', 'pastGigs', 'past gigs'],
+    CALENDAR_FUTURE_GIG_COUNT: ['Future Gig Count', 'Gig Future Count', 'calendarFutureGigCount', 'calendar future gig count', 'futureGigs', 'future gigs'],
+    CALENDAR_TOTAL_GIGS_PLAYED: ['Total Gig Count', 'calendarTotalGigsPlayed', 'calendar total gigs played', 'totalGigsPlayed', 'total gigs played'],
+    CALENDAR_LAST_SYNCED_AT: ['Last Synced', 'calendarLastSyncedAt', 'calendar last synced at'],
     PREFERRED_DAYS: ['preferredDays', 'preferred days', 'Days/Months'],
     GIG_HISTORY: ['gigHistory', 'gig history'],
     CONTACT_ATTEMPTS: ['contactAttempts', 'contact attempts', '#Times'],
     DO_NOT_CONTACT: ['doNotContact', 'do not contact', 'DNC'],
-    EVENT_DATE: ['upcoming event date', 'event date', 'date'],
+    EVENT_DATE: ['Next Booked', 'Gig Next Booked', 'calendarNextGigDate', 'upcoming event date', 'event date', 'date'],
     EVENT_TIME: ['upcoming event time', 'event time', 'time'],
     PRIVATE_EVENT: ['private event', 'private event flag', 'private'],
     PLAYED: ['played', 'Played', 'visited', 'Visited']
@@ -110,6 +111,15 @@ function normalizePlayed(value) {
     return ['true', 'yes', 'y', '1', 'played', 'visited'].includes(raw);
 }
 
+function normalizeLooseStatus(value) {
+    return String(cleanCSVValue(value)).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isPlayedCrmStatus(value) {
+    const raw = normalizeLooseStatus(value);
+    return raw === 'booked' || raw === 'played in the past' || raw === 'played in the past awaiting reply';
+}
+
 function slugifyId(value) {
     return String(value || '')
         .toLowerCase()
@@ -137,18 +147,20 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     const eventDate = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_DATE);
     const eventTime = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_TIME);
     const privateEvent = normalizePrivateEvent(getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_EVENT));
-    const played = normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
+    const crmStatus = getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_STATUS);
+    const played = isPlayedCrmStatus(crmStatus) || normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
     const bookingSeed = {
         contactName: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_NAME),
         contactEmail: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_EMAIL),
         contactPhone: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE),
+        contactType: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_TYPE),
         facebookUrl: getCSVValueFromAny(row, CSV_COLUMNS.FACEBOOK_URL),
         instagramUrl: getCSVValueFromAny(row, CSV_COLUMNS.INSTAGRAM_URL),
         bookingUrl: getCSVValueFromAny(row, CSV_COLUMNS.BOOKING_URL),
         privateNotes: getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_NOTES),
         lastContactedDate: getCSVValueFromAny(row, CSV_COLUMNS.LAST_CONTACTED_DATE),
         nextFollowUpDate: getCSVValueFromAny(row, CSV_COLUMNS.NEXT_FOLLOW_UP_DATE),
-        contactStatus: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_STATUS),
+        contactStatus: crmStatus,
         draftStatus: getCSVValueFromAny(row, CSV_COLUMNS.DRAFT_STATUS),
         priority: getCSVValueFromAny(row, CSV_COLUMNS.PRIORITY),
         bestFitScore: getCSVValueFromAny(row, CSV_COLUMNS.BEST_FIT_SCORE),
@@ -276,6 +288,7 @@ function processParsedResults(results) {
                 contactName: item.booking.contactName || item.contactName,
                 contactEmail: item.booking.contactEmail || item.contactEmail,
                 contactPhone: item.booking.contactPhone || item.contactPhone,
+                contactType: item.booking.contactType || item.contactType,
                 facebookUrl: item.booking.facebookUrl || item.facebookUrl,
                 instagramUrl: item.booking.instagramUrl || item.instagramUrl,
                 bookingUrl: item.booking.bookingUrl || item.bookingUrl,
@@ -823,7 +836,9 @@ window.BARK.getVenueDataSyncStatus = getVenueDataSyncStatus;
 window.BARK.safeDataPoll = safeDataPoll;
 window.BARK.clearMarkerLayersSafely = clearMarkerLayersSafely;
 window.BARK.isVenuePlayed = function (place) {
-    return Boolean(place && normalizePlayed(place.played !== undefined ? place.played : place.visited));
+    if (!place) return false;
+    const status = place.contactStatus || place.status || (place.booking && place.booking.contactStatus);
+    return isPlayedCrmStatus(status) || normalizePlayed(place.played !== undefined ? place.played : place.visited);
 };
 
 // ====== VERSION CHECK ======
