@@ -172,6 +172,7 @@ function normalizeVenueFilterState(filter) {
     if (value === 'agenda' || value.includes('agenda') || value.includes('target')) return 'agenda';
     if (
         value === 'closed' ||
+        value.includes('no music') ||
         value.includes('not interested') ||
         value.includes('not intrested') ||
         value.includes('not a fit') ||

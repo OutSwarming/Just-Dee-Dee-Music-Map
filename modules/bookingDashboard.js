@@ -753,7 +753,7 @@
                         <h3>All clear right now</h3>
                     </div>
                 </div>
-                <p class="booking-agenda-empty">No urgent booking actions are due. Check New Prospects or Missing Info when you are ready to keep building the list.</p>
+                <p class="booking-agenda-empty">No urgent booking actions are due. Check New Prospects or Needs Review when you are ready to keep building the list.</p>
             `;
             return;
         }

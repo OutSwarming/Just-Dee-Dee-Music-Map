@@ -162,6 +162,7 @@ function routeRequest_(payload) {
     if (action === 'setupComputerSection' || action === 'syncComputerSection') return jsonOutput_(setupComputerSection_(payload));
     if (action === 'purgeAndSetup' || action === 'purgeSheet') return jsonOutput_(purgeAndSetup_(payload));
     if (action === 'migrateCrmStatuses' || action === 'simplifyCrmStatuses') return jsonOutput_(migrateCrmStatuses_(payload));
+    if (action === 'restoreFromCsv' || action === 'restoreCsv') return jsonOutput_(restoreFromCsv_(payload));
     if (action === 'applyRowHighlighting') return jsonOutput_(applyRowHighlighting_(payload));
     if (action === 'cleanupCalendarOnlyRows' || action === 'removeCalendarOnlyRows') return jsonOutput_(cleanupCalendarOnlyRows_(payload));
     if (action === 'getVenue') return jsonOutput_(getVenue_(payload));
@@ -706,6 +707,38 @@ function migrateCrmStatuses_(options) {
       };
     }),
     formatting: formatting
+  };
+}
+
+function restoreFromCsv_(payload) {
+  payload = payload || {};
+  var csv = String(payload.csv || '');
+  if (!csv) return { ok: false, code: 'NO_CSV', message: 'CSV payload is required.' };
+
+  var parsed = Utilities.parseCsv(csv);
+  if (!parsed || parsed.length < 2) return { ok: false, code: 'EMPTY_CSV', message: 'CSV payload has no venue rows.' };
+
+  var headers = (parsed[0] || []).map(clean_);
+  var sourceHeaderMap = makeHeaderMap_(headers);
+  var rows = parsed.slice(1)
+    .filter(function(row) { return !isBlankVenueRow_(row, sourceHeaderMap); })
+    .map(function(row) { return rowToCanonical_(row, sourceHeaderMap); });
+
+  var sheet = getSheet_();
+  var warnings = writeCanonicalSheet_(sheet, rows);
+  var formatting = isFalse_(payload.applyFormatting)
+    ? { ok: true, skipped: true }
+    : applyRowHighlighting_({ limit: Number(payload.limit) || 5000 });
+
+  return {
+    ok: true,
+    action: 'restoreFromCsv',
+    schemaVersion: JDDM_SCHEMA_VERSION,
+    sheetName: sheet.getName(),
+    rowCount: rows.length,
+    columns: JDDM_CANONICAL_HEADERS,
+    formatting: formatting,
+    warnings: warnings
   };
 }
 

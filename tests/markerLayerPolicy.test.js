@@ -59,9 +59,9 @@ test('limit zoom out only applies while all pins are visible', () => {
 });
 
 test('venue filter labels normalize before marker policy decisions', () => {
-    const policy = loadPolicy({ visitedFilterState: 'Closed / Not Interested', limitZoomOut: true });
+    const policy = loadPolicy({ visitedFilterState: 'Closed / No Music', limitZoomOut: true });
 
-    assert.equal(policy.normalizeVenueFilterState('Closed / Not Interested'), 'closed');
+    assert.equal(policy.normalizeVenueFilterState('Closed / No Music'), 'closed');
     assert.equal(policy.normalizeVenueFilterState('On Agenda Places'), 'agenda');
     assert.equal(policy.normalizeVenueFilterState('Black Pins'), 'black');
     assert.equal(policy.normalizeVenueFilterState('Colored Pins'), 'colored');

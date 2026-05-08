@@ -244,6 +244,44 @@ function loadBridge(sheet, options = {}) {
             formatDate(date, _timezone, format) {
                 if (format === 'yyyyMMdd-HHmmss') return '20260508-000000';
                 return date.toISOString().slice(0, 10);
+            },
+            parseCsv(csv) {
+                const rows = [];
+                let row = [];
+                let field = '';
+                let quoted = false;
+                for (let index = 0; index < String(csv).length; index += 1) {
+                    const char = String(csv)[index];
+                    if (quoted) {
+                        if (char === '"') {
+                            if (String(csv)[index + 1] === '"') {
+                                field += '"';
+                                index += 1;
+                            } else {
+                                quoted = false;
+                            }
+                        } else {
+                            field += char;
+                        }
+                    } else if (char === '"') {
+                        quoted = true;
+                    } else if (char === ',') {
+                        row.push(field);
+                        field = '';
+                    } else if (char === '\n') {
+                        row.push(field);
+                        rows.push(row);
+                        row = [];
+                        field = '';
+                    } else if (char !== '\r') {
+                        field += char;
+                    }
+                }
+                if (field || row.length) {
+                    row.push(field);
+                    rows.push(row);
+                }
+                return rows;
             }
         }
     };
@@ -487,6 +525,28 @@ test('status migration collapses legacy states while preserving highlight meanin
     assert.equal(sheet.values[3][2], 'Responded - Needs Action');
     assert.equal(sheet.values[4][2], 'Needs Review');
     assert.equal(sheet.values[5][2], 'Booked');
+});
+
+test('restoreFromCsv rewrites the clean storage sheet from a CSV payload', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Notes'],
+        [['Partial Row', 'partial-row', 'Not Set', '']]
+    );
+    const bridge = loadBridge(sheet);
+    const csv = [
+        'Place Name,Place ID,Status,Email/Contact,Notes',
+        'Closed Room,closed-room,Closed and Not Booking,booking@example.com,"legacy note"',
+        'Booked Room,booked-room,Booked,,'
+    ].join('\n');
+
+    const result = bridge.restoreFromCsv_({ csv, applyFormatting: false });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.rowCount, 2);
+    assert.deepEqual(plain(sheet.values[0]), plain(bridge.JDDM_CANONICAL_HEADERS));
+    assert.equal(sheet.values[1][headerIndex(sheet.values[0], 'Status')], 'Told No / Closed / No Music');
+    assert.equal(sheet.values[1][headerIndex(sheet.values[0], 'Email/Contact')], 'booking@example.com');
+    assert.equal(sheet.values[2][headerIndex(sheet.values[0], 'Status')], 'Booked');
 });
 
 test('calendar cleanup removes no-coordinate calendar-only rows', () => {
