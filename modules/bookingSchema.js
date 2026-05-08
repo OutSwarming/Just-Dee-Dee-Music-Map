@@ -451,6 +451,7 @@
         ) {
             return 'played';
         }
+        if (booking.isNotAFit || booking.doNotContact) return 'closed';
 
         return 'default';
     }

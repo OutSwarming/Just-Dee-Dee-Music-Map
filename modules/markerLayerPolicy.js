@@ -7,9 +7,17 @@ const DETAILED_BUBBLE_BREAKOUT_ZOOM = 12;
 const LIMIT_ZOOM_OUT_MIN_ZOOM = 10;
 const PERFORMANCE_MIN_ZOOM = 5;
 
+function normalizeVenueFilterState(filter) {
+    const value = String(filter || 'all').trim();
+    if (value === 'visited') return 'played';
+    if (value === 'unvisited') return 'all';
+    return ['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
+}
+
 function getRenderContext(zoom) {
     const mapRef = BARK_GLOBAL.map;
     const currentZoom = Number.isFinite(Number(zoom)) ? Number(zoom) : (mapRef ? mapRef.getZoom() : 0);
+    const venueFilterState = normalizeVenueFilterState(BARK_GLOBAL.BARK.visitedFilterState);
 
     return Object.freeze({
         zoom: currentZoom,
@@ -21,7 +29,8 @@ function getRenderContext(zoom) {
         lowGfxEnabled: Boolean(BARK_GLOBAL.lowGfxEnabled),
         ultraLowEnabled: Boolean(BARK_GLOBAL.ultraLowEnabled),
         simplifyPinsWhileMoving: Boolean(BARK_GLOBAL.simplifyPinsWhileMoving),
-        limitZoomOut: Boolean(BARK_GLOBAL.limitZoomOut)
+        venueFilterState,
+        limitZoomOut: Boolean(BARK_GLOBAL.limitZoomOut) && venueFilterState === 'all'
     });
 }
 
@@ -30,10 +39,10 @@ function getMarkerLayerPolicy(zoom) {
     const performanceReduced = context.lowGfxEnabled || context.ultraLowEnabled;
     const premiumExplodesAtZoom = context.premiumClusteringEnabled && context.zoom >= DETAILED_BUBBLE_BREAKOUT_ZOOM;
     const canCluster = context.clusteringEnabled && !context.forcePlainMarkers && !premiumExplodesAtZoom;
-    const shouldLimitZoomOut = context.limitZoomOut || performanceReduced;
-    const minZoom = context.limitZoomOut
-        ? LIMIT_ZOOM_OUT_MIN_ZOOM
-        : (performanceReduced ? PERFORMANCE_MIN_ZOOM : null);
+    const shouldLimitZoomOut = context.venueFilterState === 'all' && (context.limitZoomOut || performanceReduced);
+    const minZoom = shouldLimitZoomOut
+        ? (context.limitZoomOut ? LIMIT_ZOOM_OUT_MIN_ZOOM : PERFORMANCE_MIN_ZOOM)
+        : null;
 
     return {
         layerType: canCluster ? 'cluster' : 'plain',

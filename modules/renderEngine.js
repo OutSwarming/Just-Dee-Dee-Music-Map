@@ -165,7 +165,7 @@ function normalizeVenueFilterState(filter) {
     const value = String(filter || 'all').trim();
     if (value === 'visited') return 'played';
     if (value === 'unvisited') return 'all';
-    return ['all', 'played', 'booked', 'agenda'].includes(value) ? value : 'all';
+    return ['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
 }
 
 function getVenueMapStateForRender(venue, isVisited = false) {
@@ -198,6 +198,7 @@ function matchesVenueStatusFilter(filterState, mapState, isAgendaTarget) {
     const normalizedFilter = normalizeVenueFilterState(filterState);
     if (normalizedFilter === 'played') return mapState === 'played';
     if (normalizedFilter === 'booked') return mapState === 'booked';
+    if (normalizedFilter === 'closed') return mapState === 'closed';
     if (normalizedFilter === 'agenda') return Boolean(isAgendaTarget);
     return true;
 }
@@ -222,9 +223,11 @@ function applyMarkerVisualState(icon, item, isVisited, mapState, isAgendaTarget)
     icon.classList.toggle('venue-map-state-default', !isAgendaTarget && mapState === 'default');
     icon.classList.toggle('venue-map-state-booked', !isAgendaTarget && mapState === 'booked');
     icon.classList.toggle('venue-map-state-played', !isAgendaTarget && mapState === 'played');
+    icon.classList.toggle('venue-map-state-closed', !isAgendaTarget && mapState === 'closed');
     icon.classList.toggle('venue-map-state-agenda', Boolean(isAgendaTarget));
     icon.classList.toggle('booked-marker', !isAgendaTarget && mapState === 'booked');
     icon.classList.toggle('played-marker', !isAgendaTarget && mapState === 'played');
+    icon.classList.toggle('closed-marker', !isAgendaTarget && mapState === 'closed');
     icon.classList.toggle('agenda-marker', Boolean(isAgendaTarget));
 
     icon.style.setProperty('--pin-color', style.pinColor, 'important');

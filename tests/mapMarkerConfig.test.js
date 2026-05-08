@@ -45,14 +45,19 @@ test('marker pin styles follow CRM Status color rules', () => {
     const played = config.getPinStyle({ contactStatus: 'Played in the Past' });
     const awaitingReply = config.getPinStyle({ contactStatus: 'Played in the Past - Awaiting Reply' });
     const openMic = config.getPinStyle({ contactStatus: 'Open Microphone' });
+    const closed = config.getPinStyle({ contactStatus: 'Closed and Not Booking' });
+    const notInterested = config.getPinStyle({ contactStatus: 'Not Interested / Do Not Contact' });
     const ordinary = config.getPinStyle({ contactStatus: 'Not Contacted Yet' });
 
-    assert.equal(booked.ringColor, '#14532d');
+    assert.equal(booked.ringColor, '#064e3b');
     assert.equal(booked.mapState, 'booked');
-    assert.equal(played.ringColor, '#86efac');
-    assert.equal(awaitingReply.ringColor, '#86efac');
-    assert.equal(openMic.ringColor, '#86efac');
+    assert.equal(played.ringColor, '#22c55e');
+    assert.equal(awaitingReply.ringColor, '#22c55e');
+    assert.equal(openMic.ringColor, '#22c55e');
     assert.equal(openMic.mapState, 'played');
+    assert.equal(closed.ringColor, '#7f1d1d');
+    assert.equal(closed.mapState, 'closed');
+    assert.equal(notInterested.ringColor, '#7f1d1d');
     assert.equal(ordinary.ringColor, '#111827');
     assert.equal(ordinary.isHighlighted, false);
 });

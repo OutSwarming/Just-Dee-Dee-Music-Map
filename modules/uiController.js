@@ -304,13 +304,30 @@ const visitedFilterEl = document.getElementById('visited-filter');
 if (visitedFilterEl) {
     const normalizeVenueFilterState = typeof window.BARK.normalizeVenueFilterState === 'function'
         ? window.BARK.normalizeVenueFilterState
-        : value => (['all', 'played', 'booked', 'agenda'].includes(value) ? value : 'all');
+        : value => (['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all');
+    const syncLimitZoomForVenueFilter = (filterState) => {
+        const shouldLimitZoomOut = normalizeVenueFilterState(filterState) === 'all';
+        if (window.BARK && window.BARK.settings && typeof window.BARK.settings.set === 'function') {
+            window.BARK.settings.set('limitZoomOut', shouldLimitZoomOut);
+        } else {
+            window.limitZoomOut = shouldLimitZoomOut;
+            localStorage.setItem('barkLimitZoomOut', shouldLimitZoomOut ? 'true' : 'false');
+        }
+
+        const limitZoomToggle = document.getElementById('toggle-limit-zoom-out');
+        if (limitZoomToggle) limitZoomToggle.checked = shouldLimitZoomOut;
+        if (window.BARK && typeof window.BARK.applyMapPerformancePolicy === 'function') {
+            window.BARK.applyMapPerformancePolicy();
+        }
+    };
+
     window.BARK.visitedFilterState = normalizeVenueFilterState(window.BARK.visitedFilterState);
     visitedFilterEl.value = window.BARK.visitedFilterState;
     if (visitedFilterEl.value !== window.BARK.visitedFilterState) {
         window.BARK.visitedFilterState = 'all';
         visitedFilterEl.value = 'all';
     }
+    syncLimitZoomForVenueFilter(window.BARK.visitedFilterState);
     visitedFilterEl.addEventListener('change', (e) => {
         const requestedFilter = normalizeVenueFilterState(e.target.value);
         const authPremiumUi = window.BARK && window.BARK.authPremiumUi;
@@ -327,6 +344,7 @@ if (visitedFilterEl) {
 
         window.BARK.visitedFilterState = allowedFilter;
         localStorage.setItem('barkVisitedFilter', window.BARK.visitedFilterState);
+        syncLimitZoomForVenueFilter(window.BARK.visitedFilterState);
         window.syncState();
     });
 }

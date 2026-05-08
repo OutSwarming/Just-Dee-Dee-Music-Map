@@ -135,6 +135,8 @@ test('getVenueMapState maps only CRM Status into pin color states', () => {
     assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past' }), 'played');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past - Awaiting Reply' }), 'played');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Open Microphone' }), 'played');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Closed and Not Booking' }), 'closed');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Not Interested / Do Not Contact' }), 'closed');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Not Contacted Yet', played: true }), 'default');
 });
 

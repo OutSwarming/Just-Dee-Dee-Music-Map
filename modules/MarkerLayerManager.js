@@ -85,9 +85,11 @@ class MarkerLayerManager {
                 this._icon.classList.remove('venue-map-state-default');
                 this._icon.classList.remove('venue-map-state-booked');
                 this._icon.classList.remove('venue-map-state-played');
+                this._icon.classList.remove('venue-map-state-closed');
                 this._icon.classList.remove('venue-map-state-agenda');
                 this._icon.classList.remove('booked-marker');
                 this._icon.classList.remove('played-marker');
+                this._icon.classList.remove('closed-marker');
                 this._icon.classList.remove('agenda-marker');
                 this._icon.classList.remove('marker-filter-hidden');
             }
@@ -145,9 +147,11 @@ class MarkerLayerManager {
         marker._icon.classList.toggle('venue-map-state-default', !style.isAgendaTarget && style.mapState === 'default');
         marker._icon.classList.toggle('venue-map-state-booked', !style.isAgendaTarget && style.mapState === 'booked');
         marker._icon.classList.toggle('venue-map-state-played', !style.isAgendaTarget && style.mapState === 'played');
+        marker._icon.classList.toggle('venue-map-state-closed', !style.isAgendaTarget && style.mapState === 'closed');
         marker._icon.classList.toggle('venue-map-state-agenda', Boolean(style.isAgendaTarget));
         marker._icon.classList.toggle('booked-marker', !style.isAgendaTarget && style.mapState === 'booked');
         marker._icon.classList.toggle('played-marker', !style.isAgendaTarget && style.mapState === 'played');
+        marker._icon.classList.toggle('closed-marker', !style.isAgendaTarget && style.mapState === 'closed');
         marker._icon.classList.toggle('agenda-marker', Boolean(style.isAgendaTarget));
         // park-pin--in-trip hides the inner pin shape so the trip overlay badge
         // is the only visible marker at trip-stop locations. Re-applied on every

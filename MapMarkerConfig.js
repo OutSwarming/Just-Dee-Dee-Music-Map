@@ -36,6 +36,19 @@ class MapMarkerConfig {
         ) {
             return 'played';
         }
+        if ([
+            'do not contact',
+            'not a fit',
+            'closed and not booking',
+            'no live music',
+            'venue said no to jddm',
+            'not interested do not contact',
+            'bad fit too far',
+            'closed no longer operating',
+            'duplicate merge needed'
+        ].includes(status)) {
+            return 'closed';
+        }
 
         return isVisited && !status ? 'played' : 'default';
     }
@@ -57,7 +70,7 @@ class MapMarkerConfig {
         const isAgendaTarget = Object.prototype.hasOwnProperty.call(options, 'isAgendaTarget')
             ? Boolean(options.isAgendaTarget)
             : MapMarkerConfig.isAgendaTarget(parkData);
-        const isHighlighted = isAgendaTarget || mapState === 'booked' || mapState === 'played';
+        const isHighlighted = isAgendaTarget || mapState === 'booked' || mapState === 'played' || mapState === 'closed';
 
         return {
             mapState,
@@ -86,9 +99,9 @@ class MapMarkerConfig {
         if (state.mapState === 'booked') {
             return {
                 iconUrl: 'assets/images/jddm-played.jpg',
-                ringColor: '#14532d',
-                pinColor: '#14532d',
-                pinShadowColor: 'rgba(20, 83, 45, 0.5)',
+                ringColor: '#064e3b',
+                pinColor: '#064e3b',
+                pinShadowColor: 'rgba(6, 78, 59, 0.62)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-booked booked-marker',
                 isHighlighted: true,
@@ -100,11 +113,25 @@ class MapMarkerConfig {
         if (state.mapState === 'played') {
             return {
                 iconUrl: 'assets/images/jddm-played.jpg',
-                ringColor: '#86efac',
+                ringColor: '#22c55e',
                 pinColor: '#15803d',
-                pinShadowColor: 'rgba(34, 197, 94, 0.38)',
+                pinShadowColor: 'rgba(34, 197, 94, 0.55)',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-played played-marker',
+                isHighlighted: true,
+                mapState: state.mapState,
+                isAgendaTarget: false
+            };
+        }
+
+        if (state.mapState === 'closed') {
+            return {
+                iconUrl: 'assets/images/jddm-not-played.jpg',
+                ringColor: '#7f1d1d',
+                pinColor: '#7f1d1d',
+                pinShadowColor: 'rgba(127, 29, 29, 0.58)',
+                categoryClass: 'cat-venue',
+                stateClass: 'venue-map-state-closed closed-marker',
                 isHighlighted: true,
                 mapState: state.mapState,
                 isAgendaTarget: false
