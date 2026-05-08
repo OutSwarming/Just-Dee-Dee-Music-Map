@@ -2420,40 +2420,98 @@ body.app-tab-active #slide-panel {
     }
 
     #planner-view .booking-dashboard-header {
-        padding: 18px 18px 20px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #111827 0%, #1f2937 60%, #312e81 100%);
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.28);
+        position: relative;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 14px 16px 16px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #312e81 100%);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.26);
+    }
+
+    #planner-view .booking-dashboard-header > div {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    #planner-view .booking-dashboard-header .booking-kicker {
+        margin-bottom: 2px;
     }
 
     #planner-view .booking-dashboard-header h2 {
-        font-size: 26px;
-        line-height: 1.12;
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.15;
     }
 
+    /* Hide the long descriptive paragraph on phones — kicker + h2 + pill cover it. */
     #planner-view .booking-dashboard-header p {
-        font-size: 14.5px;
-        line-height: 1.5;
+        display: none;
     }
 
     #planner-view .booking-readonly-pill {
-        align-self: flex-start;
-        padding: 8px 12px;
+        align-self: center;
+        padding: 6px 10px;
+        font-size: 10px;
+        letter-spacing: 0.4px;
     }
 
+    /* Compact one-line status rows for Sheet Sync + Venue Data refresh panels.
+       Original markup has a wrapper <div> with kicker / strong / span / small,
+       plus a sibling refresh <button>. We collapse the verbose detail + timestamp
+       on phones so each row reads as: [Kicker] Strong-status   [Refresh] */
     #planner-view .booking-sheet-health,
     #planner-view .booking-data-sync {
         margin-top: 0;
-        padding: 14px 16px;
+        padding: 10px 12px;
         border-radius: 14px;
-        gap: 12px;
+        gap: 10px;
+        flex-direction: row;
+        align-items: center;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+    }
+
+    #planner-view .booking-sheet-health > div,
+    #planner-view .booking-data-sync > div {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    #planner-view .booking-sheet-health .booking-kicker,
+    #planner-view .booking-data-sync .booking-kicker {
+        margin: 0 0 2px;
+        color: #6366f1 !important;
+        font-size: 9.5px !important;
+        letter-spacing: 0.5px;
+    }
+
+    #planner-view .booking-sheet-health strong,
+    #planner-view .booking-data-sync strong {
+        font-size: 13.5px;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Drop the verbose detail line and timestamp on phones to keep the row compact. */
+    #planner-view .booking-sheet-health span,
+    #planner-view .booking-data-sync span,
+    #planner-view .booking-sheet-health small,
+    #planner-view .booking-data-sync small {
+        display: none;
     }
 
     #planner-view .booking-sheet-health button,
     #planner-view .booking-data-sync button {
-        min-height: 42px;
+        flex: 0 0 auto;
+        width: auto;
+        min-height: 36px;
+        padding: 8px 12px;
         border-radius: 10px;
-        font-size: 13px;
+        font-size: 12px;
     }
 
     #planner-view .booking-stats {
