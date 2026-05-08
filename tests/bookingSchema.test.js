@@ -63,7 +63,7 @@ test('normalizeVenue treats do-not-contact as an outreach stop sign', () => {
     });
 
     assert.equal(booking.doNotContact, true);
-    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.DO_NOT_CONTACT);
+    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.CLOSED_AND_NOT_BOOKING);
     assert.equal(booking.isNewProspect, false);
     assert.equal(booking.isFollowUpDue, false);
 });
@@ -100,12 +100,17 @@ test('normalizeVenue identifies booked events and missing-info venues safely', (
         contactStatus: 'Booked',
         eventDate: '2000-06-01'
     });
+    const awaitingReply = schema.normalizeVenue({
+        contactStatus: 'Played in the Past - Awaiting Reply'
+    });
 
     assert.equal(booked.contactStatus, schema.CONTACT_STATUS.BOOKED);
     assert.equal(booked.isBooked, true);
     assert.equal(booked.isFollowUpDue, false);
     assert.equal(upcomingGig.isUpcomingGig, true);
     assert.equal(postGig.isPostGigFollowUpDue, true);
+    assert.equal(awaitingReply.isPlayedPast, true);
+    assert.equal(awaitingReply.isPlayedPastAwaitingReply, true);
     assert.equal(missingInfo.isMissingInfo, true);
     assert.equal(missingInfo.hasContactInfo, false);
 
@@ -197,7 +202,7 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.booked), ['booked', 'post-gig']);
     assert.deepEqual(ids(groups.upcomingGigs), ['booked']);
     assert.deepEqual(ids(groups.postGigFollowUps), ['post-gig']);
-    assert.deepEqual(ids(groups.notAFit), ['not-fit']);
+    assert.deepEqual(ids(groups.notAFit), ['not-fit', 'dnc']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['dnc']);
     assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'priority', 'prospect', 'missing']);

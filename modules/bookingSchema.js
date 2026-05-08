@@ -5,15 +5,28 @@
     window.BARK = window.BARK || {};
 
     const CONTACT_STATUS = Object.freeze({
-        NOT_CONTACTED: 'Not Contacted',
+        NOT_CONTACTED: 'Not Contacted Yet',
+        NEED_CONTACT_INFO: 'Need Contact Info',
         DRAFT_READY: 'Draft Ready',
         SENT: 'Sent',
-        FOLLOW_UP_NEEDED: 'Follow-Up Needed',
+        FOLLOW_UP_NEEDED: 'Follow Up Needed',
+        WAITING_REPLY: 'Contacted - Waiting on Reply',
         INTERESTED: 'Interested',
         BOOKED: 'Booked',
+        PLAYED_IN_THE_PAST: 'Played in the Past',
+        PLAYED_IN_THE_PAST_AWAITING_REPLY: 'Played in the Past - Awaiting Reply',
+        OPEN_MICROPHONE: 'Open Microphone',
         NO_RESPONSE: 'No Response',
         NOT_A_FIT: 'Not a Fit',
-        DO_NOT_CONTACT: 'Do Not Contact'
+        DO_NOT_CONTACT: 'Do Not Contact',
+        CLOSED_AND_NOT_BOOKING: 'Closed and Not Booking',
+        NO_LIVE_MUSIC: 'No Live Music',
+        VENUE_SAID_NO: 'Venue Said No to JDDM',
+        NOT_INTERESTED_DO_NOT_CONTACT: 'Not Interested / Do Not Contact',
+        BAD_FIT_TOO_FAR: 'Bad Fit / Too Far',
+        CLOSED_NO_LONGER_OPERATING: 'Closed / No Longer Operating',
+        DUPLICATE_MERGE_NEEDED: 'Duplicate / Merge Needed',
+        NEEDS_REVIEW: 'Needs Review'
     });
 
     const DRAFT_STATUS = Object.freeze({
@@ -48,6 +61,12 @@
     function normalizeStatus(value, fallback) {
         const raw = normalizeLoose(value);
         if (!raw) return fallback;
+        if (raw === 'not contacted') return CONTACT_STATUS.NOT_CONTACTED;
+        if (raw === 'open mic') return CONTACT_STATUS.OPEN_MICROPHONE;
+        if (raw === 'played in the past awaiting reply' || raw === 'played in past awaiting reply') return CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY;
+        if (raw === 'played in past' || raw === 'played past') return CONTACT_STATUS.PLAYED_IN_THE_PAST;
+        if (raw === 'do not contact' || raw === 'dnc') return CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT;
+        if (raw === 'crm status') return fallback;
         const match = CONTACT_STATUS_VALUES.find(status => normalizeLoose(status) === raw);
         return match || fallback;
     }
@@ -138,6 +157,58 @@
         return clean(a.name).localeCompare(clean(b.name));
     }
 
+    function getCoordinate(value) {
+        const number = Number(clean(value));
+        return Number.isFinite(number) ? number : null;
+    }
+
+    function getDistanceMiles(venue = {}, center = {}) {
+        const lat = getCoordinate(venue.lat);
+        const lng = getCoordinate(venue.lng);
+        const centerLat = getCoordinate(center.lat ?? center.latitude ?? 41.35);
+        const centerLng = getCoordinate(center.lng ?? center.longitude ?? -81.65);
+        if (lat === null || lng === null || centerLat === null || centerLng === null) return Number.MAX_SAFE_INTEGER;
+
+        const toRadians = value => value * Math.PI / 180;
+        const earthMiles = 3958.8;
+        const dLat = toRadians(centerLat - lat);
+        const dLng = toRadians(centerLng - lng);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(toRadians(lat)) * Math.cos(toRadians(centerLat)) * Math.sin(dLng / 2) ** 2;
+        return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function compareNewProspect(a, b, options = {}) {
+        const distanceA = getDistanceMiles(a, options.center);
+        const distanceB = getDistanceMiles(b, options.center);
+        if (distanceA !== distanceB) return distanceA - distanceB;
+        return compareVenuePriority(a, b);
+    }
+
+    function getRequiredContactMethod(contactType) {
+        const words = normalizeLoose(contactType).split(/\s+/).filter(Boolean);
+        if (words.some(word => word === 'email' || word === 'mail')) return 'email';
+        if (words.some(word => ['phone', 'call', 'text', 'sms'].includes(word))) return 'phone';
+        return '';
+    }
+
+    function getContactReviewReasons(venue = {}, booking = {}) {
+        const reasons = [];
+        const contactName = clean(booking.contactName || venue.contactName);
+        const contactType = clean(booking.contactType || venue.contactType);
+        const contactEmail = clean(booking.contactEmail || venue.contactEmail);
+        const contactPhone = clean(booking.contactPhone || venue.contactPhone);
+        const bookingUrl = clean(booking.bookingUrl || venue.bookingUrl);
+        const website = clean(venue.website);
+        const requiredMethod = getRequiredContactMethod(contactType);
+
+        if (!contactName) reasons.push('Missing contact name');
+        if (requiredMethod === 'email' && !extractEmail(contactEmail)) reasons.push('Contact type asks for email, but Email/Contact is missing');
+        if (requiredMethod === 'phone' && !extractPhone(contactPhone)) reasons.push('Contact type asks for phone, but Phone Number is missing');
+        if (!requiredMethod && !contactEmail && !contactPhone && !bookingUrl && !website) reasons.push('Missing usable contact path');
+        return reasons;
+    }
+
     function compareFollowUpDate(a, b) {
         const dateA = parseLocalDate(a.booking.nextFollowUpDate);
         const dateB = parseLocalDate(b.booking.nextFollowUpDate);
@@ -156,7 +227,7 @@
         return clean(a.name).localeCompare(clean(b.name));
     }
 
-    function makeAgendaItem(venue, reason, suggestedAction, type) {
+    function makeAgendaItem(venue, reason, suggestedAction, type, extra = {}) {
         return {
             venue,
             type,
@@ -168,7 +239,8 @@
             nextFollowUpDate: venue.booking.nextFollowUpDate,
             contactEmail: venue.booking.contactEmail,
             eventDate: venue.booking.eventDate,
-            eventTime: venue.booking.eventTime
+            eventTime: venue.booking.eventTime,
+            ...extra
         };
     }
 
@@ -188,6 +260,7 @@
             booking.contactEmail,
             booking.contactPhone,
             booking.bookingUrl,
+            booking.contactType,
             booking.contactStatus,
             booking.draftStatus,
             booking.priority,
@@ -216,17 +289,27 @@
             ? CONTACT_STATUS.BOOKED
             : CONTACT_STATUS.NOT_CONTACTED;
         const contactStatus = explicitDnc
-            ? CONTACT_STATUS.DO_NOT_CONTACT
+            ? CONTACT_STATUS.CLOSED_AND_NOT_BOOKING
             : normalizeStatus(rawStatus, fallbackStatus);
         const doNotContact = explicitDnc || contactStatus === CONTACT_STATUS.DO_NOT_CONTACT;
         const isClosedStatus = [
             CONTACT_STATUS.BOOKED,
+            CONTACT_STATUS.PLAYED_IN_THE_PAST,
+            CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY,
             CONTACT_STATUS.DO_NOT_CONTACT,
-            CONTACT_STATUS.NOT_A_FIT
+            CONTACT_STATUS.NOT_A_FIT,
+            CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
+            CONTACT_STATUS.NO_LIVE_MUSIC,
+            CONTACT_STATUS.VENUE_SAID_NO,
+            CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT,
+            CONTACT_STATUS.BAD_FIT_TOO_FAR,
+            CONTACT_STATUS.CLOSED_NO_LONGER_OPERATING,
+            CONTACT_STATUS.DUPLICATE_MERGE_NEEDED
         ].includes(contactStatus);
         const contactEmail = clean(venue.contactEmail) || extractEmail(bookingContact);
         const contactPhone = clean(venue.contactPhone) || extractPhone(bookingContact);
         const contactName = clean(venue.contactName) || inferContactName(bookingContact);
+        const contactType = clean(venue.contactType);
         const bookingUrl = clean(venue.bookingUrl);
         const website = clean(venue.website);
         const nextFollowUpDate = clean(venue.nextFollowUpDate);
@@ -234,13 +317,26 @@
         const priority = normalizeScore(venue.priority, 0);
         const bestFitScore = normalizeScore(venue.bestFitScore, 0);
         const isBooked = contactStatus === CONTACT_STATUS.BOOKED;
+        const isPlayedPast = contactStatus === CONTACT_STATUS.PLAYED_IN_THE_PAST || contactStatus === CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY;
+        const isPlayedPastAwaitingReply = contactStatus === CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY;
+        const isOpenMicrophone = contactStatus === CONTACT_STATUS.OPEN_MICROPHONE;
         const isUpcomingGig = isBooked && isTodayOrFuture(eventDate);
         const isPostGigFollowUpDue = isBooked && isBeforeToday(eventDate) && (!nextFollowUpDate || isDue(nextFollowUpDate));
+        const contactDraft = { contactName, contactEmail, contactPhone, contactType, bookingUrl };
+        const contactReviewReasons = getContactReviewReasons(venue, contactDraft);
+        const requiredContactMethod = getRequiredContactMethod(contactType);
+        const hasRequiredContactInfo = requiredContactMethod === 'email'
+            ? Boolean(extractEmail(contactEmail))
+            : requiredContactMethod === 'phone'
+                ? Boolean(extractPhone(contactPhone))
+                : Boolean(contactEmail || bookingUrl || website || contactPhone);
+        const isNeedsReview = contactStatus === CONTACT_STATUS.NEEDS_REVIEW;
 
         return {
             contactName,
             contactEmail,
             contactPhone,
+            contactType,
             facebookUrl: clean(venue.facebookUrl),
             instagramUrl: clean(venue.instagramUrl),
             bookingUrl,
@@ -268,17 +364,76 @@
             eventTime: clean(venue.eventTime),
             doNotContact,
             hasContactInfo: Boolean(contactEmail || bookingUrl || website || contactPhone),
+            requiredContactMethod,
+            hasRequiredContactInfo,
+            contactReviewReasons,
+            isNeedsReview,
             isFollowUpDue: !doNotContact && !isClosedStatus && isDue(nextFollowUpDate),
-            isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && Boolean(contactEmail),
+            isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && hasRequiredContactInfo,
             isInterested: !doNotContact && contactStatus === CONTACT_STATUS.INTERESTED,
             isBooked,
+            isPlayedPast,
+            isPlayedPastAwaitingReply,
+            isOpenMicrophone,
+            isPlayedForMap: isBooked || isPlayedPast,
             isUpcomingGig,
             isPostGigFollowUpDue,
             isPriorityLead: !doNotContact && !isClosedStatus && (priority >= 7 || bestFitScore >= 8),
-            isNotAFit: contactStatus === CONTACT_STATUS.NOT_A_FIT,
-            isMissingInfo: !doNotContact && !isClosedStatus && !contactEmail && !bookingUrl,
+            isNotAFit: [
+                CONTACT_STATUS.NOT_A_FIT,
+                CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
+                CONTACT_STATUS.NO_LIVE_MUSIC,
+                CONTACT_STATUS.VENUE_SAID_NO,
+                CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT,
+                CONTACT_STATUS.BAD_FIT_TOO_FAR,
+                CONTACT_STATUS.CLOSED_NO_LONGER_OPERATING,
+                CONTACT_STATUS.DUPLICATE_MERGE_NEEDED
+            ].includes(contactStatus),
+            isMissingInfo: !doNotContact && !isClosedStatus && (isNeedsReview || (contactStatus === CONTACT_STATUS.NOT_CONTACTED && !hasRequiredContactInfo)),
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
         };
+    }
+
+    function normalizeGmailSignal(signal = {}) {
+        return {
+            venueId: clean(signal.venueId || signal.id),
+            from: clean(signal.from),
+            subject: clean(signal.subject),
+            receivedAt: clean(signal.receivedAt),
+            snippet: clean(signal.snippet),
+            contactEmail: clean(signal.contactEmail || signal.email)
+        };
+    }
+
+    function indexGmailSignals(signals = []) {
+        const byVenueId = new Map();
+        const byEmail = new Map();
+
+        signals.map(normalizeGmailSignal).forEach(signal => {
+            if (!signal.venueId && !signal.contactEmail && !signal.from) return;
+            if (signal.venueId && !byVenueId.has(signal.venueId)) byVenueId.set(signal.venueId, signal);
+            const email = normalizeLoose(signal.contactEmail || extractEmail(signal.from));
+            if (email && !byEmail.has(email)) byEmail.set(email, signal);
+        });
+
+        return { byVenueId, byEmail };
+    }
+
+    function getGmailSignalForVenue(venue, index) {
+        if (!venue || !index) return null;
+        if (venue.id && index.byVenueId.has(venue.id)) return index.byVenueId.get(venue.id);
+        const email = normalizeLoose(venue.booking && venue.booking.contactEmail);
+        return email ? index.byEmail.get(email) || null : null;
+    }
+
+    function isWaitingForReply(venue) {
+        const status = venue.booking && venue.booking.contactStatus;
+        return [
+            CONTACT_STATUS.SENT,
+            CONTACT_STATUS.FOLLOW_UP_NEEDED,
+            CONTACT_STATUS.WAITING_REPLY,
+            CONTACT_STATUS.NO_RESPONSE
+        ].includes(status) && !clean(venue.booking.nextFollowUpDate);
     }
 
     function getDashboardGroups(venues = []) {
@@ -292,6 +447,9 @@
         const newProspects = notDnc.filter(venue => venue.booking.isNewProspect);
         const interested = notDnc.filter(venue => venue.booking.isInterested);
         const booked = normalized.filter(venue => venue.booking.isBooked);
+        const planner = normalized
+            .filter(venue => venue.booking.isOpenMicrophone || venue.booking.isPlayedPast)
+            .sort((a, b) => clean(a.name).localeCompare(clean(b.name)));
         const upcomingGigs = booked.filter(venue => venue.booking.isUpcomingGig).sort(compareEventDate);
         const postGigFollowUps = booked.filter(venue => venue.booking.isPostGigFollowUpDue).sort(compareEventDate);
         const priorityLeads = notDnc.filter(venue => venue.booking.isPriorityLead).sort(compareVenuePriority);
@@ -312,6 +470,7 @@
             newProspects,
             interested,
             booked,
+            planner,
             upcomingGigs,
             postGigFollowUps,
             priorityLeads,
@@ -407,7 +566,9 @@
 
     window.BARK.bookingSchema = {
         CONTACT_STATUS,
+        CONTACT_STATUS_VALUES,
         DRAFT_STATUS,
+        DRAFT_STATUS_VALUES,
         normalizeVenue,
         getDashboardGroups,
         getDailyAgenda,

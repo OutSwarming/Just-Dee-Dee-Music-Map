@@ -4,64 +4,15 @@
 (function () {
     window.BARK = window.BARK || {};
 
-    const SOURCE_FIELD_ORDER = [
-        'Place',
-        'Rank',
-        'Contacted',
-        'Want',
-        '#Times',
-        'Contact Type',
-        'Card',
-        'Played',
-        'Music',
-        'Days/Months',
+    const CRM_EDIT_FIELD_ORDER = [
+        'Status',
+        'Last Contacted',
         'Contact Name',
         'Email/Contact',
         'Phone Number',
-        'Website',
-        'Status',
-        'contactStatus',
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt',
-        'Yearly Booking',
-        'Notes',
-        'Longitude',
-        'Latitude',
-        'Site ID'
-    ];
-
-    const GENERATED_BOOKING_FIELD_ORDER = [
-        'contactStatus',
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
+        'Contact Type',
+        'Next Follow Up',
+        'Notes'
     ];
 
     let activeVenue = null;
@@ -123,7 +74,7 @@
     function getSchemaOptions(type) {
         const schema = window.BARK.bookingSchema;
         if (!schema) return [];
-        if (type === 'contactStatus') return schema.CONTACT_STATUS_VALUES || Object.values(schema.CONTACT_STATUS || {});
+        if (type === 'contactStatus' || type === 'status') return schema.CONTACT_STATUS_VALUES || Object.values(schema.CONTACT_STATUS || {});
         if (type === 'draftStatus') return schema.DRAFT_STATUS_VALUES || Object.values(schema.DRAFT_STATUS || {});
         return [];
     }
@@ -141,7 +92,7 @@
         const seen = new Set();
         const known = [];
 
-        SOURCE_FIELD_ORDER.forEach(header => {
+        CRM_EDIT_FIELD_ORDER.forEach(header => {
             const normalized = getNormalizedHeader(header);
             if (seen.has(normalized)) return;
             const fieldHeader = Object.prototype.hasOwnProperty.call(fields, header)
@@ -152,19 +103,7 @@
             seen.add(normalized);
         });
 
-        GENERATED_BOOKING_FIELD_ORDER.forEach(header => {
-            const normalized = getNormalizedHeader(header);
-            if (seen.has(normalized)) return;
-            const fieldHeader = findHeaderByNormalized(fields, normalized) || header;
-            known.push(fieldHeader);
-            seen.add(normalized);
-        });
-
-        const extras = Object.keys(fields)
-            .filter(header => !seen.has(getNormalizedHeader(header)))
-            .sort((a, b) => a.localeCompare(b));
-
-        return [...known, ...extras];
+        return known;
     }
 
     function toDateInputValue(value) {
@@ -188,8 +127,8 @@
         if (normalized === 'contactstatus' || normalized === 'status') return 'contactStatus';
         if (normalized === 'draftstatus') return 'draftStatus';
         if (normalized === 'donotcontact' || normalized === 'dnc') return 'checkbox';
-        if (normalized === 'lastcontacteddate' || normalized === 'nextfollowupdate') return 'date';
-        if (normalized === 'notes' || normalized === 'privatenotes' || normalized === 'websitebookingevents') return 'textarea';
+        if (normalized === 'lastcontacted' || normalized === 'lastcontacteddate' || normalized === 'nextfollowup' || normalized === 'nextfollowupdate' || normalized === 'lastplayed' || normalized === 'nextbooked') return 'date';
+        if (normalized === 'notes' || normalized === 'privatenotes' || normalized === 'pastgigs' || normalized === 'futuregigs') return 'textarea';
         return 'text';
     }
 
@@ -246,13 +185,13 @@
         const headers = getRenderableHeaders(activeRawFields);
 
         if (headers.length === 0) {
-            container.innerHTML = '<p class="venue-edit-help">Source spreadsheet row will appear here once the bridge is connected.</p>';
+            container.innerHTML = '<p class="venue-edit-help">CRM fields will appear here once the bridge loads this venue.</p>';
             return;
         }
 
         container.innerHTML = headers.map(header => {
             const id = `venue-edit-source-${header.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
-            const value = activeRawFields[header] === undefined || activeRawFields[header] === null ? '' : activeRawFields[header];
+            const value = getOptionalRawField(activeRawFields, [header], '');
             const fieldType = getFieldType(header);
             const tall = fieldType === 'textarea' || clean(value).length > 80;
             const checkbox = fieldType === 'checkbox';
@@ -336,9 +275,29 @@
         return ['true', 'yes', 'y', '1', 'played', 'visited'].includes(raw);
     }
 
+    function isPlayedStatus(value) {
+        const raw = clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        return raw === 'booked' || raw === 'played in the past' || raw === 'played in the past awaiting reply';
+    }
+
+    function isClosedStatus(value) {
+        const raw = clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        return [
+            'closed and not booking',
+            'no live music',
+            'venue said no to jddm',
+            'not interested do not contact',
+            'bad fit too far',
+            'closed no longer operating',
+            'duplicate merge needed'
+        ].includes(raw);
+    }
+
     function buildVenueFromRawFields(rawFields, venue = activeVenue || {}) {
         const parsedPlace = parsePlace(getRawField(rawFields, ['Place']));
-        const name = getRawField(rawFields, ['venue name', 'name', 'Location']) || parsedPlace.name || venue.name;
+        const statusMatch = getRawFieldValue(rawFields, ['Status', 'contactStatus', 'contact status']);
+        const status = statusMatch.found ? clean(statusMatch.value) : clean(venue.contactStatus);
+        const name = getRawField(rawFields, ['Place Name', 'venue name', 'name', 'Location']) || parsedPlace.name || venue.name;
         const contactBits = [
             getRawField(rawFields, ['Contact Name']),
             getRawField(rawFields, ['Email/Contact']),
@@ -347,39 +306,43 @@
         ].filter(Boolean);
 
         return {
-            id: getRawField(rawFields, ['Site ID', 'id']) || venue.id,
+            id: getRawField(rawFields, ['Place ID', 'Site ID', 'id']) || venue.id,
             name,
-            address: getRawField(rawFields, ['address']) || parsedPlace.address || venue.address,
-            city: getRawField(rawFields, ['city']) || parsedPlace.city || venue.city,
-            state: getRawField(rawFields, ['state']) || parsedPlace.state || venue.state || 'OH',
-            zip: getRawField(rawFields, ['zip', 'zipcode', 'zip code']) || parsedPlace.zip || venue.zip,
+            address: getRawField(rawFields, ['Address', 'address']) || parsedPlace.address || venue.address,
+            city: getRawField(rawFields, ['City', 'city']) || parsedPlace.city || venue.city,
+            state: getRawField(rawFields, ['State', 'state']) || parsedPlace.state || venue.state || 'OH',
+            zip: getRawField(rawFields, ['Zip', 'zip', 'zipcode', 'zip code']) || parsedPlace.zip || venue.zip,
             lat: getRawField(rawFields, ['Latitude', 'lat']) || venue.lat,
             lng: getRawField(rawFields, ['Longitude', 'lng', 'long']) || venue.lng,
-            venueType: getRawField(rawFields, ['venue type', 'type']) || venue.venueType || venue.category || 'Other Venue',
+            venueType: getRawField(rawFields, ['Venue Type', 'venue type', 'type']) || venue.venueType || venue.category || 'Other Venue',
             website: getRawField(rawFields, ['Website', 'website/social link']) || venue.website,
-            bookingContact: getRawField(rawFields, ['booking/contact info']) || contactBits.join(' | ') || venue.bookingContact,
-            eventDate: getRawField(rawFields, ['upcoming event date']) || venue.eventDate,
+            bookingContact: getRawField(rawFields, ['Booking Contact', 'booking/contact info']) || contactBits.join(' | ') || venue.bookingContact,
+            contactName: getOptionalRawField(rawFields, ['Contact Name'], venue.contactName),
+            contactEmail: getOptionalRawField(rawFields, ['Email/Contact'], venue.contactEmail),
+            contactPhone: getOptionalRawField(rawFields, ['Phone Number'], venue.contactPhone),
+            contactType: getOptionalRawField(rawFields, ['Contact Type'], venue.contactType),
+            eventDate: getRawField(rawFields, ['Next Booked', 'upcoming event date']) || venue.eventDate,
             eventTime: getRawField(rawFields, ['upcoming event time']) || venue.eventTime,
             privateEvent: getOptionalRawBoolean(rawFields, ['private event'], venue.privateEvent),
-            notes: getRawField(rawFields, ['Notes', 'notes']) || venue.notes,
-            played: getOptionalRawBoolean(rawFields, ['Played', 'played'], venue.played),
-            contactStatus: getOptionalRawField(rawFields, ['contactStatus', 'contact status', 'Status'], venue.contactStatus),
+            notes: getOptionalRawField(rawFields, ['Notes', 'notes'], venue.notes),
+            played: isPlayedStatus(status) || getOptionalRawBoolean(rawFields, ['Played', 'played'], venue.played),
+            contactStatus: status,
             draftStatus: getOptionalRawField(rawFields, ['draftStatus', 'draft status'], venue.draftStatus),
-            lastContactedDate: getOptionalRawField(rawFields, ['lastContactedDate', 'last contacted date', 'Contacted'], venue.lastContactedDate),
-            nextFollowUpDate: getOptionalRawField(rawFields, ['nextFollowUpDate', 'next follow up date', 'next follow-up date'], venue.nextFollowUpDate),
-            priority: getOptionalRawField(rawFields, ['priority', 'Priority', 'Rank'], venue.priority),
+            lastContactedDate: getOptionalRawField(rawFields, ['Last Contacted', 'lastContactedDate', 'last contacted date', 'Contacted'], venue.lastContactedDate),
+            nextFollowUpDate: getOptionalRawField(rawFields, ['Next Follow Up', 'nextFollowUpDate', 'next follow up date', 'next follow-up date'], venue.nextFollowUpDate),
+            priority: getOptionalRawField(rawFields, ['Priority', 'priority', 'Rank'], venue.priority),
             bestFitScore: getOptionalRawField(rawFields, ['bestFitScore', 'Best Fit Score', 'best fit score'], venue.bestFitScore),
             websiteBookingEvents: getOptionalRawField(rawFields, ['websiteBookingEvents', 'website booking events'], venue.websiteBookingEvents),
             calendarGigEvents: getOptionalRawField(rawFields, ['calendarGigEvents', 'calendar gig events'], venue.calendarGigEvents),
-            calendarPastGigEvents: getOptionalRawField(rawFields, ['calendarPastGigEvents', 'calendar past gig events'], venue.calendarPastGigEvents),
-            calendarFutureGigEvents: getOptionalRawField(rawFields, ['calendarFutureGigEvents', 'calendar future gig events'], venue.calendarFutureGigEvents),
-            calendarLastGigDate: getOptionalRawField(rawFields, ['calendarLastGigDate', 'calendar last gig date'], venue.calendarLastGigDate),
-            calendarNextGigDate: getOptionalRawField(rawFields, ['calendarNextGigDate', 'calendar next gig date'], venue.calendarNextGigDate),
-            calendarPastGigCount: getOptionalRawField(rawFields, ['calendarPastGigCount', 'calendar past gig count'], venue.calendarPastGigCount),
-            calendarFutureGigCount: getOptionalRawField(rawFields, ['calendarFutureGigCount', 'calendar future gig count'], venue.calendarFutureGigCount),
-            calendarTotalGigsPlayed: getOptionalRawField(rawFields, ['calendarTotalGigsPlayed', 'calendar total gigs played'], venue.calendarTotalGigsPlayed),
-            calendarLastSyncedAt: getOptionalRawField(rawFields, ['calendarLastSyncedAt', 'calendar last synced at'], venue.calendarLastSyncedAt),
-            doNotContact: getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], venue.doNotContact)
+            calendarPastGigEvents: getOptionalRawField(rawFields, ['Past Gigs', 'calendarPastGigEvents', 'calendar past gig events'], venue.calendarPastGigEvents),
+            calendarFutureGigEvents: getOptionalRawField(rawFields, ['Future Gigs', 'calendarFutureGigEvents', 'calendar future gig events'], venue.calendarFutureGigEvents),
+            calendarLastGigDate: getOptionalRawField(rawFields, ['Last Played', 'calendarLastGigDate', 'calendar last gig date'], venue.calendarLastGigDate),
+            calendarNextGigDate: getOptionalRawField(rawFields, ['Next Booked', 'calendarNextGigDate', 'calendar next gig date'], venue.calendarNextGigDate),
+            calendarPastGigCount: getOptionalRawField(rawFields, ['Past Gig Count', 'calendarPastGigCount', 'calendar past gig count'], venue.calendarPastGigCount),
+            calendarFutureGigCount: getOptionalRawField(rawFields, ['Future Gig Count', 'calendarFutureGigCount', 'calendar future gig count'], venue.calendarFutureGigCount),
+            calendarTotalGigsPlayed: getOptionalRawField(rawFields, ['Total Gig Count', 'calendarTotalGigsPlayed', 'calendar total gigs played'], venue.calendarTotalGigsPlayed),
+            calendarLastSyncedAt: getOptionalRawField(rawFields, ['Last Synced', 'calendarLastSyncedAt', 'calendar last synced at'], venue.calendarLastSyncedAt),
+            doNotContact: isClosedStatus(status) || getOptionalRawBoolean(rawFields, ['doNotContact', 'Do Not Contact', 'DNC'], statusMatch.found ? false : venue.doNotContact)
         };
     }
 
@@ -408,6 +371,10 @@
                 pics: fields.website,
                 notes: fields.notes,
                 bookingContact: fields.bookingContact,
+                contactName: fields.contactName,
+                contactEmail: fields.contactEmail,
+                contactPhone: fields.contactPhone,
+                contactType: fields.contactType,
                 eventDate: fields.eventDate,
                 eventTime: fields.eventTime,
                 privateEvent: Boolean(fields.privateEvent),
@@ -458,7 +425,7 @@
         try {
             const result = await service.getVenue(activeVenue.id);
             if (result && result.rawFields) renderRawFields(result.rawFields);
-            setStatus('Source spreadsheet row loaded.', 'success');
+            setStatus('CRM fields loaded from the spreadsheet.', 'success');
         } catch (error) {
             console.error('[venueEditModal] failed to load source row:', error);
             renderRawFields({});
@@ -490,7 +457,6 @@
         try {
             const result = await service.saveVenue({
                 id: activeVenue.id,
-                venue: fields,
                 rawFields
             });
 
@@ -559,6 +525,7 @@
     window.BARK.venueEditModal = {
         buildVenueFromRawFields,
         getRenderableHeaders,
+        collectRawFields,
         toDateInputValue
     };
 })();

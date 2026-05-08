@@ -54,76 +54,66 @@ function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-test('venue editor always exposes generated booking CRM fields', () => {
+test('venue editor renders only focused pin CRM fields it receives', () => {
     const modal = loadVenueEditModal();
     const headers = modal.getRenderableHeaders({
-        Place: 'Brighten Brewing Company, Cuyahoga Falls, OH 44221',
+        'Place Name': 'Brighten Brewing Company',
+        Address: '123 Main St',
         Status: 'Sent',
+        'Last Contacted': '2026-05-04',
+        'Contact Name': 'Jamie',
+        'Email/Contact': 'booking@example.com',
+        'Phone Number': '440-555-1212',
+        'Contact Type': 'Email',
+        'Next Follow Up': '2026-05-11',
+        'Past Gigs': '2025-01-01',
         Notes: 'Great fit for acoustic sets.'
     });
 
-    assert.deepEqual(plain(headers).filter(header => [
-        'contactStatus',
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
-    ].includes(header)), [
-        'contactStatus',
-        'draftStatus',
-        'lastContactedDate',
-        'nextFollowUpDate',
-        'doNotContact',
-        'priority',
-        'bestFitScore',
-        'websiteBookingEvents',
-        'calendarGigEvents',
-        'calendarPastGigEvents',
-        'calendarFutureGigEvents',
-        'calendarLastGigDate',
-        'calendarNextGigDate',
-        'calendarPastGigCount',
-        'calendarFutureGigCount',
-        'calendarTotalGigsPlayed',
-        'calendarLastSyncedAt'
+    assert.deepEqual(plain(headers), [
+        'Status',
+        'Last Contacted',
+        'Contact Name',
+        'Email/Contact',
+        'Phone Number',
+        'Contact Type',
+        'Next Follow Up',
+        'Notes'
     ]);
+    assert.equal(headers.includes('Place Name'), false);
+    assert.equal(headers.includes('Address'), false);
+    assert.equal(headers.includes('Past Gigs'), false);
+    assert.equal(headers.includes('contactStatus'), false);
+    assert.equal(headers.includes('draftStatus'), false);
 });
 
 test('venue editor builds structured booking fields from raw sheet aliases', () => {
     const modal = loadVenueEditModal();
     const fields = modal.buildVenueFromRawFields({
-        Place: 'Brighten Brewing Company, 123 Main St, Cuyahoga Falls, OH 44221',
+        'Place Name': 'Brighten Brewing Company',
+        Address: '123 Main St',
+        City: 'Cuyahoga Falls',
+        State: 'OH',
+        Zip: '44221',
+        'Place ID': 'brighten-brewing-company',
         Latitude: '41.123',
         Longitude: '-81.456',
         Status: 'Sent',
-        draftStatus: 'Draft Ready',
-        lastContactedDate: '2026-05-04',
-        nextFollowUpDate: '2026-05-11',
-        priority: '8',
-        bestFitScore: '9',
-        websiteBookingEvents: '2026-05-06 7:00pm Brighten Brewing Company',
-        calendarGigEvents: '2026-05-06 | 7:00pm-9:00pm | BOOKED | Brighten Brewing',
-        calendarPastGigEvents: '2025-05-06 | COMPLETED | Brighten Brewing',
-        calendarFutureGigEvents: '2026-05-06 | BOOKED | Brighten Brewing',
-        calendarLastGigDate: '2025-05-06',
-        calendarNextGigDate: '2026-05-06',
-        calendarPastGigCount: '3',
-        calendarFutureGigCount: '1',
-        calendarTotalGigsPlayed: '3',
-        calendarLastSyncedAt: '2026-05-06T20:00:00.000Z',
-        doNotContact: 'Yes',
+        'Last Contacted': '2026-05-04',
+        'Contact Name': 'Jamie',
+        'Email/Contact': 'booking@example.com',
+        'Phone Number': '440-555-1212',
+        'Contact Type': 'Email',
+        'Next Follow Up': '2026-05-11',
+        Priority: '8',
+        'Past Gigs': '2025-05-06 | COMPLETED | Brighten Brewing',
+        'Future Gigs': '2026-05-06 | BOOKED | Brighten Brewing',
+        'Last Played': '2025-05-06',
+        'Next Booked': '2026-05-06',
+        'Past Gig Count': '3',
+        'Future Gig Count': '1',
+        'Total Gig Count': '4',
+        'Last Synced': '2026-05-06T20:00:00.000Z',
         Played: '',
         'private event': ''
     }, {
@@ -140,31 +130,78 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
     assert.equal(fields.state, 'OH');
     assert.equal(fields.zip, '44221');
     assert.equal(fields.contactStatus, 'Sent');
-    assert.equal(fields.draftStatus, 'Draft Ready');
+    assert.equal(fields.contactName, 'Jamie');
+    assert.equal(fields.contactEmail, 'booking@example.com');
+    assert.equal(fields.contactPhone, '440-555-1212');
+    assert.equal(fields.contactType, 'Email');
     assert.equal(fields.lastContactedDate, '2026-05-04');
     assert.equal(fields.nextFollowUpDate, '2026-05-11');
     assert.equal(fields.priority, '8');
-    assert.equal(fields.bestFitScore, '9');
-    assert.equal(fields.websiteBookingEvents, '2026-05-06 7:00pm Brighten Brewing Company');
-    assert.equal(fields.calendarGigEvents, '2026-05-06 | 7:00pm-9:00pm | BOOKED | Brighten Brewing');
     assert.equal(fields.calendarPastGigEvents, '2025-05-06 | COMPLETED | Brighten Brewing');
     assert.equal(fields.calendarFutureGigEvents, '2026-05-06 | BOOKED | Brighten Brewing');
     assert.equal(fields.calendarLastGigDate, '2025-05-06');
     assert.equal(fields.calendarNextGigDate, '2026-05-06');
     assert.equal(fields.calendarPastGigCount, '3');
     assert.equal(fields.calendarFutureGigCount, '1');
-    assert.equal(fields.calendarTotalGigsPlayed, '3');
+    assert.equal(fields.calendarTotalGigsPlayed, '4');
     assert.equal(fields.calendarLastSyncedAt, '2026-05-06T20:00:00.000Z');
-    assert.equal(fields.doNotContact, true);
     assert.equal(fields.played, false);
     assert.equal(fields.privateEvent, false);
+});
+
+test('venue editor focused CRM fields fall back to active pin identity', () => {
+    const modal = loadVenueEditModal();
+    const fields = modal.buildVenueFromRawFields({
+        Status: 'Needs Review',
+        'Last Contacted': '2026-05-07',
+        'Contact Name': '',
+        'Email/Contact': '',
+        'Phone Number': '330-555-0101',
+        'Contact Type': 'Phone',
+        'Next Follow Up': '2026-05-14',
+        Notes: ''
+    }, {
+        id: 'map-pin-1',
+        name: 'Map Pin Room',
+        address: '100 Music Ave',
+        city: 'Akron',
+        state: 'OH',
+        zip: '44308',
+        lat: '41.08',
+        lng: '-81.52',
+        notes: 'old notes',
+        contactName: 'Old Name',
+        contactEmail: 'old@example.com'
+    });
+
+    assert.equal(fields.id, 'map-pin-1');
+    assert.equal(fields.name, 'Map Pin Room');
+    assert.equal(fields.lat, '41.08');
+    assert.equal(fields.lng, '-81.52');
+    assert.equal(fields.contactStatus, 'Needs Review');
+    assert.equal(fields.contactName, '');
+    assert.equal(fields.contactEmail, '');
+    assert.equal(fields.contactPhone, '330-555-0101');
+    assert.equal(fields.contactType, 'Phone');
+    assert.equal(fields.nextFollowUpDate, '2026-05-14');
+    assert.equal(fields.notes, '');
+});
+
+test('venue editor treats green statuses as played for the map', () => {
+    const modal = loadVenueEditModal();
+
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Booked' }).played, true);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Played in the Past' }).played, true);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Played in the Past - Awaiting Reply' }).played, true);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Open Microphone' }).played, false);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Closed and Not Booking' }).doNotContact, true);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'No Live Music' }).doNotContact, true);
 });
 
 test('venue editor preserves explicit false values and formats common date input', () => {
     const modal = loadVenueEditModal();
     const fields = modal.buildVenueFromRawFields({
-        contactStatus: '',
-        doNotContact: '',
+        Status: '',
         Played: ''
     }, {
         id: 'venue-1',
