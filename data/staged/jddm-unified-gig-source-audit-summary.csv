@@ -1,0 +1,21 @@
+metric,value,notes
+total_audit_rows,862,Every source row/fragment included in the unified list
+dated_rows,769,
+undated_review_rows,93,
+match_groups,271,Fuzzy grouped by normalized date + venue
+cross_source_groups,204,
+duplicate_or_match_rows,708,
+needs_review_rows,212,
+source_rows:current_sheet_future_gigs,86,
+source_rows:current_sheet_past_gigs,406,
+source_rows:facebook_chronological,163,
+source_rows:google_calendar_export,191,
+source_rows:legacy_master_played_yes,16,
+duplicate_status:cross_source_match_or_duplicate,684,
+duplicate_status:duplicate_within_same_source_family,24,
+duplicate_status:undated_review,93,
+duplicate_status:unique_single_source,55,
+duplicate_status:unique_unmatched,6,
+real_gig_guess:no,44,
+real_gig_guess:review,168,
+real_gig_guess:yes,650,
