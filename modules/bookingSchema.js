@@ -184,7 +184,7 @@
         return toIsoDate(startOfToday());
     }
 
-    function getGigStatsFromText(pastText, futureText, combinedText, lastGigDate, nextGigDate, fallbackPastCount, fallbackFutureCount, fallbackTotalCount) {
+    function getGigStatsFromText(pastText, futureText, combinedText) {
         const today = getTodayIsoDate();
         const pastDates = new Set(extractGigDates(pastText));
         const futureDates = new Set();
@@ -199,24 +199,12 @@
             else futureDates.add(date);
         });
 
-        const parsedLastGig = parseGigDateCandidate(lastGigDate);
-        if (parsedLastGig && !pastDates.size) pastDates.add(parsedLastGig);
-
-        const parsedNextGig = parseGigDateCandidate(nextGigDate);
-        if (parsedNextGig && !futureDates.size && parsedNextGig >= today) futureDates.add(parsedNextGig);
-
-        const hasDateEvidence = pastDates.size > 0 || futureDates.size > 0;
-        const pastCount = hasDateEvidence ? pastDates.size : normalizeNumber(fallbackPastCount, 0);
-        const futureCount = hasDateEvidence ? futureDates.size : normalizeNumber(fallbackFutureCount, 0);
-        const totalFallback = normalizeNumber(fallbackTotalCount, 0);
-        const totalCount = hasDateEvidence || pastCount || futureCount ? pastCount + futureCount : totalFallback;
-
         return {
             pastDates: Array.from(pastDates).sort(),
             futureDates: Array.from(futureDates).sort(),
-            pastCount,
-            futureCount,
-            totalCount
+            pastCount: pastDates.size,
+            futureCount: futureDates.size,
+            totalCount: pastDates.size + futureDates.size
         };
     }
 
@@ -225,12 +213,7 @@
         return getGigStatsFromText(
             venue.calendarPastGigEvents || booking.calendarPastGigEvents,
             venue.calendarFutureGigEvents || booking.calendarFutureGigEvents,
-            venue.calendarGigEvents || booking.calendarGigEvents,
-            venue.calendarLastGigDate || booking.calendarLastGigDate,
-            venue.calendarNextGigDate || booking.calendarNextGigDate,
-            venue.calendarPastGigCount || booking.calendarPastGigCount,
-            venue.calendarFutureGigCount || booking.calendarFutureGigCount,
-            venue.calendarTotalGigsPlayed || booking.calendarTotalGigsPlayed
+            venue.calendarGigEvents || booking.calendarGigEvents
         );
     }
 

@@ -164,6 +164,7 @@ function routeRequest_(payload) {
     if (action === 'migrateCrmStatuses' || action === 'simplifyCrmStatuses') return jsonOutput_(migrateCrmStatuses_(payload));
     if (action === 'restoreFromCsv' || action === 'restoreCsv') return jsonOutput_(restoreFromCsv_(payload));
     if (action === 'applyRowHighlighting') return jsonOutput_(applyRowHighlighting_(payload));
+    if (action === 'recalculateGigCounts' || action === 'fixGigCounts') return jsonOutput_(recalculateGigCounts_(payload));
     if (action === 'cleanupCalendarOnlyRows' || action === 'removeCalendarOnlyRows') return jsonOutput_(cleanupCalendarOnlyRows_(payload));
     if (action === 'getVenue') return jsonOutput_(getVenue_(payload));
     if (action === 'saveVenue') return jsonOutput_(saveVenue_(payload));
@@ -427,19 +428,38 @@ function rowToCanonical_(row, sourceHeaderMap) {
   next.State = next.State || parsedPlace.state || 'OH';
   next.Zip = next.Zip || parsedPlace.zip;
   next['Place ID'] = next['Place ID'] || slugify_([next['Place Name'], next.City, next.State].filter(Boolean).join(' '));
-  var pastDates = uniqueSortedDates_(splitDates_(next['Past Gigs']));
-  var futureDates = uniqueSortedDates_(splitDates_(next['Future Gigs']));
-  if (pastDates.length) next['Past Gigs'] = pastDates.join('; ');
-  if (futureDates.length) next['Future Gigs'] = futureDates.join('; ');
-  if (!next['Last Played'] && pastDates.length) next['Last Played'] = pastDates[pastDates.length - 1];
-  if (!next['Next Booked'] && futureDates.length) next['Next Booked'] = futureDates[0];
-  var pastCount = pastDates.length || toNumber_(next['Past Gig Count']);
-  var futureCount = futureDates.length || toNumber_(next['Future Gig Count']);
-  next['Past Gig Count'] = pastCount || '';
-  next['Future Gig Count'] = futureCount || '';
-  next['Total Gig Count'] = (pastCount || futureCount) ? pastCount + futureCount : (toNumber_(next['Total Gig Count']) || '');
+  normalizeGigFactsObject_(next, { moveExpiredFuture: false });
   next.Status = normalizeCrmStatus_(next.Status) || 'Not Set';
   return JDDM_CANONICAL_HEADERS.map(function(header) { return next[header]; });
+}
+
+function normalizeGigFactsObject_(object, options) {
+  options = options || {};
+  var today = options.today || parseIsoDate_(new Date());
+  var moveExpiredFuture = options.moveExpiredFuture === true;
+  var pastDates = uniqueSortedDates_(splitDates_(object['Past Gigs']));
+  var futureDates = uniqueSortedDates_(splitDates_(object['Future Gigs']));
+  if (moveExpiredFuture) {
+    var stillFuture = [];
+    futureDates.forEach(function(date) {
+      if (date && date < today) pastDates.push(date);
+      else if (date) stillFuture.push(date);
+    });
+    pastDates = uniqueSortedDates_(pastDates);
+    futureDates = uniqueSortedDates_(stillFuture);
+  }
+  object['Past Gigs'] = pastDates.length ? pastDates.join('; ') : '';
+  object['Future Gigs'] = futureDates.length ? futureDates.join('; ') : '';
+  object['Last Played'] = pastDates.length ? pastDates[pastDates.length - 1] : '';
+  object['Next Booked'] = futureDates.length ? futureDates[0] : '';
+  object['Past Gig Count'] = pastDates.length ? pastDates.length : '';
+  object['Future Gig Count'] = futureDates.length ? futureDates.length : '';
+  object['Total Gig Count'] = (pastDates.length || futureDates.length) ? pastDates.length + futureDates.length : '';
+  return {
+    pastCount: pastDates.length,
+    futureCount: futureDates.length,
+    totalCount: pastDates.length + futureDates.length
+  };
 }
 
 function canonicalizeRows_(data) {
@@ -794,6 +814,75 @@ function applyRowHighlighting_(options) {
       closedStatuses: JDDM_ROW_HIGHLIGHT_COLORS.CLOSED
     },
     warnings: warnings.filter(function(item) { return !item.ok; })
+  };
+}
+
+function recalculateGigCounts_(options) {
+  options = options || {};
+  var data = getData_();
+  var today = parseIsoDate_(new Date());
+  var dryRun = isTrue_(options.dryRun);
+  var moveExpiredFuture = !isFalse_(options.moveExpiredFuture);
+  var checkedRows = 0;
+  var changedRows = 0;
+  var clearedBogusTotalRows = 0;
+  var samples = [];
+
+  data.rows.forEach(function(row, index) {
+    if (isBlankVenueRow_(row, data.headerMap)) return;
+    checkedRows++;
+    var rowNumber = index + 2;
+    var next = row.slice();
+    var before = {
+      pastGigs: getByHeader_(next, data.headerMap, 'Past Gigs'),
+      futureGigs: getByHeader_(next, data.headerMap, 'Future Gigs'),
+      lastPlayed: getByHeader_(next, data.headerMap, 'Last Played'),
+      nextBooked: getByHeader_(next, data.headerMap, 'Next Booked'),
+      pastCount: getByHeader_(next, data.headerMap, 'Past Gig Count'),
+      futureCount: getByHeader_(next, data.headerMap, 'Future Gig Count'),
+      totalCount: getByHeader_(next, data.headerMap, 'Total Gig Count')
+    };
+    var object = rowObject_(next, data.headerMap);
+    var stats = normalizeGigFactsObject_(object, { moveExpiredFuture: moveExpiredFuture, today: today });
+    ['Past Gigs', 'Future Gigs', 'Last Played', 'Next Booked', 'Past Gig Count', 'Future Gig Count', 'Total Gig Count'].forEach(function(header) {
+      setByHeader_(next, data.headerMap, header, object[header]);
+    });
+    setByHeader_(next, data.headerMap, 'Last Synced', new Date());
+
+    var after = {
+      pastGigs: getByHeader_(next, data.headerMap, 'Past Gigs'),
+      futureGigs: getByHeader_(next, data.headerMap, 'Future Gigs'),
+      lastPlayed: getByHeader_(next, data.headerMap, 'Last Played'),
+      nextBooked: getByHeader_(next, data.headerMap, 'Next Booked'),
+      pastCount: getByHeader_(next, data.headerMap, 'Past Gig Count'),
+      futureCount: getByHeader_(next, data.headerMap, 'Future Gig Count'),
+      totalCount: getByHeader_(next, data.headerMap, 'Total Gig Count')
+    };
+    var changed = JSON.stringify(before) !== JSON.stringify(after);
+    if (!changed) return;
+    changedRows++;
+    if (toNumber_(before.totalCount) > 0 && !toNumber_(after.totalCount)) clearedBogusTotalRows++;
+    if (!dryRun) data.sheet.getRange(rowNumber, 1, 1, data.headers.length).setValues([next]);
+    if (samples.length < 50) {
+      samples.push({
+        rowNumber: rowNumber,
+        placeName: getByHeader_(next, data.headerMap, 'Place Name'),
+        before: before,
+        after: after,
+        counts: stats
+      });
+    }
+  });
+
+  return {
+    ok: true,
+    action: 'recalculateGigCounts',
+    dryRun: dryRun,
+    moveExpiredFuture: moveExpiredFuture,
+    checkedRows: checkedRows,
+    changedRows: changedRows,
+    clearedBogusTotalRows: clearedBogusTotalRows,
+    samples: samples
   };
 }
 

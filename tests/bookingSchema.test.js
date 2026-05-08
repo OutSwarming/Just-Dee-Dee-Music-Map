@@ -186,6 +186,23 @@ test('gig stats dedupe rich calendar history and ignore inflated total counts', 
     assert.equal(booking.calendarTotalGigsPlayed, 1);
 });
 
+test('gig stats treat count columns as generated output, not source data', () => {
+    const schema = loadBookingSchema();
+    const stats = schema.getVenueGigStats({
+        calendarPastGigCount: '7',
+        calendarFutureGigCount: '2',
+        calendarTotalGigsPlayed: '99',
+        calendarLastGigDate: '2025-01-01',
+        calendarNextGigDate: '2099-01-01'
+    });
+
+    assert.deepEqual(stats.pastDates, []);
+    assert.deepEqual(stats.futureDates, []);
+    assert.equal(stats.pastCount, 0);
+    assert.equal(stats.futureCount, 0);
+    assert.equal(stats.totalCount, 0);
+});
+
 test('gig stats do not count ZIP codes or historical ids as fake dates', () => {
     const schema = loadBookingSchema();
     const stats = schema.getVenueGigStats({

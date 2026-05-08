@@ -442,6 +442,55 @@ test('purge ignores ZIP codes and historical ids when recalculating gig counts',
     assert.equal(row[headerIndex(headers, 'Total Gig Count')], 1);
 });
 
+test('purge clears imported gig counts when no dated gig facts exist', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Status', 'Past Gigs', 'Future Gigs', 'Last Played', 'Next Booked', 'Past Gig Count', 'Future Gig Count', 'Total Gig Count'],
+        [['Never Played Room', 'Not Contacted Yet', '', '', '2025-01-01', '2099-01-01', '4', '3', '99']]
+    );
+    const bridge = loadBridge(sheet);
+
+    bridge.purgeAndSetup_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const row = cleanSheet.values[1];
+
+    assert.equal(row[headerIndex(headers, 'Past Gigs')], '');
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '');
+    assert.equal(row[headerIndex(headers, 'Last Played')], '');
+    assert.equal(row[headerIndex(headers, 'Next Booked')], '');
+    assert.equal(row[headerIndex(headers, 'Past Gig Count')], '');
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], '');
+    assert.equal(row[headerIndex(headers, 'Total Gig Count')], '');
+});
+
+test('recalculateGigCounts fixes stale total counts without deriving from old count columns', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Status', 'Past Gigs', 'Future Gigs', 'Last Played', 'Next Booked', 'Past Gig Count', 'Future Gig Count', 'Total Gig Count', 'Last Synced'],
+        [
+            ['Never Played Room', 'Not Contacted Yet', '', '', '2025-01-01', '2099-01-01', '4', '3', '99', ''],
+            ['Real Venue', 'Booked', '2025-01-01; OH 44133 | historical-2025-01-01-real-venue', '2000-01-01; 2099-01-01', '', '', '9', '9', '99', '']
+        ]
+    );
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.recalculateGigCounts_({});
+    const headers = sheet.values[0];
+    const neverPlayed = sheet.values[1];
+    const realVenue = sheet.values[2];
+
+    assert.equal(result.ok, true);
+    assert.equal(result.changedRows, 2);
+    assert.equal(result.clearedBogusTotalRows, 1);
+    assert.equal(neverPlayed[headerIndex(headers, 'Past Gig Count')], '');
+    assert.equal(neverPlayed[headerIndex(headers, 'Future Gig Count')], '');
+    assert.equal(neverPlayed[headerIndex(headers, 'Total Gig Count')], '');
+    assert.equal(realVenue[headerIndex(headers, 'Past Gigs')], '2000-01-01; 2025-01-01');
+    assert.equal(realVenue[headerIndex(headers, 'Future Gigs')], '2099-01-01');
+    assert.equal(realVenue[headerIndex(headers, 'Past Gig Count')], 2);
+    assert.equal(realVenue[headerIndex(headers, 'Future Gig Count')], 1);
+    assert.equal(realVenue[headerIndex(headers, 'Total Gig Count')], 3);
+});
+
 test('setup canonicalizes without adding duplicate generated columns', () => {
     const sheet = createFakeSheet(
         ['Venue Name', 'CRM Status', 'Email', 'Email/Contact', 'Phone', 'Phone Number', 'Gig Past Dates', 'extra'],
