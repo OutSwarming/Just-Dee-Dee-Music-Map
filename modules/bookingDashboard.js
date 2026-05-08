@@ -10,11 +10,11 @@
         { id: 'planner', label: 'Planner' },
         { id: 'followUps', label: 'Follow-Ups' },
         { id: 'newProspects', label: 'New Prospects' },
-        { id: 'missingInfo', label: 'Missing Info' },
-        { id: 'doNotContact', label: 'Closed' }
+        { id: 'missingInfo', label: 'Needs Review' },
+        { id: 'doNotContact', label: 'Closed / No Music' }
     ];
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-08-lean-status-storage';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-08-simplified-crm-statuses';
     const REQUIRED_BOOKING_HEADERS = [
         'Place Name',
         'Address',
@@ -424,18 +424,18 @@
         if (tabId === 'followUps' || booking.isFollowUpDue) return `Follow-up due${booking.nextFollowUpDate ? `: ${booking.nextFollowUpDate}` : ''}`;
         if (tabId === 'newProspects') return booking.contactEmail ? 'Ready for first outreach' : 'Needs contact info';
         if (tabId === 'priorityLeads') return `Priority ${booking.priority || 0} / Fit ${booking.bestFitScore || 0}`;
-        if (tabId === 'interested') return 'Interested lead';
+        if (tabId === 'interested') return 'Response needs action';
         if (tabId === 'booked') return booking.eventDate ? `Booked: ${booking.eventDate}` : 'Booked';
         if (tabId === 'planner') return booking.isOpenMicrophone ? 'Open microphone venue' : 'Played in the past';
         if (tabId === 'upcomingGigs') return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
         if (tabId === 'postGigFollowUps') return booking.eventDate ? `Post-gig follow-up: ${booking.eventDate}` : 'Post-gig follow-up';
-        if (tabId === 'missingInfo') return 'Missing email or booking link';
-        if (tabId === 'notAFit') return 'Not a fit for booking';
-        if (tabId === 'doNotContact') return 'Do not contact';
+        if (tabId === 'missingInfo') return 'Needs review';
+        if (tabId === 'notAFit') return 'Told no / closed / no music';
+        if (tabId === 'doNotContact') return 'Told no / closed / no music';
         if (booking.isPostGigFollowUpDue) return 'Post-gig follow-up due';
         if (booking.isUpcomingGig) return booking.eventDate ? `Upcoming gig: ${booking.eventDate}` : 'Upcoming gig';
-        if (booking.isNotAFit) return 'Not a fit for booking';
-        if (booking.isInterested) return 'Interested lead';
+        if (booking.isNotAFit) return 'Told no / closed / no music';
+        if (booking.isRespondedNeedsAction || booking.isInterested) return 'Response needs action';
         if (booking.isPriorityLead) return `Priority ${booking.priority || 0} / Fit ${booking.bestFitScore || 0}`;
         if (booking.isNewProspect) return 'New prospect';
         if (booking.isMissingInfo) return 'Research contact info';
@@ -494,11 +494,12 @@
     function isStatusActionDisabled(venue, actionType) {
         const actions = getActionService();
         const booking = venue.booking || {};
+        const statuses = getSchema() && getSchema().CONTACT_STATUS ? getSchema().CONTACT_STATUS : {};
         if (!actions || !actions.ACTION_TYPES) return true;
         if (booking.doNotContact) return true;
-        if (actionType === actions.ACTION_TYPES.MARK_DRAFT_READY) return booking.contactStatus === 'Draft Ready' || booking.isBooked || booking.isNotAFit;
-        if (actionType === actions.ACTION_TYPES.MARK_SENT) return booking.contactStatus === 'Sent' || booking.isBooked;
-        if (actionType === actions.ACTION_TYPES.MARK_INTERESTED) return booking.isInterested || booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_DRAFT_READY) return booking.contactStatus === statuses.DRAFT_READY || booking.isBooked || booking.isNotAFit;
+        if (actionType === actions.ACTION_TYPES.MARK_SENT) return booking.contactStatus === statuses.WAITING_REPLY || booking.isBooked;
+        if (actionType === actions.ACTION_TYPES.MARK_INTERESTED) return booking.isRespondedNeedsAction || booking.isInterested || booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_BOOKED) return booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_NOT_A_FIT) return booking.isNotAFit || booking.isBooked;
         if (actionType === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT) return Boolean(booking.doNotContact);
@@ -717,7 +718,7 @@
             ['Planner', data.planner.length],
             ['Follow-Ups', data.followUps.length],
             ['Contacts', data.newProspects.length],
-            ['Missing Info', data.missingInfo.length]
+            ['Needs Review', data.missingInfo.length]
         ].map(([label, value]) => `
             <div class="booking-stat">
                 <strong>${value}</strong>
@@ -846,7 +847,7 @@
         const booking = venue.booking || {};
         const renderedEmail = getRenderedEmail(venue);
         const website = getExternalUrl(booking.bookingUrl || venue.website || '');
-        const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : booking.isInterested ? ' warm' : '';
+        const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : (booking.isRespondedNeedsAction || booking.isInterested) ? ' warm' : '';
         const hasEmailDraft = Boolean(getMailtoHref(venue));
         const eventLabel = [booking.eventDate || venue.eventDate, booking.eventTime || venue.eventTime].filter(Boolean).join(' ');
         const priorityLabel = `Priority ${getScoreInputValue(booking.priority)}`;
@@ -1052,7 +1053,7 @@
             actions.ACTION_TYPES &&
             statusAction === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT &&
             typeof window.confirm === 'function' &&
-            !window.confirm(`Mark ${venue.name || 'this venue'} as Do Not Contact?`)
+            !window.confirm(`Mark ${venue.name || 'this venue'} as Told No / Closed / No Music?`)
         ) {
             return;
         }

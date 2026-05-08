@@ -49,8 +49,9 @@ test('normalizeVenue extracts booking contact details and prospect flags', () =>
     assert.equal(booking.contactName, 'Jamie Booker');
     assert.equal(booking.contactEmail, 'bookings@example.com');
     assert.equal(booking.contactPhone, '440-555-1212');
-    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.NOT_CONTACTED);
-    assert.equal(booking.isNewProspect, true);
+    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.NOT_SET);
+    assert.equal(booking.isNewProspect, false);
+    assert.equal(booking.isNeedsReview, true);
     assert.equal(booking.hasContactInfo, true);
 });
 
@@ -63,7 +64,7 @@ test('normalizeVenue treats do-not-contact as an outreach stop sign', () => {
     });
 
     assert.equal(booking.doNotContact, true);
-    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.CLOSED_AND_NOT_BOOKING);
+    assert.equal(booking.contactStatus, schema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC);
     assert.equal(booking.isNewProspect, false);
     assert.equal(booking.isFollowUpDue, false);
 });
@@ -135,7 +136,7 @@ test('getVenueMapState maps only CRM Status into pin color states', () => {
     assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past' }), 'played');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Played in the Past - Awaiting Reply' }), 'played');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Open Microphone' }), 'played');
-    assert.equal(schema.getVenueMapState({ contactStatus: 'Closed and Not Booking' }), 'closed');
+    assert.equal(schema.getVenueMapState({ contactStatus: 'Told No / Closed / No Music' }), 'closed');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Not Interested / Do Not Contact' }), 'closed');
     assert.equal(schema.getVenueMapState({ contactStatus: 'Not Contacted Yet', played: true }), 'default');
 });
@@ -221,7 +222,7 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.postGigFollowUps), ['post-gig']);
     assert.deepEqual(ids(groups.notAFit), ['not-fit', 'dnc']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
-    assert.deepEqual(ids(groups.doNotContact), ['dnc']);
+    assert.deepEqual(ids(groups.doNotContact), ['not-fit', 'dnc']);
     assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'priority', 'prospect', 'missing']);
 });
 
@@ -341,7 +342,7 @@ test('filterVenues searches venue, location, contact, and booking status terms',
         }
     ];
 
-    assert.deepEqual(ids(schema.filterVenues(venues, 'brighten sent')), ['brewery']);
+    assert.deepEqual(ids(schema.filterVenues(venues, 'brighten waiting')), ['brewery']);
     assert.deepEqual(ids(schema.filterVenues(venues, 'madison taylor')), ['winery']);
     assert.deepEqual(ids(schema.filterVenues(venues, 'pub bar akron')), ['pub']);
     assert.deepEqual(ids(schema.filterVenues(venues, 'missing')), []);

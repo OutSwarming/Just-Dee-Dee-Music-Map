@@ -41,7 +41,7 @@ function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-test('mark sent sets sent status and schedules a seven day follow-up', () => {
+test('mark sent sets waiting-reply status and schedules a seven day follow-up', () => {
     const bark = loadBookingModules();
     const patch = bark.bookingActions.buildStatusPatch(
         bark.bookingActions.ACTION_TYPES.MARK_SENT,
@@ -49,7 +49,7 @@ test('mark sent sets sent status and schedules a seven day follow-up', () => {
     );
 
     assert.deepEqual(plain(patch), {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.SENT,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.WAITING_REPLY,
         draftStatus: bark.bookingSchema.DRAFT_STATUS.SENT,
         lastContactedDate: '2026-05-04',
         nextFollowUpDate: '2026-05-11',
@@ -63,7 +63,7 @@ test('mark interested, booked, and do-not-contact produce predictable next steps
     const today = new Date(2026, 4, 4);
 
     assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_INTERESTED, { today })), {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.INTERESTED,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.RESPONDED_NEEDS_ACTION,
         nextFollowUpDate: '2026-05-06',
         doNotContact: false
     });
@@ -75,7 +75,7 @@ test('mark interested, booked, and do-not-contact produce predictable next steps
     });
 
     assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_DO_NOT_CONTACT, { today })), {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC,
         nextFollowUpDate: '',
         doNotContact: true
     });
@@ -92,23 +92,23 @@ test('draft ready and not-a-fit actions produce predictable planner states', () 
     });
 
     assert.deepEqual(plain(bark.bookingActions.buildStatusPatch(actions.MARK_NOT_A_FIT)), {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.NOT_A_FIT,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC,
         nextFollowUpDate: '',
-        doNotContact: false
+        doNotContact: true
     });
 });
 
 test('raw field patch writes only clean storage headers', () => {
     const bark = loadBookingModules();
     const rawFields = bark.bookingActions.buildRawFieldsPatch({
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.SENT,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.WAITING_REPLY,
         draftStatus: bark.bookingSchema.DRAFT_STATUS.SENT,
         lastContactedDate: '2026-05-04',
         nextFollowUpDate: '2026-05-11',
         doNotContact: false
     });
 
-    assert.equal(rawFields.Status, 'Sent');
+    assert.equal(rawFields.Status, 'Contacted - Waiting on Reply');
     assert.equal(rawFields['Last Contacted'], '2026-05-04');
     assert.equal(rawFields['Next Follow Up'], '2026-05-11');
     assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'CRM Status'), false);
@@ -163,7 +163,7 @@ test('mergeBookingPatch updates dashboard flags without dropping venue details',
             contactStatus: 'Not Contacted'
         })
     }, {
-        contactStatus: bark.bookingSchema.CONTACT_STATUS.SENT,
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.WAITING_REPLY,
         nextFollowUpDate: '2000-01-01',
         doNotContact: false
     });
@@ -171,7 +171,7 @@ test('mergeBookingPatch updates dashboard flags without dropping venue details',
     assert.equal(updated.id, 'venue-1');
     assert.equal(updated.name, 'Test Venue');
     assert.equal(updated.booking.contactEmail, 'booking@example.com');
-    assert.equal(updated.booking.contactStatus, bark.bookingSchema.CONTACT_STATUS.SENT);
+    assert.equal(updated.booking.contactStatus, bark.bookingSchema.CONTACT_STATUS.WAITING_REPLY);
     assert.equal(updated.booking.isFollowUpDue, true);
 });
 

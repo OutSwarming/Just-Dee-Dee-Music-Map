@@ -4,29 +4,36 @@
 (function () {
     window.BARK = window.BARK || {};
 
-    const CONTACT_STATUS = Object.freeze({
+    const CONTACT_STATUS_BASE = Object.freeze({
+        NOT_SET: 'Not Set',
+        NEEDS_REVIEW: 'Needs Review',
         NOT_CONTACTED: 'Not Contacted Yet',
-        NEED_CONTACT_INFO: 'Need Contact Info',
         DRAFT_READY: 'Draft Ready',
-        SENT: 'Sent',
-        FOLLOW_UP_NEEDED: 'Follow Up Needed',
         WAITING_REPLY: 'Contacted - Waiting on Reply',
-        INTERESTED: 'Interested',
+        FOLLOW_UP_NEEDED: 'Follow Up Needed',
+        RESPONDED_NEEDS_ACTION: 'Responded - Needs Action',
+        TOLD_NO_CLOSED_NO_MUSIC: 'Told No / Closed / No Music',
         BOOKED: 'Booked',
         PLAYED_IN_THE_PAST: 'Played in the Past',
         PLAYED_IN_THE_PAST_AWAITING_REPLY: 'Played in the Past - Awaiting Reply',
-        OPEN_MICROPHONE: 'Open Microphone',
-        NO_RESPONSE: 'No Response',
-        NOT_A_FIT: 'Not a Fit',
-        DO_NOT_CONTACT: 'Do Not Contact',
-        CLOSED_AND_NOT_BOOKING: 'Closed and Not Booking',
-        NO_LIVE_MUSIC: 'No Live Music',
-        VENUE_SAID_NO: 'Venue Said No to JDDM',
-        NOT_INTERESTED_DO_NOT_CONTACT: 'Not Interested / Do Not Contact',
-        BAD_FIT_TOO_FAR: 'Bad Fit / Too Far',
-        CLOSED_NO_LONGER_OPERATING: 'Closed / No Longer Operating',
-        DUPLICATE_MERGE_NEEDED: 'Duplicate / Merge Needed',
-        NEEDS_REVIEW: 'Needs Review'
+        OPEN_MICROPHONE: 'Open Microphone'
+    });
+
+    const CONTACT_STATUS = Object.freeze({
+        ...CONTACT_STATUS_BASE,
+        NEED_CONTACT_INFO: CONTACT_STATUS_BASE.NEEDS_REVIEW,
+        SENT: CONTACT_STATUS_BASE.WAITING_REPLY,
+        INTERESTED: CONTACT_STATUS_BASE.RESPONDED_NEEDS_ACTION,
+        NO_RESPONSE: CONTACT_STATUS_BASE.FOLLOW_UP_NEEDED,
+        NOT_A_FIT: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        DO_NOT_CONTACT: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        CLOSED_AND_NOT_BOOKING: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        NO_LIVE_MUSIC: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        VENUE_SAID_NO: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        NOT_INTERESTED_DO_NOT_CONTACT: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        BAD_FIT_TOO_FAR: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        CLOSED_NO_LONGER_OPERATING: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC,
+        DUPLICATE_MERGE_NEEDED: CONTACT_STATUS_BASE.TOLD_NO_CLOSED_NO_MUSIC
     });
 
     const DRAFT_STATUS = Object.freeze({
@@ -38,7 +45,7 @@
         NEEDS_REVIEW: 'Needs Review'
     });
 
-    const CONTACT_STATUS_VALUES = Object.freeze(Object.values(CONTACT_STATUS));
+    const CONTACT_STATUS_VALUES = Object.freeze(Object.values(CONTACT_STATUS_BASE));
     const DRAFT_STATUS_VALUES = Object.freeze(Object.values(DRAFT_STATUS));
 
     function clean(value) {
@@ -61,12 +68,19 @@
     function normalizeStatus(value, fallback) {
         const raw = normalizeLoose(value);
         if (!raw) return fallback;
+        if (raw === 'crm status' || raw === 'status') return fallback;
+        if (raw === 'not set' || raw === 'unset' || raw === 'unknown' || raw === 'tbd') return CONTACT_STATUS.NOT_SET;
+        if (raw === 'need contact info' || raw === 'needs review' || raw === 'need review' || raw === 'missing info' || raw === 'missing contact info' || raw === 'missing contact') return CONTACT_STATUS.NEEDS_REVIEW;
         if (raw === 'not contacted') return CONTACT_STATUS.NOT_CONTACTED;
         if (raw === 'open mic') return CONTACT_STATUS.OPEN_MICROPHONE;
         if (raw === 'played in the past awaiting reply' || raw === 'played in past awaiting reply') return CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY;
         if (raw === 'played in past' || raw === 'played past') return CONTACT_STATUS.PLAYED_IN_THE_PAST;
-        if (raw === 'do not contact' || raw === 'dnc') return CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT;
-        if (raw === 'crm status') return fallback;
+        if (/told no closed no music|closed.*not booking|not booking.*closed|no live music|no music|venue.*said.*no|said.*no|declined|rejected|do not contact|dnc|not interested|bad fit|not a fit|too far|no longer operating|permanently closed|\bclosed\b|duplicate|merge/.test(raw)) {
+            return CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC;
+        }
+        if (/follow up|followup|no response/.test(raw)) return CONTACT_STATUS.FOLLOW_UP_NEEDED;
+        if (/waiting.*reply|contacted.*waiting|sent|emailed|outreach sent/.test(raw)) return CONTACT_STATUS.WAITING_REPLY;
+        if (/respond|response|replied|reply received|interested|waitlist|maybe later/.test(raw)) return CONTACT_STATUS.RESPONDED_NEEDS_ACTION;
         const match = CONTACT_STATUS_VALUES.find(status => normalizeLoose(status) === raw);
         return match || fallback;
     }
@@ -287,24 +301,17 @@
         const rawStatus = clean(venue.contactStatus || venue.status);
         const fallbackStatus = venue.eventDate
             ? CONTACT_STATUS.BOOKED
-            : CONTACT_STATUS.NOT_CONTACTED;
+            : CONTACT_STATUS.NOT_SET;
         const contactStatus = explicitDnc
-            ? CONTACT_STATUS.CLOSED_AND_NOT_BOOKING
+            ? CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC
             : normalizeStatus(rawStatus, fallbackStatus);
-        const doNotContact = explicitDnc || contactStatus === CONTACT_STATUS.DO_NOT_CONTACT;
+        const doNotContact = explicitDnc || contactStatus === CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC;
         const isClosedStatus = [
             CONTACT_STATUS.BOOKED,
             CONTACT_STATUS.PLAYED_IN_THE_PAST,
             CONTACT_STATUS.PLAYED_IN_THE_PAST_AWAITING_REPLY,
-            CONTACT_STATUS.DO_NOT_CONTACT,
-            CONTACT_STATUS.NOT_A_FIT,
-            CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
-            CONTACT_STATUS.NO_LIVE_MUSIC,
-            CONTACT_STATUS.VENUE_SAID_NO,
-            CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT,
-            CONTACT_STATUS.BAD_FIT_TOO_FAR,
-            CONTACT_STATUS.CLOSED_NO_LONGER_OPERATING,
-            CONTACT_STATUS.DUPLICATE_MERGE_NEEDED
+            CONTACT_STATUS.OPEN_MICROPHONE,
+            CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC
         ].includes(contactStatus);
         const contactEmail = clean(venue.contactEmail) || extractEmail(bookingContact);
         const contactPhone = clean(venue.contactPhone) || extractPhone(bookingContact);
@@ -330,7 +337,8 @@
             : requiredContactMethod === 'phone'
                 ? Boolean(extractPhone(contactPhone))
                 : Boolean(contactEmail || bookingUrl || website || contactPhone);
-        const isNeedsReview = contactStatus === CONTACT_STATUS.NEEDS_REVIEW;
+        const isNeedsReview = contactStatus === CONTACT_STATUS.NEEDS_REVIEW || contactStatus === CONTACT_STATUS.NOT_SET;
+        const isRespondedNeedsAction = contactStatus === CONTACT_STATUS.RESPONDED_NEEDS_ACTION;
 
         return {
             contactName,
@@ -368,9 +376,10 @@
             hasRequiredContactInfo,
             contactReviewReasons,
             isNeedsReview,
-            isFollowUpDue: !doNotContact && !isClosedStatus && isDue(nextFollowUpDate),
+            isFollowUpDue: !doNotContact && !isClosedStatus && (contactStatus === CONTACT_STATUS.FOLLOW_UP_NEEDED || isDue(nextFollowUpDate)),
             isNewProspect: !doNotContact && contactStatus === CONTACT_STATUS.NOT_CONTACTED && hasRequiredContactInfo,
-            isInterested: !doNotContact && contactStatus === CONTACT_STATUS.INTERESTED,
+            isInterested: !doNotContact && isRespondedNeedsAction,
+            isRespondedNeedsAction: !doNotContact && isRespondedNeedsAction,
             isBooked,
             isPlayedPast,
             isPlayedPastAwaitingReply,
@@ -379,16 +388,7 @@
             isUpcomingGig,
             isPostGigFollowUpDue,
             isPriorityLead: !doNotContact && !isClosedStatus && (priority >= 7 || bestFitScore >= 8),
-            isNotAFit: [
-                CONTACT_STATUS.NOT_A_FIT,
-                CONTACT_STATUS.CLOSED_AND_NOT_BOOKING,
-                CONTACT_STATUS.NO_LIVE_MUSIC,
-                CONTACT_STATUS.VENUE_SAID_NO,
-                CONTACT_STATUS.NOT_INTERESTED_DO_NOT_CONTACT,
-                CONTACT_STATUS.BAD_FIT_TOO_FAR,
-                CONTACT_STATUS.CLOSED_NO_LONGER_OPERATING,
-                CONTACT_STATUS.DUPLICATE_MERGE_NEEDED
-            ].includes(contactStatus),
+            isNotAFit: contactStatus === CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC,
             isMissingInfo: !doNotContact && !isClosedStatus && (isNeedsReview || (contactStatus === CONTACT_STATUS.NOT_CONTACTED && !hasRequiredContactInfo)),
             isPrivateEvent: Boolean(venue.privateEvent || normalizeBoolean(venue.isPrivateEvent))
         };
@@ -429,10 +429,8 @@
     function isWaitingForReply(venue) {
         const status = venue.booking && venue.booking.contactStatus;
         return [
-            CONTACT_STATUS.SENT,
             CONTACT_STATUS.FOLLOW_UP_NEEDED,
-            CONTACT_STATUS.WAITING_REPLY,
-            CONTACT_STATUS.NO_RESPONSE
+            CONTACT_STATUS.WAITING_REPLY
         ].includes(status) && !clean(venue.booking.nextFollowUpDate);
     }
 
@@ -473,7 +471,7 @@
         const notDnc = normalized.filter(venue => !venue.booking.doNotContact);
         const followUps = notDnc.filter(venue => venue.booking.isFollowUpDue);
         const newProspects = notDnc.filter(venue => venue.booking.isNewProspect);
-        const interested = notDnc.filter(venue => venue.booking.isInterested);
+        const interested = notDnc.filter(venue => venue.booking.isRespondedNeedsAction);
         const booked = normalized.filter(venue => venue.booking.isBooked);
         const planner = normalized
             .filter(venue => venue.booking.isOpenMicrophone || venue.booking.isPlayedPast)
@@ -525,8 +523,8 @@
         }
 
         const followUps = [...(groups.followUps || [])].sort(compareFollowUpDate);
-        const interestedDue = followUps.filter(venue => venue.booking.isInterested);
-        const overdueFollowUps = followUps.filter(venue => !venue.booking.isInterested);
+        const interestedDue = followUps.filter(venue => venue.booking.isRespondedNeedsAction);
+        const overdueFollowUps = followUps.filter(venue => !venue.booking.isRespondedNeedsAction);
         const interested = [...(groups.interested || [])]
             .filter(venue => !seen.has(venue.id))
             .sort(compareFollowUpDate);
@@ -544,8 +542,8 @@
         );
         add(
             interestedDue,
-            venue => `Interested lead follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
-            () => 'Send interested follow-up or mark booked',
+            venue => `Response follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
+            () => 'Send response follow-up or mark booked',
             'interestedDue'
         );
         add(
@@ -556,7 +554,7 @@
         );
         add(
             interested,
-            () => 'Interested lead needs a next step',
+            () => 'Response needs a next step',
             () => 'Set follow-up date or mark booked',
             'interested'
         );

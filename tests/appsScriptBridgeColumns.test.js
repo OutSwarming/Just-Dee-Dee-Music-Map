@@ -309,7 +309,7 @@ test('purge keeps accurate scattered contact and gig data in canonical columns',
 
     assert.equal(result.archivedSheetName, null);
     assert.equal(result.replacedSheet, true);
-    assert.equal(result.schemaVersion, '2026-05-08-lean-status-storage');
+    assert.equal(result.schemaVersion, '2026-05-08-simplified-crm-statuses');
     assert.deepEqual(plain(headers), plain(bridge.JDDM_CANONICAL_HEADERS));
     assert.equal(row[headerIndex(headers, 'Place Name')], 'Bait House Brewery');
     assert.equal(row[headerIndex(headers, 'Address')], '223 Meigs St');
@@ -369,6 +369,7 @@ test('venue row highlight is driven only by Status', () => {
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Played in the Past', '', '', ''], headerMap), 'PLAYED');
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Played in the Past - Awaiting Reply', '', '', ''], headerMap), 'PLAYED');
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Open Microphone', '', '', ''], headerMap), 'OPEN_MIC');
+    assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Told No / Closed / No Music', '', '', ''], headerMap), 'CLOSED');
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Closed and Not Booking', '', '', ''], headerMap), 'CLOSED');
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'No Live Music', '', '', ''], headerMap), 'CLOSED');
     assert.equal(bridge.classifyVenueRowHighlight_(['Venue', 'Venue Said No to JDDM', '', '', ''], headerMap), 'CLOSED');
@@ -454,11 +455,38 @@ test('health advertises the lean storage schema', () => {
     const bridge = loadBridge(sheet);
     const health = bridge.getHealth_();
 
-    assert.equal(health.schemaVersion, '2026-05-08-lean-status-storage');
+    assert.equal(health.schemaVersion, '2026-05-08-simplified-crm-statuses');
     assert.ok(health.storageColumns.includes('Place Name'));
     assert.ok(health.sections.status.includes('Status'));
     assert.ok(health.statusOptions.includes('Played in the Past - Awaiting Reply'));
+    assert.ok(health.statusOptions.includes('Told No / Closed / No Music'));
+    assert.equal(health.statusOptions.includes('Closed and Not Booking'), false);
     assert.ok(health.generatedColumns.some(column => column.header === 'Future Gigs'));
+});
+
+test('status migration collapses legacy states while preserving highlight meanings', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Notes'],
+        [
+            ['Closed Room', 'closed-room', 'Closed and Not Booking', 'Original note'],
+            ['Sent Room', 'sent-room', 'Sent', ''],
+            ['Interested Room', 'interested-room', 'Interested', ''],
+            ['Review Room', 'review-room', 'Need Contact Info', ''],
+            ['Booked Room', 'booked-room', 'Booked', '']
+        ]
+    );
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.migrateCrmStatuses_({ limit: 5000 });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.changedRows, 4);
+    assert.equal(sheet.values[1][2], 'Told No / Closed / No Music');
+    assert.match(sheet.values[1][3], /Previous CRM status: Closed and Not Booking/);
+    assert.equal(sheet.values[2][2], 'Contacted - Waiting on Reply');
+    assert.equal(sheet.values[3][2], 'Responded - Needs Action');
+    assert.equal(sheet.values[4][2], 'Needs Review');
+    assert.equal(sheet.values[5][2], 'Booked');
 });
 
 test('calendar cleanup removes no-coordinate calendar-only rows', () => {

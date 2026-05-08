@@ -45,7 +45,7 @@ test('marker pin styles follow CRM Status color rules', () => {
     const played = config.getPinStyle({ contactStatus: 'Played in the Past' });
     const awaitingReply = config.getPinStyle({ contactStatus: 'Played in the Past - Awaiting Reply' });
     const openMic = config.getPinStyle({ contactStatus: 'Open Microphone' });
-    const closed = config.getPinStyle({ contactStatus: 'Closed and Not Booking' });
+    const closed = config.getPinStyle({ contactStatus: 'Told No / Closed / No Music' });
     const notInterested = config.getPinStyle({ contactStatus: 'Not Interested / Do Not Contact' });
     const ordinary = config.getPinStyle({ contactStatus: 'Not Contacted Yet' });
 

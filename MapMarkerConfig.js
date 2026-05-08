@@ -37,6 +37,7 @@ class MapMarkerConfig {
             return 'played';
         }
         if ([
+            'told no closed no music',
             'do not contact',
             'not a fit',
             'closed and not booking',

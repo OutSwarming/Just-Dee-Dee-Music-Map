@@ -63,7 +63,7 @@
             ].join('\n')
         },
         [TEMPLATE_TYPES.INTERESTED_REPLY]: {
-            label: 'Interested Reply',
+            label: 'Response Reply',
             subject: 'Re: {{artistName}} availability for {{venueName}}',
             body: [
                 'Hi {{contactName}},',
@@ -179,7 +179,7 @@
         if (venue.booking && venue.booking.isPostGigFollowUpDue) {
             return TEMPLATE_TYPES.THANK_YOU;
         }
-        if ((venue.booking && venue.booking.isInterested) || status === statuses.INTERESTED) {
+        if ((venue.booking && (venue.booking.isRespondedNeedsAction || venue.booking.isInterested)) || status === statuses.RESPONDED_NEEDS_ACTION) {
             return TEMPLATE_TYPES.INTERESTED_REPLY;
         }
         if ((venue.booking && venue.booking.isBooked) || status === statuses.BOOKED) {
@@ -187,7 +187,7 @@
         }
         if (
             (venue.booking && venue.booking.isFollowUpDue) ||
-            status === statuses.SENT ||
+            status === statuses.WAITING_REPLY ||
             status === statuses.FOLLOW_UP_NEEDED ||
             status === statuses.NO_RESPONSE
         ) {

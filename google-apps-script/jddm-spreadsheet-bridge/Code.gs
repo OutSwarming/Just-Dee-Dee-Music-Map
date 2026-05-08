@@ -8,7 +8,7 @@
  * - Purge/setup is explicit. Health/csv never delete columns.
  */
 
-var JDDM_SCHEMA_VERSION = '2026-05-08-lean-status-storage';
+var JDDM_SCHEMA_VERSION = '2026-05-08-simplified-crm-statuses';
 var EDIT_TOKEN = '';
 var JDDM_TIMEZONE = 'America/New_York';
 var JDDM_CALENDAR_IDS = [
@@ -19,26 +19,18 @@ var JDDM_SHEET_NAME_HINTS = ['Venues', 'JustDeeDeeMusic Master Venue Spreadsheet
 var JDDM_ARCHIVE_PREFIX = 'JDDM Archive ';
 
 var JDDM_CRM_STATUS_OPTIONS = [
+  'Not Set',
+  'Needs Review',
   'Not Contacted Yet',
-  'Need Contact Info',
   'Draft Ready',
-  'Sent',
-  'Interested',
-  'Follow Up Needed',
   'Contacted - Waiting on Reply',
-  'Waitlist / Maybe Later',
+  'Follow Up Needed',
+  'Responded - Needs Action',
+  'Told No / Closed / No Music',
   'Booked',
   'Played in the Past',
   'Played in the Past - Awaiting Reply',
-  'Open Microphone',
-  'Closed and Not Booking',
-  'No Live Music',
-  'Venue Said No to JDDM',
-  'Not Interested / Do Not Contact',
-  'Bad Fit / Too Far',
-  'Closed / No Longer Operating',
-  'Duplicate / Merge Needed',
-  'Needs Review'
+  'Open Microphone'
 ];
 
 var JDDM_STORAGE_COLUMNS = [
@@ -169,6 +161,7 @@ function routeRequest_(payload) {
     if (action === 'csv') return csvOutput_(buildCsv_());
     if (action === 'setupComputerSection' || action === 'syncComputerSection') return jsonOutput_(setupComputerSection_(payload));
     if (action === 'purgeAndSetup' || action === 'purgeSheet') return jsonOutput_(purgeAndSetup_(payload));
+    if (action === 'migrateCrmStatuses' || action === 'simplifyCrmStatuses') return jsonOutput_(migrateCrmStatuses_(payload));
     if (action === 'applyRowHighlighting') return jsonOutput_(applyRowHighlighting_(payload));
     if (action === 'cleanupCalendarOnlyRows' || action === 'removeCalendarOnlyRows') return jsonOutput_(cleanupCalendarOnlyRows_(payload));
     if (action === 'getVenue') return jsonOutput_(getVenue_(payload));
@@ -375,36 +368,28 @@ function normalizeCrmStatus_(value) {
   var text = clean_(value);
   var loose = normalizeKey_(text);
   if (!loose) return '';
+  if (loose === 'crm status' || loose === 'status') return '';
+  if (/not set|unset|unknown|tbd/.test(loose)) return 'Not Set';
+  if (/need.*contact|needs? review|missing.*info|missing.*contact|review/.test(loose)) return 'Needs Review';
   if (/^booked|confirmed|scheduled/.test(loose)) return 'Booked';
   if (/played.*past.*await|played.*past.*reply|await.*reply.*played.*past/.test(loose)) return 'Played in the Past - Awaiting Reply';
   if (/played.*past|past.*played|played before|has played/.test(loose)) return 'Played in the Past';
   if (/open mic|open microphone/.test(loose)) return 'Open Microphone';
-  if (/closed.*not booking|not booking.*closed/.test(loose)) return 'Closed and Not Booking';
-  if (/no live music/.test(loose)) return 'No Live Music';
-  if (/venue.*said.*no|said.*no.*jddm|declined|rejected/.test(loose)) return 'Venue Said No to JDDM';
-  if (/do not contact|dnc|not interested/.test(loose)) return 'Not Interested / Do Not Contact';
-  if (/bad fit|not a fit|too far/.test(loose)) return 'Bad Fit / Too Far';
-  if (/no longer operating|permanently closed|closed operating|\bclosed\b/.test(loose)) return 'Closed / No Longer Operating';
-  if (/duplicate|merge/.test(loose)) return 'Duplicate / Merge Needed';
+  if (/told no closed no music|closed.*not booking|not booking.*closed|no live music|no music|venue.*said.*no|said.*no.*jddm|said no|declined|rejected|do not contact|dnc|not interested|bad fit|not a fit|too far|no longer operating|permanently closed|closed operating|\bclosed\b|duplicate|merge/.test(loose)) return 'Told No / Closed / No Music';
   if (/follow up|followup/.test(loose)) return 'Follow Up Needed';
-  if (/waiting.*reply|contacted.*waiting/.test(loose)) return 'Contacted - Waiting on Reply';
+  if (/waiting.*reply|contacted.*waiting|sent|emailed|outreach sent/.test(loose)) return 'Contacted - Waiting on Reply';
+  if (/respond|response|replied|reply received|interested|waitlist|maybe later/.test(loose)) return 'Responded - Needs Action';
+  if (/not contacted|never contacted|new prospect/.test(loose)) return 'Not Contacted Yet';
+  if (/draft ready|ready.*draft/.test(loose)) return 'Draft Ready';
   for (var i = 0; i < JDDM_CRM_STATUS_OPTIONS.length; i++) {
     if (normalizeKey_(JDDM_CRM_STATUS_OPTIONS[i]) === loose) return JDDM_CRM_STATUS_OPTIONS[i];
   }
-  return text || 'Needs Review';
+  return 'Needs Review';
 }
 
 function isClosedHighlightStatus_(status) {
   var normalized = normalizeCrmStatus_(status);
-  return [
-    'Closed and Not Booking',
-    'No Live Music',
-    'Venue Said No to JDDM',
-    'Not Interested / Do Not Contact',
-    'Bad Fit / Too Far',
-    'Closed / No Longer Operating',
-    'Duplicate / Merge Needed'
-  ].indexOf(normalized) >= 0;
+  return normalized === 'Told No / Closed / No Music';
 }
 
 function isBlankVenueRow_(row, headerMap) {
@@ -452,7 +437,7 @@ function rowToCanonical_(row, sourceHeaderMap) {
   next['Past Gig Count'] = pastCount || '';
   next['Future Gig Count'] = futureCount || '';
   next['Total Gig Count'] = toNumber_(next['Total Gig Count']) || pastCount + futureCount || '';
-  next.Status = normalizeCrmStatus_(next.Status) || 'Not Contacted Yet';
+  next.Status = normalizeCrmStatus_(next.Status) || 'Not Set';
   return JDDM_CANONICAL_HEADERS.map(function(header) { return next[header]; });
 }
 
@@ -623,13 +608,7 @@ function getSchema_() {
       'Played in the Past': JDDM_ROW_HIGHLIGHT_COLORS.PLAYED,
       'Played in the Past - Awaiting Reply': JDDM_ROW_HIGHLIGHT_COLORS.PLAYED,
       'Open Microphone': JDDM_ROW_HIGHLIGHT_COLORS.OPEN_MIC,
-      'Closed and Not Booking': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'No Live Music': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'Venue Said No to JDDM': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'Not Interested / Do Not Contact': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'Bad Fit / Too Far': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'Closed / No Longer Operating': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
-      'Duplicate / Merge Needed': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED
+      'Told No / Closed / No Music': JDDM_ROW_HIGHLIGHT_COLORS.CLOSED
     }
   };
 }
@@ -653,6 +632,80 @@ function getSheetSections_() {
     contact: ['Contact Name', 'Email/Contact', 'Phone Number', 'Booking Contact', 'Contact Type', 'Priority', 'Next Follow Up'],
     gigs: ['Past Gigs', 'Future Gigs', 'Last Played', 'Next Booked', 'Past Gig Count', 'Future Gig Count', 'Total Gig Count', 'Last Synced'],
     extras: ['Venue Type', 'Website', 'Notes']
+  };
+}
+
+function appendPreviousStatusNote_(notes, previousStatus) {
+  var current = clean_(notes);
+  var previous = clean_(previousStatus);
+  if (!previous) return current;
+  var line = 'Previous CRM status: ' + previous;
+  if (current.indexOf(line) >= 0) return current;
+  return current ? current + '\n' + line : line;
+}
+
+function migrateCrmStatuses_(options) {
+  options = options || {};
+  var data = getData_();
+  var sheet = data.sheet;
+  var statusMap = data.headerMap.__canonical || data.headerMap;
+  var statusColumn = statusMap[normalizeKey_('Status')];
+  var notesColumn = statusMap[normalizeKey_('Notes')];
+  if (statusColumn === undefined) return { ok: false, code: 'NO_STATUS_COLUMN', message: 'Status column is missing.' };
+
+  var dryRun = isTrue_(options.dryRun);
+  var limit = Math.max(1, Math.min(Number(options.limit || 5000), 5000));
+  var changed = [];
+  var counts = {};
+
+  data.rows.forEach(function(row, index) {
+    if (changed.length >= limit || isBlankVenueRow_(row, data.headerMap)) return;
+    var rowNumber = index + 2;
+    var currentStatus = clean_(row[statusColumn]);
+    var normalizedStatus = normalizeCrmStatus_(currentStatus) || 'Not Set';
+    counts[normalizedStatus] = (counts[normalizedStatus] || 0) + 1;
+    if (normalizeKey_(currentStatus) === normalizeKey_(normalizedStatus)) return;
+
+    var nextRow = row.slice();
+    nextRow[statusColumn] = normalizedStatus;
+    if (notesColumn !== undefined && currentStatus) {
+      nextRow[notesColumn] = appendPreviousStatusNote_(nextRow[notesColumn], currentStatus);
+    }
+    changed.push({
+      rowNumber: rowNumber,
+      placeName: getByHeader_(row, data.headerMap, 'Place Name'),
+      from: currentStatus,
+      to: normalizedStatus,
+      row: nextRow
+    });
+  });
+
+  if (!dryRun) {
+    changed.forEach(function(item) {
+      sheet.getRange(item.rowNumber, 1, 1, data.headers.length).setValues([item.row]);
+    });
+  }
+
+  var formatting = dryRun
+    ? { ok: true, skipped: true }
+    : applyRowHighlighting_({ limit: Number(options.formatLimit || options.limit) || 5000 });
+
+  return {
+    ok: true,
+    action: 'migrateCrmStatuses',
+    dryRun: dryRun,
+    schemaVersion: JDDM_SCHEMA_VERSION,
+    changedRows: changed.length,
+    counts: counts,
+    sampleChanges: changed.slice(0, 50).map(function(item) {
+      return {
+        rowNumber: item.rowNumber,
+        placeName: item.placeName,
+        from: item.from,
+        to: item.to
+      };
+    }),
+    formatting: formatting
   };
 }
 
@@ -704,7 +757,7 @@ function applyRowHighlighting_(options) {
       playedInThePast: JDDM_ROW_HIGHLIGHT_COLORS.PLAYED,
       playedInThePastAwaitingReply: JDDM_ROW_HIGHLIGHT_COLORS.PLAYED,
       openMicrophone: JDDM_ROW_HIGHLIGHT_COLORS.OPEN_MIC,
-      closedAndNotBooking: JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
+      toldNoClosedNoMusic: JDDM_ROW_HIGHLIGHT_COLORS.CLOSED,
       closedStatuses: JDDM_ROW_HIGHLIGHT_COLORS.CLOSED
     },
     warnings: warnings.filter(function(item) { return !item.ok; })
@@ -730,7 +783,7 @@ function isCalendarOnlyRow_(row, headerMap) {
     toNumber_(getByHeader_(row, headerMap, 'Past Gig Count')) ||
     toNumber_(getByHeader_(row, headerMap, 'Future Gig Count'))
   );
-  return hasGigFacts && (status === 'Booked' || status === 'Played in the Past' || status === 'Needs Review');
+  return hasGigFacts && (status === 'Booked' || status === 'Played in the Past' || status === 'Needs Review' || status === 'Not Set');
 }
 
 function cleanupCalendarOnlyRows_(options) {
@@ -1059,6 +1112,7 @@ function onOpen() {
     .createMenu('JDDM Map')
     .addItem('Purge to clean storage sheet', 'menuPurgeAndSetup')
     .addItem('Setup CRM storage section', 'menuSetupComputerSection')
+    .addItem('Simplify CRM statuses', 'menuMigrateCrmStatuses')
     .addItem('Sync Google Calendar gigs', 'menuSyncCalendarGigEvents')
     .addItem('Apply CRM row colors', 'menuApplyRowHighlighting')
     .addToUi();
@@ -1072,6 +1126,11 @@ function menuPurgeAndSetup() {
 function menuSetupComputerSection() {
   var result = setupComputerSection_({ applyFormatting: true });
   SpreadsheetApp.getUi().alert('JDDM CRM storage setup complete. Rows=' + result.rowCount);
+}
+
+function menuMigrateCrmStatuses() {
+  var result = migrateCrmStatuses_({ limit: 5000 });
+  SpreadsheetApp.getUi().alert('JDDM CRM statuses simplified. Changed rows=' + result.changedRows);
 }
 
 function menuSyncCalendarGigEvents() {

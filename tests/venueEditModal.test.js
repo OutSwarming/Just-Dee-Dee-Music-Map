@@ -59,7 +59,7 @@ test('venue editor renders only focused pin CRM fields it receives', () => {
     const headers = modal.getRenderableHeaders({
         'Place Name': 'Brighten Brewing Company',
         Address: '123 Main St',
-        Status: 'Sent',
+        Status: 'Contacted - Waiting on Reply',
         'Last Contacted': '2026-05-04',
         'Contact Name': 'Jamie',
         'Email/Contact': 'booking@example.com',
@@ -98,7 +98,7 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
         'Place ID': 'brighten-brewing-company',
         Latitude: '41.123',
         Longitude: '-81.456',
-        Status: 'Sent',
+        Status: 'Contacted - Waiting on Reply',
         'Last Contacted': '2026-05-04',
         'Contact Name': 'Jamie',
         'Email/Contact': 'booking@example.com',
@@ -120,7 +120,7 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
         id: 'brighten-brewing-company',
         played: true,
         privateEvent: true,
-        contactStatus: 'Interested'
+        contactStatus: 'Responded - Needs Action'
     });
 
     assert.equal(fields.id, 'brighten-brewing-company');
@@ -129,7 +129,7 @@ test('venue editor builds structured booking fields from raw sheet aliases', () 
     assert.equal(fields.city, 'Cuyahoga Falls');
     assert.equal(fields.state, 'OH');
     assert.equal(fields.zip, '44221');
-    assert.equal(fields.contactStatus, 'Sent');
+    assert.equal(fields.contactStatus, 'Contacted - Waiting on Reply');
     assert.equal(fields.contactName, 'Jamie');
     assert.equal(fields.contactEmail, 'booking@example.com');
     assert.equal(fields.contactPhone, '440-555-1212');
@@ -219,7 +219,7 @@ test('venue editor treats green statuses as played for the map', () => {
     assert.equal(modal.buildVenueFromRawFields({ Status: 'Played in the Past' }).played, true);
     assert.equal(modal.buildVenueFromRawFields({ Status: 'Played in the Past - Awaiting Reply' }).played, true);
     assert.equal(modal.buildVenueFromRawFields({ Status: 'Open Microphone' }).played, false);
-    assert.equal(modal.buildVenueFromRawFields({ Status: 'Closed and Not Booking' }).doNotContact, true);
+    assert.equal(modal.buildVenueFromRawFields({ Status: 'Told No / Closed / No Music' }).doNotContact, true);
     assert.equal(modal.buildVenueFromRawFields({ Status: 'No Live Music' }).doNotContact, true);
 });
 

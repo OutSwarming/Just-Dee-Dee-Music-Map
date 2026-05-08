@@ -17,11 +17,11 @@
 
     const ACTION_DEFINITIONS = Object.freeze([
         { type: ACTION_TYPES.MARK_DRAFT_READY, label: 'Draft Ready' },
-        { type: ACTION_TYPES.MARK_SENT, label: 'Mark Sent' },
-        { type: ACTION_TYPES.MARK_INTERESTED, label: 'Interested' },
+        { type: ACTION_TYPES.MARK_SENT, label: 'Contacted' },
+        { type: ACTION_TYPES.MARK_INTERESTED, label: 'Response' },
         { type: ACTION_TYPES.MARK_BOOKED, label: 'Booked' },
-        { type: ACTION_TYPES.MARK_NOT_A_FIT, label: 'Not a Fit' },
-        { type: ACTION_TYPES.MARK_DO_NOT_CONTACT, label: 'Do Not Contact', danger: true }
+        { type: ACTION_TYPES.MARK_NOT_A_FIT, label: 'Told No / Closed', danger: true },
+        { type: ACTION_TYPES.MARK_DO_NOT_CONTACT, label: 'Closed / No Music', danger: true }
     ]);
 
     function clean(value) {
@@ -96,7 +96,7 @@
 
         if (actionType === ACTION_TYPES.MARK_SENT) {
             return {
-                contactStatus: statuses.SENT,
+                contactStatus: statuses.WAITING_REPLY,
                 draftStatus: draftStatuses.SENT,
                 lastContactedDate: today,
                 nextFollowUpDate: formatLocalDate(addDays(todayDate, 7)),
@@ -106,7 +106,7 @@
 
         if (actionType === ACTION_TYPES.MARK_INTERESTED) {
             return {
-                contactStatus: statuses.INTERESTED,
+                contactStatus: statuses.RESPONDED_NEEDS_ACTION,
                 nextFollowUpDate: formatLocalDate(addDays(todayDate, 2)),
                 doNotContact: false
             };
@@ -122,15 +122,15 @@
 
         if (actionType === ACTION_TYPES.MARK_NOT_A_FIT) {
             return {
-                contactStatus: statuses.NOT_A_FIT,
+                contactStatus: statuses.TOLD_NO_CLOSED_NO_MUSIC,
                 nextFollowUpDate: '',
-                doNotContact: false
+                doNotContact: true
             };
         }
 
         if (actionType === ACTION_TYPES.MARK_DO_NOT_CONTACT) {
             return {
-                contactStatus: statuses.CLOSED_AND_NOT_BOOKING || statuses.DO_NOT_CONTACT,
+                contactStatus: statuses.TOLD_NO_CLOSED_NO_MUSIC,
                 nextFollowUpDate: '',
                 doNotContact: true
             };

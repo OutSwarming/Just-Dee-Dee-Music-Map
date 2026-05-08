@@ -60,10 +60,10 @@ test('first outreach template fills venue and artist details', () => {
     assert.match(rendered.fullText, /^Subject: Live acoustic music booking inquiry/m);
 });
 
-test('suggested template switches to follow-up when a sent venue is due', () => {
+test('suggested template switches to follow-up when a waiting-reply venue is due', () => {
     const bark = loadBookingModules();
     const booking = bark.bookingSchema.normalizeVenue({
-        contactStatus: 'Sent',
+        contactStatus: 'Contacted - Waiting on Reply',
         nextFollowUpDate: '2000-01-01',
         contactEmail: 'bookings@example.com'
     });
@@ -105,8 +105,8 @@ test('mailto draft encodes the selected email template without sending anything'
         booking: {
             contactName: 'Taylor',
             contactEmail: 'taylor@example.com',
-            contactStatus: bark.bookingSchema.CONTACT_STATUS.INTERESTED,
-            isInterested: true
+            contactStatus: bark.bookingSchema.CONTACT_STATUS.RESPONDED_NEEDS_ACTION,
+            isRespondedNeedsAction: true
         }
     });
 

@@ -297,6 +297,7 @@
     function isClosedStatus(value) {
         const raw = clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
         return [
+            'told no closed no music',
             'closed and not booking',
             'no live music',
             'venue said no to jddm',
