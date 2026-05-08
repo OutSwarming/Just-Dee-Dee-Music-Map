@@ -184,3 +184,18 @@ test('booking dashboard orders CRM state summary by planning priority', () => {
     assert.equal(summary.find(item => item.status === 'Told No / Closed / No Music').tone, 'closed');
     assert.equal(dashboard.getDefaultStatusState({ statusGroups: { 'Needs Review': [{ id: 'review-1' }] } }), 'Needs Review');
 });
+
+test('booking dashboard keeps agenda cards in the three daily lanes', () => {
+    const dashboard = loadBookingDashboard();
+    const sections = dashboard.getAgendaSections({
+        dailyAgendaSections: [
+            { id: 'newPlaces', items: [{ venueId: 'new-1' }, { venueId: 'new-2' }] },
+            { id: 'catchUp', items: [{ venueId: 'reply-1' }] },
+            { id: 'dataReview', items: [] }
+        ]
+    });
+
+    assert.deepEqual(Array.from(sections, section => section.id), ['catchUp', 'newPlaces', 'dataReview']);
+    assert.deepEqual(Array.from(sections, section => section.items.length), [1, 2, 0]);
+    assert.equal(dashboard.getAgendaTotal({ dailyAgendaSections: sections }), 3);
+});

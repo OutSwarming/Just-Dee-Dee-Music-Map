@@ -30,6 +30,12 @@
         { status: 'Not Set', label: 'Not Set', tone: 'review' }
     ]);
 
+    const AGENDA_SECTIONS = Object.freeze([
+        { id: 'catchUp', label: 'Catch Up' },
+        { id: 'newPlaces', label: 'New Places' },
+        { id: 'dataReview', label: 'Data Review' }
+    ]);
+
     const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-05-08-simplified-crm-statuses';
     const REQUIRED_BOOKING_HEADERS = [
         'Place Name',
@@ -53,6 +59,7 @@
 
     let activeTab = STATE_TAB_ID;
     let activeStatusState = '';
+    let activeAgendaSection = 'catchUp';
     let unsubscribeRepo = null;
     let searchQuery = '';
     let bridgeHealth = {
@@ -140,6 +147,21 @@
 
     function getVenueLocation(venue) {
         return [venue.address, venue.city, venue.state, venue.zip].filter(Boolean).join(', ') || 'Northeast Ohio';
+    }
+
+    function formatAgendaDate(value) {
+        if (!value) return '';
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        const text = clean(value);
+        if (!text) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text) || /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(text)) return text;
+        const parsed = new Date(text);
+        if (!Number.isNaN(parsed.getTime()) && (text.includes('GMT') || text.includes('T') || /^[A-Z][a-z]{2}\s[A-Z][a-z]{2}\s\d{1,2}\s\d{4}/.test(text))) {
+            return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        return text;
     }
 
     function getEventLocation(event) {
@@ -240,6 +262,41 @@
         }
         const item = getStateSummaryItems(data).find(candidate => candidate.status === activeStatusState);
         return item && Array.isArray(item.venues) ? item.venues : [];
+    }
+
+    function getAgendaSections(data = {}) {
+        const byId = new Map();
+        if (Array.isArray(data.dailyAgendaSections)) {
+            data.dailyAgendaSections.forEach(section => {
+                if (section && section.id) byId.set(section.id, section);
+            });
+        }
+
+        return AGENDA_SECTIONS.map(definition => {
+            const source = byId.get(definition.id) || {};
+            return {
+                id: definition.id,
+                label: definition.label,
+                items: Array.isArray(source.items) ? source.items : []
+            };
+        });
+    }
+
+    function getAgendaTotal(data = {}) {
+        return getAgendaSections(data).reduce((sum, section) => sum + section.items.length, 0);
+    }
+
+    function syncActiveAgendaSection(data = {}) {
+        const sections = getAgendaSections(data);
+        const ids = new Set(sections.map(section => section.id));
+        if (ids.has(activeAgendaSection)) return;
+        activeAgendaSection = (sections.find(section => section.items.length) || sections[0] || {}).id || 'catchUp';
+    }
+
+    function getVenueForAgendaItem(item, data = {}) {
+        if (item && item.venue) return item.venue;
+        const id = item && item.venueId;
+        return (data.all || []).find(venue => venue.id === id) || {};
     }
 
     function normalizeSearchText(value) {
@@ -824,7 +881,7 @@
         const stateItems = getStateSummaryItems(data);
         const getCount = status => (stateItems.find(item => item.status === status) || {}).count || 0;
         stats.innerHTML = [
-            ['Priority Cards', (data.dailyAgenda || []).length],
+            ['Priority Cards', getAgendaTotal(data)],
             ['Responses', getCount('Responded - Needs Action')],
             ['Follow-Ups', getCount('Follow Up Needed')],
             ['Needs Review', getCount('Needs Review')],
@@ -856,20 +913,111 @@
         return item && item.status ? item.status : '';
     }
 
-    function getAgendaMetaLabel(item) {
-        return [
-            item && item.status ? item.status : '',
-            item && item.nextFollowUpDate ? `Follow-up ${item.nextFollowUpDate}` : '',
-            item && item.eventDate ? `Gig ${item.eventDate}` : ''
-        ].filter(Boolean).join(' | ');
+    function getAgendaDisplayReason(item) {
+        if (!item) return '';
+        if ((item.type === 'upcomingGig' || item.type === 'postGigFollowUp') && item.eventDate) {
+            return `${item.type === 'postGigFollowUp' ? 'Booked gig needs thank-you' : 'Upcoming booked gig'}: ${formatAgendaDate(item.eventDate)}`;
+        }
+        if ((item.type === 'followUpDue' || item.type === 'interestedDue') && item.nextFollowUpDate) {
+            return `${item.type === 'interestedDue' ? 'Response follow-up due' : 'Follow-up due'}: ${formatAgendaDate(item.nextFollowUpDate)}`;
+        }
+        return item.reason || '';
+    }
+
+    function getAgendaFactRows(item, data = {}) {
+        const venue = getVenueForAgendaItem(item, data);
+        const booking = venue.booking || {};
+        const contactLine = [booking.contactName, booking.contactType].filter(Boolean).join(' | ');
+        const emailOrPhone = booking.contactEmail || booking.contactPhone || '';
+        const scoreLine = [booking.priority ? `Priority ${booking.priority}` : '', booking.bestFitScore ? `Fit ${booking.bestFitScore}` : ''].filter(Boolean).join(' | ');
+        const rows = [];
+
+        if (item.type === 'missingInfo') {
+            const reviewReason = Array.isArray(booking.contactReviewReasons) && booking.contactReviewReasons.length
+                ? booking.contactReviewReasons[0]
+                : 'Contact details need cleanup';
+            rows.push(['Review', reviewReason]);
+            rows.push(['Contact', contactLine || 'Missing contact name']);
+            rows.push(['Email', booking.contactEmail || 'Missing email']);
+            rows.push(['Phone', booking.contactPhone || 'Missing phone']);
+            return rows;
+        }
+
+        if (item.type === 'newProspect' || item.type === 'priorityLead') {
+            rows.push(['Contact', contactLine || 'Contact ready']);
+            rows.push(['Reach', emailOrPhone || booking.bookingUrl || venue.website || 'Missing contact path']);
+            if (scoreLine) rows.push(['Score', scoreLine]);
+            rows.push(['Status', booking.contactStatus || item.status || 'Not Contacted Yet']);
+            return rows;
+        }
+
+        if (item.type === 'upcomingGig' || item.type === 'postGigFollowUp') {
+            rows.push(['Gig', [formatAgendaDate(booking.eventDate), booking.eventTime].filter(Boolean).join(' ') || 'Date not set']);
+            rows.push(['Contact', contactLine || booking.contactEmail || 'Booking contact not set']);
+            rows.push(['Future', booking.calendarFutureGigEvents || formatAgendaDate(booking.calendarNextGigDate) || 'No future list']);
+            rows.push(['Past Count', String(booking.calendarPastGigCount || 0)]);
+            return rows;
+        }
+
+        rows.push(['Next Step', item.suggestedAction || 'Review']);
+        rows.push(['Follow-Up', formatAgendaDate(booking.nextFollowUpDate) || 'Due now']);
+        rows.push(['Last Contact', formatAgendaDate(booking.lastContactedDate) || 'Not logged']);
+        rows.push(['Contact', contactLine || emailOrPhone || 'Contact not set']);
+        return rows;
+    }
+
+    function renderAgendaTaskCard(item, index, data) {
+        const venue = getVenueForAgendaItem(item, data);
+        const facts = getAgendaFactRows(item, data);
+        return `
+            <article class="booking-task-card" data-priority-type="${escapeHtml(item.type || 'default')}" data-state-tone="${escapeHtml(getStateTone(item.status, 'neutral'))}">
+                <div class="booking-task-card-top">
+                    <span>${index + 1}</span>
+                    <strong>${escapeHtml(getStateDisplayLabel(item.status || 'Current State'))}</strong>
+                </div>
+                <h4>${escapeHtml(item.venueName || venue.name || 'Unknown Venue')}</h4>
+                <p>${escapeHtml(getAgendaDisplayReason(item))}</p>
+                <div class="booking-task-facts">
+                    ${facts.map(([label, value]) => `
+                        <div>
+                            <span>${escapeHtml(label)}</span>
+                            <strong>${escapeHtml(value || 'Not set')}</strong>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="booking-task-actions">
+                    <button type="button" data-agenda-action="open-list" data-venue-id="${escapeHtml(item.venueId)}" data-target-tab="${escapeHtml(getAgendaTargetTab(item))}" data-target-state="${escapeHtml(getAgendaTargetState(item))}">Open</button>
+                    <button type="button" data-agenda-action="map" data-venue-id="${escapeHtml(item.venueId)}"${venue.lat && venue.lng ? '' : ' disabled'}>Map</button>
+                </div>
+            </article>
+        `;
+    }
+
+    function updateAgendaDeck(root) {
+        const buttons = Array.from(root.querySelectorAll('[data-agenda-section]'));
+        const activeIndex = Math.max(0, buttons.findIndex(button => button.dataset.agendaSection === activeAgendaSection));
+        const panels = Array.from(root.querySelectorAll('[data-agenda-panel]'));
+        const track = root.querySelector('[data-agenda-panels]');
+
+        buttons.forEach((button, index) => {
+            const isActive = index === activeIndex;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        panels.forEach((panel, index) => {
+            panel.setAttribute('aria-hidden', index === activeIndex ? 'false' : 'true');
+        });
+        if (track) track.style.transform = `translateX(-${activeIndex * 100}%)`;
     }
 
     function renderAgenda(data) {
         const agenda = qs('booking-daily-agenda');
         if (!agenda) return;
 
-        const items = Array.isArray(data.dailyAgenda) ? data.dailyAgenda : [];
-        if (!items.length) {
+        const sections = getAgendaSections(data);
+        const totalItems = sections.reduce((sum, section) => sum + section.items.length, 0);
+        const activeIndex = Math.max(0, sections.findIndex(section => section.id === activeAgendaSection));
+        if (!totalItems) {
             agenda.innerHTML = `
                 <div class="booking-agenda-header">
                     <div>
@@ -886,25 +1034,39 @@
             <div class="booking-agenda-header">
                 <div>
                     <p class="booking-kicker">Priority Cards</p>
-                    <h3>Top booking moves</h3>
+                    <h3>Daily booking deck</h3>
                 </div>
-                <span>${items.length}</span>
+                <span>${totalItems}</span>
             </div>
-            <div class="booking-agenda-list">
-                ${items.map((item, index) => `
-                    <article class="booking-agenda-item" data-priority-type="${escapeHtml(item.type || 'default')}" data-state-tone="${escapeHtml(getStateTone(item.status, 'neutral'))}">
-                        <strong>${index + 1}</strong>
-                        <div>
-                            <h4>${escapeHtml(item.venueName)}</h4>
-                            <p>${escapeHtml(item.reason)}</p>
-                            <span>${escapeHtml(getAgendaMetaLabel(item))}</span>
-                            <em>${escapeHtml(item.suggestedAction)}</em>
-                        </div>
-                        <button type="button" data-agenda-action="open-list" data-venue-id="${escapeHtml(item.venueId)}" data-target-tab="${escapeHtml(getAgendaTargetTab(item))}" data-target-state="${escapeHtml(getAgendaTargetState(item))}">Open</button>
-                    </article>
+            <div class="booking-agenda-switch" role="tablist" aria-label="Priority card lanes">
+                ${sections.map((section, index) => `
+                    <button type="button" class="${index === activeIndex ? 'active' : ''}" data-agenda-section="${escapeHtml(section.id)}" role="tab" aria-selected="${index === activeIndex ? 'true' : 'false'}">
+                        ${escapeHtml(section.label)}
+                        <span>${section.items.length}</span>
+                    </button>
                 `).join('')}
             </div>
+            <div class="booking-task-viewport">
+                <div class="booking-task-panels" data-agenda-panels style="transform: translateX(-${activeIndex * 100}%);">
+                    ${sections.map((section, sectionIndex) => `
+                        <section class="booking-task-panel" data-agenda-panel="${escapeHtml(section.id)}" aria-hidden="${sectionIndex === activeIndex ? 'false' : 'true'}">
+                            ${section.items.length ? `
+                                <div class="booking-task-strip">
+                                    ${section.items.map((item, itemIndex) => renderAgendaTaskCard(item, itemIndex, data)).join('')}
+                                </div>
+                            ` : `<p class="booking-agenda-empty">No ${escapeHtml(section.label)} cards right now.</p>`}
+                        </section>
+                    `).join('')}
+                </div>
+            </div>
         `;
+
+        agenda.querySelectorAll('[data-agenda-section]').forEach(button => {
+            button.addEventListener('click', () => {
+                activeAgendaSection = button.dataset.agendaSection || 'catchUp';
+                updateAgendaDeck(agenda);
+            });
+        });
 
         agenda.querySelectorAll('[data-agenda-action="open-list"]').forEach(button => {
             button.addEventListener('click', () => {
@@ -920,6 +1082,13 @@
                         setTimeout(() => card.classList.remove('booking-card-highlight'), 1600);
                     }
                 }, 80);
+            });
+        });
+
+        agenda.querySelectorAll('[data-agenda-action="map"]').forEach(button => {
+            button.addEventListener('click', () => {
+                const venue = (data.all || []).find(row => row.id === button.dataset.venueId);
+                if (venue) focusVenueOnMap(venue);
             });
         });
     }
@@ -1440,6 +1609,7 @@
         if (!root) return;
         const data = getDashboardData();
         syncActiveStatusState(data);
+        syncActiveAgendaSection(data);
         renderSheetBridgeHealth();
         renderVenueDataSync();
         renderStats(data);
@@ -1483,6 +1653,8 @@
         getDataFreshnessSummary,
         getStateSummaryItems,
         getDefaultStatusState,
+        getAgendaSections,
+        getAgendaTotal,
         filterWebsiteEvents,
         findMatchingVenueForEvent
     };

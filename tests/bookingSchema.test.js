@@ -325,6 +325,36 @@ test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects,
     assert.equal(agenda[5].suggestedAction, 'Research contact info');
 });
 
+test('daily agenda sections split catch-up, new places, and data review cards', () => {
+    const schema = loadBookingSchema();
+    const sections = schema.getDailyAgendaSections([
+        {
+            id: 'follow-up',
+            name: 'Sent Brewery',
+            contactStatus: 'Sent',
+            nextFollowUpDate: '2000-01-01',
+            contactEmail: 'sent@example.com'
+        },
+        {
+            id: 'new-place',
+            name: 'New Prospect Cafe',
+            contactStatus: 'Not Contacted',
+            contactEmail: 'hello@example.com',
+            priority: 8
+        },
+        {
+            id: 'review',
+            name: 'Needs Data Pub',
+            contactStatus: 'Needs Review'
+        }
+    ]);
+
+    assert.deepEqual(Array.from(sections, section => section.id), ['catchUp', 'newPlaces', 'dataReview']);
+    assert.deepEqual(Array.from(sections[0].items, item => item.venueId), ['follow-up']);
+    assert.deepEqual(Array.from(sections[1].items, item => item.venueId), ['new-place']);
+    assert.deepEqual(Array.from(sections[2].items, item => item.venueId), ['review']);
+});
+
 test('filterVenues searches venue, location, contact, and booking status terms', () => {
     const schema = loadBookingSchema();
     const venues = [

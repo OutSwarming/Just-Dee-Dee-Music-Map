@@ -1644,6 +1644,217 @@ body.app-tab-active #slide-panel {
     line-height: 1.45;
 }
 
+.booking-agenda-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    margin: 12px 0;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.booking-agenda-switch button {
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.booking-agenda-switch button.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
+}
+
+.booking-agenda-switch span {
+    display: inline-flex;
+    min-width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #111827;
+    font-size: 11px;
+}
+
+.booking-agenda-switch button.active span {
+    background: #111827;
+    color: #ffffff;
+}
+
+.booking-task-viewport {
+    overflow: hidden;
+}
+
+.booking-task-panels {
+    display: flex;
+    transition: transform 220ms ease;
+    will-change: transform;
+}
+
+.booking-task-panel {
+    flex: 0 0 100%;
+    min-width: 0;
+}
+
+.booking-task-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 2px 2px 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.booking-task-card {
+    flex: 0 0 min(88%, 380px);
+    scroll-snap-align: start;
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.booking-task-card[data-state-tone="action"] {
+    border-color: #93c5fd;
+}
+
+.booking-task-card[data-state-tone="review"] {
+    border-color: #facc15;
+}
+
+.booking-task-card[data-state-tone="booked"],
+.booking-task-card[data-state-tone="played"],
+.booking-task-card[data-state-tone="openMic"] {
+    border-color: #22c55e;
+}
+
+.booking-task-card[data-state-tone="closed"] {
+    border-color: #b91c1c;
+}
+
+.booking-task-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.booking-task-card-top > span {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #111827;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.booking-task-card-top > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.booking-task-card h4 {
+    margin: 10px 0 0;
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.15;
+    letter-spacing: 0;
+}
+
+.booking-task-card p {
+    margin: 5px 0 0;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.booking-task-facts {
+    display: grid;
+    gap: 7px;
+    margin-top: 12px;
+}
+
+.booking-task-facts div {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 8px;
+    background: #f8fafc;
+}
+
+.booking-task-facts span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.booking-task-facts strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.booking-task-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.booking-task-actions button {
+    min-height: 38px;
+    border: 1px solid #111827;
+    border-radius: 8px;
+    background: #111827;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.booking-task-actions button:last-child {
+    background: #ffffff;
+    color: #111827;
+}
+
+.booking-task-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .booking-search {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -2146,6 +2357,26 @@ body.app-tab-active #slide-panel {
     .booking-agenda-item button {
         grid-column: 1 / -1;
         width: 100%;
+    }
+
+    .booking-agenda-switch {
+        gap: 4px;
+        padding: 5px;
+    }
+
+    .booking-agenda-switch button {
+        min-height: 40px;
+        gap: 4px;
+        padding: 6px 4px;
+        font-size: 11px;
+    }
+
+    .booking-task-card {
+        flex-basis: 92%;
+    }
+
+    .booking-task-facts div {
+        grid-template-columns: 68px minmax(0, 1fr);
     }
 
     .booking-search > div {

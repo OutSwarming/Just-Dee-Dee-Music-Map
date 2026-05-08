@@ -580,6 +580,7 @@
         };
 
         groups.dailyAgenda = buildDailyAgendaFromGroups(groups);
+        groups.dailyAgendaSections = buildDailyAgendaSectionsFromGroups(groups);
         return groups;
     }
 
@@ -659,8 +660,112 @@
         return agenda;
     }
 
+    function buildDailyAgendaSectionsFromGroups(groups = {}, sectionLimit = 8) {
+        const makeSection = (id, label) => ({ id, label, items: [] });
+        const sections = [
+            makeSection('catchUp', 'Catch Up'),
+            makeSection('newPlaces', 'New Places'),
+            makeSection('dataReview', 'Data Review')
+        ];
+        const seenBySection = new Map(sections.map(section => [section.id, new Set()]));
+
+        function add(section, venues, reason, suggestedAction, type) {
+            const seen = seenBySection.get(section.id);
+            (venues || []).forEach(venue => {
+                if (!venue || !venue.id || seen.has(venue.id) || section.items.length >= sectionLimit) return;
+                seen.add(venue.id);
+                section.items.push(makeAgendaItem(venue, reason(venue), suggestedAction(venue), type, {
+                    sectionId: section.id
+                }));
+            });
+        }
+
+        const catchUp = sections[0];
+        const newPlaces = sections[1];
+        const dataReview = sections[2];
+        const followUps = [...(groups.followUps || [])].sort(compareFollowUpDate);
+        const interestedDue = followUps.filter(venue => venue.booking.isRespondedNeedsAction);
+        const overdueFollowUps = followUps.filter(venue => !venue.booking.isRespondedNeedsAction);
+        const interested = [...(groups.interested || [])].sort(compareFollowUpDate);
+        const postGigFollowUps = [...(groups.postGigFollowUps || [])].sort(compareEventDate);
+        const upcomingGigs = [...(groups.upcomingGigs || [])].sort(compareEventDate);
+        const priorityLeads = [...(groups.priorityLeads || [])]
+            .filter(venue => [
+                CONTACT_STATUS.NOT_CONTACTED,
+                CONTACT_STATUS.DRAFT_READY
+            ].includes(venue.booking.contactStatus))
+            .sort(compareNewProspect);
+        const newProspects = [...(groups.newProspects || [])].sort(compareNewProspect);
+        const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
+
+        add(
+            catchUp,
+            postGigFollowUps,
+            venue => `Booked gig needs thank-you${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
+            () => 'Send thank-you, then set rebooking follow-up',
+            'postGigFollowUp'
+        );
+        add(
+            catchUp,
+            interestedDue,
+            venue => `Response follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
+            () => 'Send response follow-up or mark booked',
+            'interestedDue'
+        );
+        add(
+            catchUp,
+            overdueFollowUps,
+            venue => `Follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
+            () => 'Send follow-up email',
+            'followUpDue'
+        );
+        add(
+            catchUp,
+            interested,
+            () => 'Response needs a next step',
+            () => 'Set follow-up date or mark booked',
+            'interested'
+        );
+        add(
+            catchUp,
+            upcomingGigs,
+            venue => `Upcoming booked gig${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
+            () => 'Confirm details and prepare set',
+            'upcomingGig'
+        );
+
+        add(
+            newPlaces,
+            priorityLeads,
+            venue => `Strong new lead: priority ${venue.booking.priority}, fit ${venue.booking.bestFitScore}`,
+            () => 'Choose first outreach action',
+            'priorityLead'
+        );
+        add(
+            newPlaces,
+            newProspects,
+            () => 'New venue ready for first outreach',
+            () => 'Copy first outreach email',
+            'newProspect'
+        );
+
+        add(
+            dataReview,
+            missingInfo,
+            () => 'Contact data needs review',
+            () => 'Fill the missing contact fields',
+            'missingInfo'
+        );
+
+        return sections;
+    }
+
     function getDailyAgenda(venues = [], limit = 6) {
         return buildDailyAgendaFromGroups(getDashboardGroups(venues), limit);
+    }
+
+    function getDailyAgendaSections(venues = [], sectionLimit = 8) {
+        return buildDailyAgendaSectionsFromGroups(getDashboardGroups(venues), sectionLimit);
     }
 
     window.BARK.bookingSchema = {
@@ -671,6 +776,7 @@
         normalizeVenue,
         getDashboardGroups,
         getDailyAgenda,
+        getDailyAgendaSections,
         getVenueMapState,
         getAgendaTargetIds,
         filterVenues,
