@@ -132,20 +132,6 @@
                     <span id="premium-lock-icon">✓</span>
                 </div>
 
-                <div class="premium-trail-controls" hidden>
-                    <button class="filter-btn premium-trail-btn" data-filter="VirtualTrail" id="toggle-virtual-trail"
-                        aria-disabled="false">
-                        <span class="dot green" style="background: linear-gradient(90deg, #22c55e, #fee2e2);"></span>
-                        Upcoming Route
-                    </button>
-                    <button class="filter-btn premium-trail-btn" data-filter="CompletedTrails"
-                        id="toggle-completed-trails" aria-disabled="false">
-                        <span class="dot green"
-                            style="background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.6);"></span>
-                        Completed Stops
-                    </button>
-                </div>
-
                 <div id="premium-trail-login-notice" class="premium-login-notice" hidden>
                     Route and history sync are client tools.
                     <button type="button" id="premium-login-jump">Log in</button>
@@ -158,6 +144,8 @@
                 <div class="premium-controls">
                     <select id="visited-filter" class="premium-select">
                         <option value="all">All Places</option>
+                        <option value="black">Black Pins</option>
+                        <option value="colored">Colored Pins</option>
                         <option value="played">Played Places</option>
                         <option value="booked">Booked Places</option>
                         <option value="closed">Closed / Not Interested</option>

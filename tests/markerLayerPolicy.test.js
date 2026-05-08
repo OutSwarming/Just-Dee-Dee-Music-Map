@@ -63,6 +63,8 @@ test('venue filter labels normalize before marker policy decisions', () => {
 
     assert.equal(policy.normalizeVenueFilterState('Closed / Not Interested'), 'closed');
     assert.equal(policy.normalizeVenueFilterState('On Agenda Places'), 'agenda');
+    assert.equal(policy.normalizeVenueFilterState('Black Pins'), 'black');
+    assert.equal(policy.normalizeVenueFilterState('Colored Pins'), 'colored');
     assert.equal(policy.normalizeVenueFilterState('Booked Places'), 'booked');
     assert.equal(policy.normalizeVenueFilterState('Played Places'), 'played');
     assert.equal(policy.getMarkerLayerPolicy(8).limitZoomOut, false);

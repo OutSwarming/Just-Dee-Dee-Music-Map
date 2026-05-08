@@ -44,7 +44,7 @@
         simplifyTrails: false,
         instantNav: false,
         rememberMapPosition: false,
-        startNationalView: true,
+        startNationalView: false,
         stopAutoMovements: false,
         reducePinMotion: false,
         removeShadows: false,

@@ -307,6 +307,8 @@ if (visitedFilterEl) {
         : value => {
             const normalized = String(value || 'all').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
             if (!normalized || normalized === 'all' || normalized === 'unvisited' || normalized.includes('all place')) return 'all';
+            if (normalized === 'black' || normalized.includes('black pin') || normalized.includes('uncolored')) return 'black';
+            if (normalized === 'colored' || normalized.includes('colored pin') || normalized.includes('coloured pin') || normalized.includes('highlight')) return 'colored';
             if (normalized === 'played' || normalized === 'visited' || normalized.includes('played place')) return 'played';
             if (normalized === 'booked' || normalized.includes('booked place') || normalized.includes('future gig')) return 'booked';
             if (normalized === 'agenda' || normalized.includes('agenda') || normalized.includes('target')) return 'agenda';

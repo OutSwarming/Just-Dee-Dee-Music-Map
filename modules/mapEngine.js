@@ -344,6 +344,81 @@ if (mapStyleSelect) {
 window.BARK.loadLayer = loadLayer;
 
 // ====== LOCATE CONTROL ======
+function showLocationNotice(message, options = {}) {
+    if (window.BARK && typeof window.BARK.showTripToast === 'function') {
+        window.BARK.showTripToast(message, { duration: options.duration || 5200 });
+        return;
+    }
+
+    console.info('[JDDM Location]', message);
+}
+
+function getLocationErrorMessage(error) {
+    if (!error) return 'Could not get GPS location. Please check browser permissions.';
+    if (error.code === 1) return 'Location permission is blocked. Allow location access in the browser, then tap the location button again.';
+    if (error.code === 2) return 'Your device location is unavailable right now. Check GPS or Wi-Fi location services and try again.';
+    if (error.code === 3) return 'GPS location took too long. Try again when the phone has a stronger signal.';
+    return 'Could not get GPS location. Please check browser permissions.';
+}
+
+function requestUserLocation(options = {}) {
+    const shouldSetView = options.setView === true;
+    const userInitiated = options.userInitiated === true;
+    const maxZoom = Number.isFinite(Number(options.maxZoom)) ? Number(options.maxZoom) : 10;
+
+    if (!navigator.geolocation) {
+        showLocationNotice('This browser does not support GPS location.');
+        return Promise.resolve(false);
+    }
+
+    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    if (window.isSecureContext === false && !isLocalHost && window.location.protocol !== 'file:') {
+        showLocationNotice('Location needs HTTPS. Open the secure map link, then tap the location button again.');
+        return Promise.resolve(false);
+    }
+
+    if (userInitiated) showLocationNotice('Asking the browser for your location...', { duration: 2200 });
+    window.BARK._lastLocationRequestStatus = 'pending';
+
+    return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition((position) => {
+            const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+            if (shouldSetView) {
+                map.setView(latlng, Math.max(map.getZoom(), maxZoom), { animate: !window.lowGfxEnabled });
+            }
+            map.fire('locationfound', {
+                latlng,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: position.timestamp
+            });
+            window.BARK._lastLocationRequestStatus = 'found';
+            resolve(true);
+        }, (error) => {
+            const message = getLocationErrorMessage(error);
+            window.BARK._lastLocationRequestStatus = 'error';
+            window.BARK._lastLocationRequestError = {
+                code: error && error.code,
+                message: error && error.message
+            };
+            if (userInitiated || !window.BARK._hasShownBootLocationError) {
+                window.BARK._hasShownBootLocationError = true;
+                showLocationNotice(message);
+            } else {
+                console.warn('[JDDM Location]', message, error);
+            }
+            resolve(false);
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 60000,
+            timeout: userInitiated ? 15000 : 9000
+        });
+    });
+}
+
+window.BARK.requestUserLocation = requestUserLocation;
+
 const LocateControl = L.Control.extend({
     options: { position: 'bottomleft' },
     onAdd: function (map) {
@@ -357,7 +432,7 @@ const LocateControl = L.Control.extend({
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.on(button, 'click', function (e) {
             L.DomEvent.preventDefault(e);
-            map.locate({ setView: true, maxZoom: 10 });
+            requestUserLocation({ setView: true, maxZoom: 10, userInitiated: true });
         });
         return container;
     }
@@ -393,11 +468,7 @@ map.on('locationerror', function (e) {
 // Prompt for location immediately on load
 setTimeout(() => {
     const usedSaved = window.rememberMapPosition && localStorage.getItem('mapLat');
-    if (!usedSaved && !window.startNationalView) {
-        map.locate({ setView: true, maxZoom: 10 });
-    } else {
-        map.locate({ setView: false, watch: false });
-    }
+    if (!usedSaved) requestUserLocation({ setView: !window.startNationalView, maxZoom: 10 });
 }, 500);
 
 // ====== MARKER LAYERS ======

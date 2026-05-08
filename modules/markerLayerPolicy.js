@@ -11,6 +11,8 @@ function normalizeVenueFilterState(filter) {
     const raw = String(filter || 'all').trim();
     const value = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     if (!value || value === 'all' || value === 'unvisited' || value.includes('all place')) return 'all';
+    if (value === 'black' || value.includes('black pin') || value.includes('uncolored')) return 'black';
+    if (value === 'colored' || value.includes('colored pin') || value.includes('coloured pin') || value.includes('highlight')) return 'colored';
     if (value === 'played' || value === 'visited' || value.includes('played place')) return 'played';
     if (value === 'booked' || value.includes('booked place') || value.includes('future gig')) return 'booked';
     if (value === 'agenda' || value.includes('agenda') || value.includes('target')) return 'agenda';
@@ -24,7 +26,7 @@ function normalizeVenueFilterState(filter) {
     ) {
         return 'closed';
     }
-    return ['all', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
+    return ['all', 'black', 'colored', 'played', 'booked', 'closed', 'agenda'].includes(value) ? value : 'all';
 }
 
 function getRenderContext(zoom) {

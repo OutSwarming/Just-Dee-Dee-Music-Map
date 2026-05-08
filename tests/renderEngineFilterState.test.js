@@ -57,6 +57,8 @@ test('render engine accepts saved and label-style venue filter names', () => {
 
     assert.equal(bark.normalizeVenueFilterState('Closed / Not Interested'), 'closed');
     assert.equal(bark.normalizeVenueFilterState('On Agenda Places'), 'agenda');
+    assert.equal(bark.normalizeVenueFilterState('Black Pins'), 'black');
+    assert.equal(bark.normalizeVenueFilterState('Colored Pins'), 'colored');
     assert.equal(bark.normalizeVenueFilterState('Booked Places'), 'booked');
     assert.equal(bark.normalizeVenueFilterState('Played Places'), 'played');
     assert.equal(bark.normalizeVenueFilterState('visited'), 'played');
@@ -68,6 +70,11 @@ test('status filters only hide nonmatching map states', () => {
 
     assert.equal(bark.matchesVenueStatusFilter('Closed / Not Interested', 'closed', false), true);
     assert.equal(bark.matchesVenueStatusFilter('Closed / Not Interested', 'played', false), false);
+    assert.equal(bark.matchesVenueStatusFilter('Black Pins', 'default', false), true);
+    assert.equal(bark.matchesVenueStatusFilter('Black Pins', 'played', false), false);
+    assert.equal(bark.matchesVenueStatusFilter('Colored Pins', 'played', false), true);
+    assert.equal(bark.matchesVenueStatusFilter('Colored Pins', 'default', false), false);
+    assert.equal(bark.matchesVenueStatusFilter('Colored Pins', 'default', true), true);
     assert.equal(bark.matchesVenueStatusFilter('Played Places', 'played', false), true);
     assert.equal(bark.matchesVenueStatusFilter('Booked Places', 'booked', false), true);
     assert.equal(bark.matchesVenueStatusFilter('On Agenda Places', 'default', true), true);
@@ -82,5 +89,7 @@ test('status filters stay permissive while status-rich sheet data is still loadi
     assert.equal(bark.matchesVenueStatusFilter('Played Places', 'default', false), true);
     assert.equal(bark.matchesVenueStatusFilter('Booked Places', 'default', false), true);
     assert.equal(bark.matchesVenueStatusFilter('Closed / Not Interested', 'default', false), true);
+    assert.equal(bark.matchesVenueStatusFilter('Colored Pins', 'default', false), true);
+    assert.equal(bark.matchesVenueStatusFilter('Black Pins', 'default', false), true);
     assert.equal(bark.matchesVenueStatusFilter('On Agenda Places', 'default', false), false);
 });
