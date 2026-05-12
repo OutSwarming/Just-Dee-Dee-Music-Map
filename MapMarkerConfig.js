@@ -89,6 +89,7 @@ class MapMarkerConfig {
                 ringColor: '#1d4ed8',
                 pinColor: '#1d4ed8',
                 pinShadowColor: 'rgba(29, 78, 216, 0.58)',
+                borderClass: 'border-blue',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-agenda agenda-marker',
                 isHighlighted: true,
@@ -103,6 +104,7 @@ class MapMarkerConfig {
                 ringColor: '#065f46',
                 pinColor: '#064e3b',
                 pinShadowColor: 'rgba(6, 95, 70, 0.68)',
+                borderClass: 'border-dark-green',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-booked booked-marker',
                 isHighlighted: true,
@@ -117,6 +119,7 @@ class MapMarkerConfig {
                 ringColor: '#84cc16',
                 pinColor: '#15803d',
                 pinShadowColor: 'rgba(101, 163, 13, 0.62)',
+                borderClass: 'border-light-green',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-played played-marker',
                 isHighlighted: true,
@@ -131,6 +134,7 @@ class MapMarkerConfig {
                 ringColor: '#991b1b',
                 pinColor: '#7f1d1d',
                 pinShadowColor: 'rgba(127, 29, 29, 0.66)',
+                borderClass: 'border-red',
                 categoryClass: 'cat-venue',
                 stateClass: 'venue-map-state-closed closed-marker',
                 isHighlighted: true,
@@ -144,6 +148,7 @@ class MapMarkerConfig {
             ringColor: '#111827',
             pinColor: '#111827',
             pinShadowColor: 'rgba(17, 24, 39, 0.45)',
+            borderClass: 'border-black',
             categoryClass: 'cat-venue',
             stateClass: 'venue-map-state-default',
             isHighlighted: false,
@@ -168,11 +173,11 @@ class MapMarkerConfig {
 
         // Initialize Leaflet divIcon
         const divIcon = L.divIcon({
-            className: `custom-bark-marker ${stateClass} ${catClass} ${style.stateClass}`,
+            className: `custom-bark-marker ${stateClass} ${catClass} ${style.stateClass} ${style.borderClass}`,
             html: markerHtml,
-            iconSize: [42, 42],
-            iconAnchor: [21, 21],
-            popupAnchor: [0, -21]
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+            popupAnchor: [0, -18]
         });
 
         // Initialize and return the L.marker

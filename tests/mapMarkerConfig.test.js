@@ -24,6 +24,14 @@ function loadMapMarkerConfig() {
     };
     context.window = context;
     context.global = context;
+    context.L = {
+        divIcon(options) {
+            return { options };
+        },
+        marker(latLng, options) {
+            return { latLng, options };
+        }
+    };
 
     vm.createContext(context);
     ['modules/bookingSchema.js', 'MapMarkerConfig.js'].forEach(relativePath => {
@@ -50,15 +58,19 @@ test('marker pin styles follow CRM Status color rules', () => {
     const ordinary = config.getPinStyle({ contactStatus: 'Not Contacted Yet' });
 
     assert.equal(booked.ringColor, '#065f46');
+    assert.equal(booked.borderClass, 'border-dark-green');
     assert.equal(booked.mapState, 'booked');
     assert.equal(played.ringColor, '#84cc16');
+    assert.equal(played.borderClass, 'border-light-green');
     assert.equal(awaitingReply.ringColor, '#84cc16');
     assert.equal(openMic.ringColor, '#84cc16');
     assert.equal(openMic.mapState, 'played');
     assert.equal(closed.ringColor, '#991b1b');
+    assert.equal(closed.borderClass, 'border-red');
     assert.equal(closed.mapState, 'closed');
     assert.equal(notInterested.ringColor, '#991b1b');
     assert.equal(ordinary.ringColor, '#111827');
+    assert.equal(ordinary.borderClass, 'border-black');
     assert.equal(ordinary.isHighlighted, false);
 });
 
@@ -72,6 +84,27 @@ test('agenda targets use the agenda marker state over status color', () => {
     });
 
     assert.equal(style.ringColor, '#1d4ed8');
+    assert.equal(style.borderClass, 'border-blue');
     assert.equal(style.isAgendaTarget, true);
     assert.equal(style.stateClass.includes('agenda-marker'), true);
+});
+
+test('custom markers use the compact circular divIcon contract', () => {
+    const barkWindow = loadMapMarkerConfig();
+
+    const marker = barkWindow.MapMarkerConfig.createCustomMarker({
+        id: 'played-venue',
+        lat: 41.1,
+        lng: -81.5,
+        contactStatus: 'Played in the Past'
+    }, false);
+
+    const divIcon = marker.options.icon.options;
+    assert.deepEqual(Array.from(divIcon.iconSize), [36, 36]);
+    assert.deepEqual(Array.from(divIcon.iconAnchor), [18, 18]);
+    assert.deepEqual(Array.from(divIcon.popupAnchor), [0, -18]);
+    assert.match(divIcon.className, /\bcustom-bark-marker\b/);
+    assert.match(divIcon.className, /\bborder-light-green\b/);
+    assert.match(divIcon.html, /class="enamel-pin-wrapper"/);
+    assert.match(divIcon.html, /<img src="assets\/images\/jddm-played\.jpg"/);
 });

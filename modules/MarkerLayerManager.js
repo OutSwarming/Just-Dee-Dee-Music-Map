@@ -3,6 +3,8 @@
  */
 window.BARK = window.BARK || {};
 
+const MANAGER_MARKER_BORDER_CLASSES = ['border-red', 'border-blue', 'border-light-green', 'border-dark-green', 'border-black'];
+
 function getParkRepo() {
     return window.BARK.repos && window.BARK.repos.ParkRepo;
 }
@@ -91,6 +93,7 @@ class MarkerLayerManager {
                 this._icon.classList.remove('played-marker');
                 this._icon.classList.remove('closed-marker');
                 this._icon.classList.remove('agenda-marker');
+                MANAGER_MARKER_BORDER_CLASSES.forEach(className => this._icon.classList.remove(className));
                 this._icon.classList.remove('marker-filter-hidden');
             }
         });
@@ -153,6 +156,9 @@ class MarkerLayerManager {
         marker._icon.classList.toggle('played-marker', !style.isAgendaTarget && style.mapState === 'played');
         marker._icon.classList.toggle('closed-marker', !style.isAgendaTarget && style.mapState === 'closed');
         marker._icon.classList.toggle('agenda-marker', Boolean(style.isAgendaTarget));
+        MANAGER_MARKER_BORDER_CLASSES.forEach(className => {
+            marker._icon.classList.toggle(className, className === style.borderClass);
+        });
         // park-pin--in-trip hides the inner pin shape so the trip overlay badge
         // is the only visible marker at trip-stop locations. Re-applied on every
         // cluster `add` event (via bindMarkerEvents), so cluster rebuilds cannot

@@ -5,6 +5,8 @@
  */
 window.BARK = window.BARK || {};
 
+const RENDER_MARKER_BORDER_CLASSES = ['border-red', 'border-blue', 'border-light-green', 'border-dark-green', 'border-black'];
+
 function getParkRepo() {
     return window.BARK.repos && window.BARK.repos.ParkRepo;
 }
@@ -236,6 +238,7 @@ function applyMarkerVisualState(icon, item, isVisited, mapState, isAgendaTarget)
             ringColor: isVisited ? '#86efac' : '#111827',
             pinColor: isVisited ? '#15803d' : '#111827',
             pinShadowColor: isVisited ? 'rgba(34, 197, 94, 0.38)' : 'rgba(17, 24, 39, 0.45)',
+            borderClass: isVisited ? 'border-light-green' : 'border-black',
             isHighlighted: Boolean(isVisited),
             stateClass: isVisited ? 'venue-map-state-played played-marker' : 'venue-map-state-default'
         };
@@ -253,6 +256,9 @@ function applyMarkerVisualState(icon, item, isVisited, mapState, isAgendaTarget)
     icon.classList.toggle('played-marker', !isAgendaTarget && mapState === 'played');
     icon.classList.toggle('closed-marker', !isAgendaTarget && mapState === 'closed');
     icon.classList.toggle('agenda-marker', Boolean(isAgendaTarget));
+    RENDER_MARKER_BORDER_CLASSES.forEach(className => {
+        icon.classList.toggle(className, className === style.borderClass);
+    });
 
     icon.style.setProperty('--pin-color', style.pinColor, 'important');
     icon.style.setProperty('--ring-color', style.ringColor, 'important');
