@@ -117,6 +117,36 @@ test('raw field patch writes only clean storage headers', () => {
     assert.equal(Object.prototype.hasOwnProperty.call(rawFields, 'doNotContact'), false);
 });
 
+test('direct status dropdown payload writes the selected CRM state only', () => {
+    const bark = loadBookingModules();
+    const payload = bark.bookingActions.buildContactStatusSavePayload(
+        { id: 'venue-1' },
+        bark.bookingSchema.CONTACT_STATUS.BOOKED
+    );
+
+    assert.equal(payload.id, 'venue-1');
+    assert.equal(payload.actionType, bark.bookingActions.ACTION_TYPES.SET_CONTACT_STATUS);
+    assert.deepEqual(plain(payload.patch), {
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.BOOKED,
+        doNotContact: false
+    });
+    assert.deepEqual(plain(payload.rawFields), {
+        Status: bark.bookingSchema.CONTACT_STATUS.BOOKED
+    });
+});
+
+test('direct closed status marks the local venue as do-not-contact', () => {
+    const bark = loadBookingModules();
+    const patch = bark.bookingActions.buildContactStatusPatch(
+        bark.bookingSchema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC
+    );
+
+    assert.deepEqual(plain(patch), {
+        contactStatus: bark.bookingSchema.CONTACT_STATUS.TOLD_NO_CLOSED_NO_MUSIC,
+        doNotContact: true
+    });
+});
+
 test('manual follow-up date patch validates and writes only follow-up fields', () => {
     const bark = loadBookingModules();
     const patch = bark.bookingActions.buildFollowUpDatePatch('2026-06-01');

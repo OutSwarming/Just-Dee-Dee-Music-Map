@@ -235,6 +235,22 @@
         return `mailto:${encodeURIComponent(email)}?${params.toString()}`;
     }
 
+    function getGmailComposeHref(venue = {}, type) {
+        const booking = venue.booking || {};
+        const email = clean(booking.contactEmail || venue.contactEmail);
+        if (!email) return '';
+
+        const rendered = renderTemplate(type || getSuggestedTemplateType(venue), venue);
+        const params = new URLSearchParams({
+            view: 'cm',
+            fs: '1',
+            to: email,
+            su: rendered.subject,
+            body: rendered.body
+        });
+        return `https://mail.google.com/mail/?${params.toString()}`;
+    }
+
     window.BARK.bookingEmailTemplates = {
         ARTIST,
         TEMPLATE_TYPES,
@@ -243,6 +259,7 @@
         getTemplateOptions,
         getSuggestedTemplateType,
         renderTemplate,
-        getMailtoHref
+        getMailtoHref,
+        getGmailComposeHref
     };
 })();

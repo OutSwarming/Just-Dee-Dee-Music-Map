@@ -118,6 +118,28 @@ test('mailto draft encodes the selected email template without sending anything'
     assert.match(params.get('body'), /possible dates for Interested Winery/);
 });
 
+test('gmail compose draft encodes the selected template for Gmail', () => {
+    const bark = loadBookingModules();
+    const href = bark.bookingEmailTemplates.getGmailComposeHref({
+        name: 'Draft Room',
+        city: 'Akron',
+        booking: {
+            contactName: 'Riley',
+            contactEmail: 'riley@example.com',
+            contactStatus: bark.bookingSchema.CONTACT_STATUS.DRAFT_READY
+        }
+    }, bark.bookingEmailTemplates.TEMPLATE_TYPES.FIRST_OUTREACH);
+
+    assert.match(href, /^https:\/\/mail\.google\.com\/mail\/\?/);
+
+    const params = new URLSearchParams(href.split('?')[1]);
+    assert.equal(params.get('view'), 'cm');
+    assert.equal(params.get('fs'), '1');
+    assert.equal(params.get('to'), 'riley@example.com');
+    assert.match(params.get('su'), /Live acoustic music booking inquiry/);
+    assert.match(params.get('body'), /Hi Riley,/);
+});
+
 test('template options expose manual choices and explicit template overrides', () => {
     const bark = loadBookingModules();
     const templates = bark.bookingEmailTemplates;

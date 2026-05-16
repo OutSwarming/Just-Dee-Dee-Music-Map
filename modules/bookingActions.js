@@ -11,6 +11,7 @@
         MARK_BOOKED: 'markBooked',
         MARK_NOT_A_FIT: 'markNotAFit',
         MARK_DO_NOT_CONTACT: 'markDoNotContact',
+        SET_CONTACT_STATUS: 'setContactStatus',
         SET_FOLLOW_UP_DATE: 'setFollowUpDate',
         SET_PRIORITY_SCORE: 'setPriorityScore'
     });
@@ -145,6 +146,34 @@
         };
     }
 
+    function normalizeContactStatusInput(value) {
+        const text = clean(value);
+        const schema = getSchema();
+        const values = schema && Array.isArray(schema.CONTACT_STATUS_VALUES)
+            ? schema.CONTACT_STATUS_VALUES
+            : [];
+        if (!text) throw new Error('Status is required.');
+        const match = values.find(status => clean(status).toLowerCase() === text.toLowerCase());
+        return match || text;
+    }
+
+    function buildContactStatusPatch(contactStatus) {
+        const status = normalizeContactStatusInput(contactStatus);
+        const schema = getSchema();
+        const statuses = schema && schema.CONTACT_STATUS ? schema.CONTACT_STATUS : {};
+        const draftStatuses = schema && schema.DRAFT_STATUS ? schema.DRAFT_STATUS : {};
+        const patch = {
+            contactStatus: status,
+            doNotContact: status === statuses.TOLD_NO_CLOSED_NO_MUSIC
+        };
+
+        if (status === statuses.DRAFT_READY && draftStatuses.DRAFT_READY) {
+            patch.draftStatus = draftStatuses.DRAFT_READY;
+        }
+
+        return patch;
+    }
+
     function buildPriorityScorePatch(priority, bestFitScore) {
         return {
             priority: normalizeScoreInput(priority, 'Priority'),
@@ -236,6 +265,16 @@
         };
     }
 
+    function buildContactStatusSavePayload(venue, contactStatus) {
+        const patch = buildContactStatusPatch(contactStatus);
+        return {
+            id: venue && venue.id,
+            actionType: ACTION_TYPES.SET_CONTACT_STATUS,
+            patch,
+            rawFields: buildRawFieldsPatch(patch)
+        };
+    }
+
     function buildPriorityScoreSavePayload(venue, priority, bestFitScore) {
         const patch = buildPriorityScorePatch(priority, bestFitScore);
         return {
@@ -302,6 +341,34 @@
         };
     }
 
+    async function saveContactStatus(venue, contactStatus, options = {}) {
+        if (!venue || !venue.id) throw new Error('Venue id is required before saving status.');
+
+        const payload = buildContactStatusSavePayload(venue, contactStatus);
+        const service = options.spreadsheetService || getSpreadsheetService();
+        if (!service || typeof service.saveVenue !== 'function' || (typeof service.isConfigured === 'function' && !service.isConfigured())) {
+            const error = new Error('Spreadsheet bridge is not configured yet.');
+            error.code = 'SPREADSHEET_BRIDGE_NOT_CONFIGURED';
+            throw error;
+        }
+
+        const result = await service.saveVenue({
+            id: venue.id,
+            rawFields: payload.rawFields
+        });
+
+        if (result && result.csv && typeof window.BARK.parseCSVString === 'function') {
+            window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
+        } else {
+            applyLocalStatus(venue.id, payload.patch);
+        }
+
+        return {
+            ...payload,
+            result
+        };
+    }
+
     async function savePriorityScore(venue, priority, bestFitScore, options = {}) {
         if (!venue || !venue.id) throw new Error('Venue id is required before saving priority.');
 
@@ -338,15 +405,18 @@
         normalizeDateInput,
         normalizeScoreInput,
         buildStatusPatch,
+        buildContactStatusPatch,
         buildFollowUpDatePatch,
         buildPriorityScorePatch,
         buildRawFieldsPatch,
         buildStatusSavePayload,
+        buildContactStatusSavePayload,
         buildFollowUpDateSavePayload,
         buildPriorityScoreSavePayload,
         mergeBookingPatch,
         applyLocalStatus,
         saveStatus,
+        saveContactStatus,
         saveFollowUpDate,
         savePriorityScore
     };

@@ -73,6 +73,7 @@
         checkedAt: null,
         error: null
     };
+    let emailDraftVenue = null;
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -644,9 +645,30 @@
         return '';
     }
 
+    function getGmailComposeHref(venue, templateType) {
+        const templates = getTemplateService();
+        if (templates && typeof templates.getGmailComposeHref === 'function') {
+            return templates.getGmailComposeHref(venue, templateType);
+        }
+        return '';
+    }
+
     function getSelectedTemplateType(card) {
         const select = card && card.querySelector('[data-booking-template-select]');
         return select ? clean(select.value) : '';
+    }
+
+    function getStatusOptions(currentStatus = '') {
+        const schema = getSchema();
+        const ordered = schema && Array.isArray(schema.CONTACT_STATUS_VALUES)
+            ? schema.CONTACT_STATUS_VALUES
+            : getSchemaStatusOrder();
+        const options = ordered.length ? ordered.slice() : FALLBACK_STATE_SUMMARY.map(item => item.status);
+        const current = clean(currentStatus);
+        if (current && !options.some(option => option.toLowerCase() === current.toLowerCase())) {
+            options.unshift(current);
+        }
+        return options;
     }
 
     function getExternalUrl(value) {
@@ -745,6 +767,32 @@
         `;
     }
 
+    function renderStateControl(venue) {
+        const booking = venue.booking || {};
+        const currentStatus = clean(booking.contactStatus || venue.contactStatus || 'Not Set');
+        const options = getStatusOptions(currentStatus);
+        return `
+            <div class="booking-state-control">
+                <label for="booking-state-${escapeHtml(venue.id)}">Current State</label>
+                <select id="booking-state-${escapeHtml(venue.id)}" data-booking-state-select data-venue-id="${escapeHtml(venue.id)}">
+                    ${options.map(option => `<option value="${escapeHtml(option)}"${option === currentStatus ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                </select>
+            </div>
+        `;
+    }
+
+    function getContactRows(venue) {
+        const booking = venue.booking || {};
+        const rows = [
+            ['Venue', venue.name || 'Unknown Venue'],
+            ['Contact', booking.contactName || venue.contactName || 'Not set'],
+            ['Email', booking.contactEmail || venue.contactEmail || 'Missing contact info']
+        ];
+        const phone = booking.contactPhone || venue.contactPhone || '';
+        if (phone) rows.push(['Phone', phone]);
+        return rows;
+    }
+
     function writeClipboardText(text) {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
             return navigator.clipboard.writeText(text);
@@ -784,13 +832,81 @@
     }
 
     function openEmailDraft(venue, templateType) {
-        const templates = getTemplateService();
-        const href = templates && typeof templates.getMailtoHref === 'function'
-            ? templates.getMailtoHref(venue, templateType)
-            : '';
+        const href = getGmailComposeHref(venue, templateType);
         if (!href) return false;
-        window.location.href = href;
+        const opened = typeof window.open === 'function'
+            ? window.open(href, '_blank', 'noopener')
+            : null;
+        if (!opened) window.location.href = href;
         return true;
+    }
+
+    function setEmailModalStatus(message, tone = 'neutral') {
+        const status = qs('booking-email-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.dataset.tone = tone;
+    }
+
+    function closeEmailTemplateModal() {
+        const modal = qs('booking-email-modal');
+        if (!modal) return;
+        modal.hidden = true;
+        document.body.classList.remove('venue-edit-open');
+        emailDraftVenue = null;
+        setEmailModalStatus('', 'neutral');
+    }
+
+    function openEmailTemplateModal(venue) {
+        const modal = qs('booking-email-modal');
+        const select = qs('booking-email-template-select');
+        const summary = qs('booking-email-summary');
+        if (!modal || !select || !summary) return false;
+
+        const templates = getTemplateService();
+        if (!templates || typeof templates.getTemplateOptions !== 'function') return false;
+
+        const suggestedType = templates.getSuggestedTemplateType(venue);
+        const options = templates.getTemplateOptions();
+        emailDraftVenue = venue;
+        summary.textContent = `${venue.name || 'This venue'}${venue.booking && venue.booking.contactEmail ? ` -> ${venue.booking.contactEmail}` : ''}`;
+        select.innerHTML = options.map(option => `<option value="${escapeHtml(option.type)}"${option.type === suggestedType ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('');
+        setEmailModalStatus('', 'neutral');
+        modal.hidden = false;
+        document.body.classList.add('venue-edit-open');
+        select.focus({ preventScroll: true });
+        return true;
+    }
+
+    function bindEmailModalEvents() {
+        if (bindEmailModalEvents.bound) return;
+        bindEmailModalEvents.bound = true;
+
+        const modal = qs('booking-email-modal');
+        if (!modal) return;
+
+        modal.addEventListener('click', event => {
+            if (event.target && event.target.dataset && event.target.dataset.closeBookingEmail === 'true') {
+                closeEmailTemplateModal();
+            }
+        });
+
+        const confirm = qs('booking-email-confirm');
+        if (confirm) {
+            confirm.addEventListener('click', () => {
+                const select = qs('booking-email-template-select');
+                if (!emailDraftVenue || !select) return;
+                if (!openEmailDraft(emailDraftVenue, select.value)) {
+                    setEmailModalStatus('Missing contact email for this venue.', 'error');
+                    return;
+                }
+                closeEmailTemplateModal();
+            });
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && modal && !modal.hidden) closeEmailTemplateModal();
+        });
     }
 
     function getVenueMarker(venue) {
@@ -1150,46 +1266,26 @@
 
     function renderVenueCard(venue, tabId) {
         const booking = venue.booking || {};
-        const renderedEmail = getRenderedEmail(venue);
-        const website = getExternalUrl(booking.bookingUrl || venue.website || '');
-        const statusClass = booking.doNotContact ? ' danger' : booking.isBooked ? ' success' : (booking.isRespondedNeedsAction || booking.isInterested) ? ' warm' : '';
-        const hasEmailDraft = Boolean(getMailtoHref(venue));
-        const eventLabel = [booking.eventDate || venue.eventDate, booking.eventTime || venue.eventTime].filter(Boolean).join(' ');
-        const priorityLabel = `Priority ${getScoreInputValue(booking.priority)}`;
-        const fitLabel = `Fit ${getScoreInputValue(booking.bestFitScore)}`;
+        const hasEmailDraft = Boolean(getGmailComposeHref(venue));
+        const contactRows = getContactRows(venue);
+        const emailMissing = !clean(booking.contactEmail || venue.contactEmail);
 
         return `
             <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}">
-                <div class="booking-card-main">
-                    <div>
-                        <p class="booking-card-eyebrow">${escapeHtml(getActionReason(venue, tabId))}</p>
-                        <h3>${escapeHtml(venue.name || 'Unknown Venue')}</h3>
-                    </div>
-                    <span class="booking-status${statusClass}">${escapeHtml(booking.contactStatus || 'Not Contacted')}</span>
+                ${renderStateControl(venue)}
+                <div class="booking-card-info" aria-label="Venue contact summary">
+                    ${contactRows.map(([label, value]) => `
+                        <div>
+                            <span>${escapeHtml(label)}</span>
+                            <strong${label === 'Email' && emailMissing ? ' class="booking-missing-value"' : ''}>${escapeHtml(value)}</strong>
+                        </div>
+                    `).join('')}
                 </div>
                 <p class="booking-card-location">${escapeHtml(getVenueLocation(venue))}</p>
-                <div class="booking-card-meta">
-                    <span>${escapeHtml(venue.venueType || venue.category || 'Other Venue')}</span>
-                    ${eventLabel ? `<span>Gig: ${escapeHtml(eventLabel)}</span>` : ''}
-                    <span>${escapeHtml(priorityLabel)}</span>
-                    <span>${escapeHtml(fitLabel)}</span>
-                    <span>${booking.contactEmail ? escapeHtml(booking.contactEmail) : 'Missing contact info'}</span>
-                    <span>${escapeHtml(renderedEmail.label)} template</span>
+                <div class="booking-card-actions booking-card-actions--minimal">
+                    <button type="button" class="booking-primary-action" data-booking-action="choose-email-template" data-venue-id="${escapeHtml(venue.id)}"${hasEmailDraft ? '' : ' disabled'}>Send Email</button>
+                    <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Update Contact Info</button>
                 </div>
-                ${renderTemplateControl(venue)}
-                <div class="booking-card-actions">
-                    <button type="button" data-booking-action="map" data-venue-id="${escapeHtml(venue.id)}">View Map</button>
-                    <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Edit</button>
-                    <button type="button" data-booking-action="copy" data-venue-id="${escapeHtml(venue.id)}">Copy Info</button>
-                    <button type="button" data-booking-action="copy-template" data-copy-target="subject" data-venue-id="${escapeHtml(venue.id)}">Copy Subject</button>
-                    <button type="button" data-booking-action="copy-template" data-copy-target="body" data-venue-id="${escapeHtml(venue.id)}">Copy Body</button>
-                    <button type="button" data-booking-action="copy-template" data-copy-target="fullText" data-venue-id="${escapeHtml(venue.id)}">Copy Email</button>
-                    ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener">Website</a>` : '<button type="button" disabled>Website</button>'}
-                    <button type="button" data-booking-action="open-email-draft" data-venue-id="${escapeHtml(venue.id)}"${hasEmailDraft ? '' : ' disabled'}>Email Draft</button>
-                    ${renderStatusActions(venue)}
-                </div>
-                ${renderPriorityScoreControl(venue)}
-                ${renderFollowUpControl(venue)}
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
         `;
@@ -1434,8 +1530,41 @@
         }
     }
 
+    async function saveVenueState(card, select, venue) {
+        const actions = getActionService();
+        if (!actions || typeof actions.saveContactStatus !== 'function') return;
+
+        const previousValue = clean(select.dataset.previousValue || venue.booking && venue.booking.contactStatus || venue.contactStatus);
+        const nextValue = clean(select.value);
+        if (!nextValue || nextValue === previousValue) return;
+
+        setCardButtonsBusy(card, true);
+        setCardSaveStatus(card, 'Saving state...', 'neutral');
+
+        try {
+            await actions.saveContactStatus(venue, nextValue);
+            select.dataset.previousValue = nextValue;
+            setCardSaveStatus(card, 'State saved.', 'success');
+            setTimeout(() => render(), 350);
+        } catch (error) {
+            console.error('[bookingDashboard] state save failed:', error);
+            select.value = previousValue;
+            setCardSaveStatus(card, error.message || 'Could not save state.', 'error');
+        } finally {
+            setCardButtonsBusy(card, false);
+        }
+    }
+
     function bindCardActions(container, data) {
         const byId = new Map((data.all || []).map(venue => [venue.id, venue]));
+        container.querySelectorAll('[data-booking-state-select]').forEach(select => {
+            select.dataset.previousValue = select.value;
+            select.addEventListener('change', async () => {
+                const venue = byId.get(select.dataset.venueId);
+                if (!venue) return;
+                await saveVenueState(select.closest('.booking-card'), select, venue);
+            });
+        });
         container.querySelectorAll('[data-booking-action]').forEach(button => {
             button.addEventListener('click', async () => {
                 const venue = byId.get(button.dataset.venueId);
@@ -1450,6 +1579,12 @@
                         window.BARK.openVenueEditor(venue);
                     } else {
                         setCardSaveStatus(card, 'Venue editor is not available yet.', 'error');
+                    }
+                    return;
+                }
+                if (button.dataset.bookingAction === 'choose-email-template') {
+                    if (!openEmailTemplateModal(venue)) {
+                        setCardSaveStatus(card, 'Email templates are not available yet.', 'error');
                     }
                     return;
                 }
@@ -1625,6 +1760,7 @@
 
     function init() {
         bindSearchControls();
+        bindEmailModalEvents();
         render();
         checkSheetBridgeHealth(false);
         if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {

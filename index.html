@@ -19,7 +19,7 @@
 
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=49">
+    <link rel="stylesheet" href="styles.css?v=50">
     <link rel="stylesheet" href="styles/mapStyles.css?v=8">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
@@ -224,6 +224,29 @@
             <div class="venue-edit-actions">
                 <button id="venue-edit-refresh" type="button" class="glass-btn outline-btn">Reload Row</button>
                 <button id="venue-edit-save" type="button" class="glass-btn primary-btn">Save to Spreadsheet</button>
+            </div>
+        </section>
+    </div>
+
+    <div id="booking-email-modal" class="venue-edit-modal booking-email-modal" hidden>
+        <div class="venue-edit-backdrop" data-close-booking-email="true"></div>
+        <section class="venue-edit-card booking-email-card" role="dialog" aria-modal="true" aria-labelledby="booking-email-title">
+            <div class="venue-edit-header">
+                <div>
+                    <p class="venue-edit-eyebrow">Email Draft</p>
+                    <h2 id="booking-email-title">What email do you want to send?</h2>
+                </div>
+                <button type="button" class="venue-edit-close" data-close-booking-email="true" aria-label="Close email draft">&times;</button>
+            </div>
+            <p id="booking-email-summary" class="venue-edit-help"></p>
+            <div class="booking-email-field">
+                <label for="booking-email-template-select">Email Template</label>
+                <select id="booking-email-template-select"></select>
+            </div>
+            <div id="booking-email-status" class="venue-edit-status" data-tone="neutral" aria-live="polite"></div>
+            <div class="venue-edit-actions">
+                <button type="button" class="glass-btn outline-btn" data-close-booking-email="true">Cancel</button>
+                <button id="booking-email-confirm" type="button" class="glass-btn primary-btn">Open Gmail Draft</button>
             </div>
         </section>
     </div>
@@ -1304,11 +1327,11 @@
     <script src="modules/venueEditModal.js?v=5" defer></script>
     <script src="modules/searchEngine.js?v=6" defer></script>
     <script src="modules/bookingSchema.js?v=8" defer></script>
-    <script src="modules/bookingEmailTemplates.js?v=2" defer></script>
-    <script src="modules/bookingActions.js?v=4" defer></script>
+    <script src="modules/bookingEmailTemplates.js?v=3" defer></script>
+    <script src="modules/bookingActions.js?v=5" defer></script>
     <script src="modules/dataService.js?v=8" defer></script>
     <script src="modules/websiteBookingsService.js?v=1" defer></script>
-    <script src="modules/bookingDashboard.js?v=8" defer></script>
+    <script src="modules/bookingDashboard.js?v=9" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>
     <script src="modules/profileEngine.js?v=7" defer></script>
     <script src="modules/expeditionEngine.js?v=3" defer></script>

@@ -2021,8 +2021,8 @@ body.app-tab-active #slide-panel {
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 14px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    padding: 16px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
 .booking-card-highlight {
@@ -2059,10 +2059,68 @@ body.app-tab-active #slide-panel {
 }
 
 .booking-card-location {
-    margin-top: 8px;
+    margin-top: 12px;
     color: #475569;
     font-size: 13px;
     line-height: 1.35;
+}
+
+.booking-state-control {
+    display: grid;
+    gap: 8px;
+}
+
+.booking-state-control label,
+.booking-card-info span,
+.booking-email-field label {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.booking-state-control select,
+.booking-email-field select {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #111827;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-weight: 900;
+    outline: none;
+}
+
+.booking-state-control select:focus,
+.booking-email-field select:focus {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+}
+
+.booking-card-info {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.booking-card-info div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.booking-card-info strong {
+    min-width: 0;
+    color: #111827;
+    font-size: 15px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.booking-card-info .booking-missing-value {
+    color: #b91c1c;
 }
 
 .booking-card-meta {
@@ -2109,7 +2167,11 @@ body.app-tab-active #slide-panel {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 16px;
+}
+
+.booking-card-actions--minimal {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .booking-card-actions button,
@@ -2139,6 +2201,12 @@ body.app-tab-active #slide-panel {
 .booking-card-actions button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.booking-card-actions .booking-primary-action {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
 }
 
 .booking-card-actions .booking-status-action {
@@ -2270,6 +2338,16 @@ body.app-tab-active #slide-panel {
 
 .booking-card-save-status[data-tone="error"] {
     color: #b91c1c;
+}
+
+.booking-email-card {
+    width: min(520px, 100%);
+}
+
+.booking-email-field {
+    display: grid;
+    gap: 8px;
+    margin: 18px 0 12px;
 }
 
 .website-event-card {
@@ -2633,8 +2711,8 @@ body.app-tab-active #slide-panel {
 
     #planner-view .booking-card {
         padding: 16px 14px;
-        border-radius: 16px;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
     }
 
     #planner-view .booking-card h3 {
@@ -2666,7 +2744,7 @@ body.app-tab-active #slide-panel {
     #planner-view .booking-card-actions button,
     #planner-view .booking-card-actions a {
         min-height: 44px;
-        border-radius: 12px;
+        border-radius: 8px;
         font-size: 12.5px;
     }
 
@@ -3098,6 +3176,13 @@ body.app-tab-active #slide-panel {
 
     .venue-edit-actions .glass-btn {
         width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .booking-card-actions--minimal,
+    #planner-view .booking-card-actions--minimal {
+        grid-template-columns: 1fr;
     }
 }
 
