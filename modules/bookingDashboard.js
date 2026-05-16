@@ -83,6 +83,7 @@
         payload: null,
         error: null
     };
+    let calendarAvailabilityRequestId = 0;
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -980,32 +981,39 @@
         });
     }
 
-    function loadCalendarAvailabilityData() {
-        if (calendarAvailabilityState.loading || calendarAvailabilityState.loaded) {
+    function loadCalendarAvailabilityData(options = {}) {
+        const force = Boolean(options.force);
+        if (calendarAvailabilityState.loading && !force) {
             return Promise.resolve(calendarAvailabilityState.payload);
         }
+        if (calendarAvailabilityState.loaded && !force) return Promise.resolve(calendarAvailabilityState.payload);
         if (typeof fetch !== 'function') {
             calendarAvailabilityState = {
                 loading: false,
-                loaded: false,
-                payload: null,
+                loaded: Boolean(calendarAvailabilityState.payload),
+                payload: calendarAvailabilityState.payload,
                 error: new Error('Calendar fetch is not available.')
             };
             return Promise.resolve(null);
         }
 
+        const requestId = calendarAvailabilityRequestId + 1;
+        calendarAvailabilityRequestId = requestId;
         calendarAvailabilityState = {
             ...calendarAvailabilityState,
             loading: true,
+            loaded: false,
             error: null
         };
+        renderAvailabilityModalResults();
 
-        return fetch('data/staged/jddm-calendar-gigs.json?v=2', { cache: 'no-store' })
+        return fetch(`data/staged/jddm-calendar-gigs.json?availability=${Date.now()}`, { cache: 'no-store' })
             .then(response => {
                 if (!response.ok) throw new Error(`Calendar data unavailable (${response.status})`);
                 return response.json();
             })
             .then(payload => {
+                if (requestId !== calendarAvailabilityRequestId) return calendarAvailabilityState.payload;
                 calendarAvailabilityState = {
                     loading: false,
                     loaded: true,
@@ -1016,16 +1024,28 @@
                 return payload;
             })
             .catch(error => {
+                if (requestId !== calendarAvailabilityRequestId) return calendarAvailabilityState.payload;
                 console.warn('[bookingDashboard] calendar availability load failed:', error);
                 calendarAvailabilityState = {
                     loading: false,
-                    loaded: false,
-                    payload: null,
+                    loaded: Boolean(calendarAvailabilityState.payload),
+                    payload: calendarAvailabilityState.payload,
                     error
                 };
                 renderAvailabilityModalResults();
                 return null;
             });
+    }
+
+    function refreshAvailabilityAfterDataSync(options = {}) {
+        renderAvailabilityModalResults();
+        if (options.reloadCalendar) {
+            return loadCalendarAvailabilityData({ force: true }).then(() => {
+                renderAvailabilityModalResults();
+                return calendarAvailabilityState.payload;
+            });
+        }
+        return Promise.resolve(calendarAvailabilityState.payload);
     }
 
     function setAvailabilityStatus(message, tone = 'neutral') {
@@ -1120,7 +1140,7 @@
         modal.hidden = false;
         document.body.classList.add('venue-edit-open');
         renderAvailabilityModalResults();
-        loadCalendarAvailabilityData();
+        loadCalendarAvailabilityData({ force: true });
         const activeButton = qs(availabilityMode === 'weekdays' ? 'booking-availability-weekdays' : 'booking-availability-weekends');
         if (activeButton) activeButton.focus({ preventScroll: true });
         return true;
@@ -1908,9 +1928,13 @@
                 checkedAt: new Date(),
                 error: null
             };
-            renderVenueDataSync();
+            render();
+            refreshAvailabilityAfterDataSync({ reloadCalendar: true });
         });
-        if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.WEBSITE_BOOKINGS_SYNC_EVENT || 'jddm:website-bookings-sync', () => render());
+        if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.WEBSITE_BOOKINGS_SYNC_EVENT || 'jddm:website-bookings-sync', () => {
+            render();
+            refreshAvailabilityAfterDataSync({ reloadCalendar: true });
+        });
         const websiteService = getWebsiteBookingsService();
         if (websiteService && typeof websiteService.loadWebsiteBookings === 'function') {
             websiteService.loadWebsiteBookings(false).then(() => render()).catch(() => render());
