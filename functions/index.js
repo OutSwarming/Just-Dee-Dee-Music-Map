@@ -578,7 +578,7 @@ async function handleLemonSqueezyWebhook(req, res, options = {}) {
     return safeResponse(res, 200, { ok: true });
 }
 
-const DEE_DEE_REMINDER_PHONE_DEFAULT = "4406281508";
+const DEE_DEE_REMINDER_PHONE_DEFAULTS = Object.freeze(["+14403054062", "+12168499292"]);
 const DEE_DEE_REMINDER_APP_URL_DEFAULT = DEFAULT_APP_BASE_URL;
 
 const DEE_DEE_REMINDER_TEMPLATES = Object.freeze([
@@ -613,7 +613,22 @@ const DEE_DEE_REMINDER_TEMPLATES = Object.freeze([
 ]);
 
 function normalizeSmsPhone(value) {
-    return cleanSheetCell(value).replace(/[^\d+]/g, "");
+    const phone = cleanSheetCell(value);
+    if (!phone) return "";
+    if (phone.startsWith("+")) return `+${phone.slice(1).replace(/\D/g, "")}`;
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+    return digits;
+}
+
+function normalizeSmsPhones(value) {
+    const rawValues = Array.isArray(value)
+        ? value
+        : cleanSheetCell(value).split(/[,\n;|]+/);
+    return Array.from(new Set(rawValues
+        .map(normalizeSmsPhone)
+        .filter(Boolean)));
 }
 
 function getDeeDeeReminderById(id) {
@@ -625,14 +640,16 @@ function getDeeDeeReminderConfig(options = {}) {
     const accountSid = cleanOptionalString(options.accountSid) || cleanOptionalString(env.TWILIO_ACCOUNT_SID);
     const authToken = cleanOptionalString(options.authToken) || cleanOptionalString(env.TWILIO_AUTH_TOKEN);
     const from = normalizeSmsPhone(options.from || env.TWILIO_FROM_NUMBER);
-    const to = normalizeSmsPhone(options.to || env.DEE_DEE_REMINDER_PHONE || DEE_DEE_REMINDER_PHONE_DEFAULT);
+    const configuredRecipients = options.to || options.toNumbers || env.DEE_DEE_REMINDER_PHONE;
+    const normalizedRecipients = normalizeSmsPhones(configuredRecipients);
+    const toNumbers = normalizedRecipients.length ? normalizedRecipients : DEE_DEE_REMINDER_PHONE_DEFAULTS;
     const appUrl = cleanOptionalString(options.appUrl) || cleanOptionalString(env.JDDM_APP_URL) || DEE_DEE_REMINDER_APP_URL_DEFAULT;
 
-    if (!accountSid || !authToken || !from || !to) {
+    if (!accountSid || !authToken || !from || !toNumbers.length) {
         throw new functions.https.HttpsError("failed-precondition", "Automatic SMS reminders are not configured.");
     }
 
-    return { accountSid, authToken, from, to, appUrl };
+    return { accountSid, authToken, from, toNumbers, appUrl };
 }
 
 function buildDeeDeeReminderBody(reminder, appUrl) {
@@ -644,9 +661,9 @@ function buildDeeDeeReminderBody(reminder, appUrl) {
     ].join("\n");
 }
 
-async function sendTwilioSms({ config, body, axiosPost = axios.post }) {
+async function sendTwilioSmsToRecipient({ config, to, body, axiosPost }) {
     const params = new URLSearchParams({
-        To: config.to,
+        To: to,
         From: config.from,
         Body: body
     });
@@ -663,13 +680,22 @@ async function sendTwilioSms({ config, body, axiosPost = axios.post }) {
     return response && response.data ? response.data : {};
 }
 
+async function sendTwilioSms({ config, body, axiosPost = axios.post }) {
+    return Promise.all(config.toNumbers.map(to => sendTwilioSmsToRecipient({
+        config,
+        to,
+        body,
+        axiosPost
+    })));
+}
+
 async function handleSendDeeDeeReminder(requestOrData, context, options = {}) {
     if (options.requireAdmin !== false) await requireAdminCallable(context, "sendDeeDeeReminder");
     const payload = getCallablePayload(requestOrData);
     const reminder = getDeeDeeReminderById(cleanSheetCell(payload.reminderId));
     const config = getDeeDeeReminderConfig(options);
     const body = buildDeeDeeReminderBody(reminder, config.appUrl);
-    const providerResult = await sendTwilioSms({
+    const providerResults = await sendTwilioSms({
         config,
         body,
         axiosPost: options.axiosPost || axios.post
@@ -679,9 +705,11 @@ async function handleSendDeeDeeReminder(requestOrData, context, options = {}) {
         ok: true,
         reminderId: reminder.id,
         label: reminder.label,
-        to: config.to,
-        sid: providerResult.sid || null,
-        status: providerResult.status || "queued"
+        to: config.toNumbers,
+        sentCount: providerResults.length,
+        sid: providerResults[0] && providerResults[0].sid ? providerResults[0].sid : null,
+        sids: providerResults.map(result => result.sid || null),
+        status: providerResults.every(result => (result.status || "queued") === "queued") ? "queued" : "sent"
     };
 }
 
@@ -736,23 +764,27 @@ async function handleScheduledDeeDeeReminder(context = {}, options = {}) {
 
     const config = getDeeDeeReminderConfig(options);
     const body = buildDeeDeeReminderBody(reminder, config.appUrl);
-    const providerResult = await sendTwilioSms({
+    const providerResults = await sendTwilioSms({
         config,
         body,
         axiosPost: options.axiosPost || axios.post
     });
     await runRef.set({
         sentAt: getServerTimestamp(options),
-        providerSid: providerResult.sid || null,
-        providerStatus: providerResult.status || "queued"
+        providerSid: providerResults[0] && providerResults[0].sid ? providerResults[0].sid : null,
+        providerSids: providerResults.map(result => result.sid || null),
+        providerStatus: providerResults.every(result => (result.status || "queued") === "queued") ? "queued" : "sent",
+        sentCount: providerResults.length
     }, { merge: true });
 
     return {
         ok: true,
         reminderId: reminder.id,
         runKey: reminder.runKey,
-        sid: providerResult.sid || null,
-        status: providerResult.status || "queued"
+        sentCount: providerResults.length,
+        sid: providerResults[0] && providerResults[0].sid ? providerResults[0].sid : null,
+        sids: providerResults.map(result => result.sid || null),
+        status: providerResults.every(result => (result.status || "queued") === "queued") ? "queued" : "sent"
     };
 }
 
@@ -890,6 +922,7 @@ if (process.env.NODE_ENV === "test") {
         handleScheduledDeeDeeReminder,
         handleSendDeeDeeReminder,
         normalizeSmsPhone,
+        normalizeSmsPhones,
         selectScheduledDeeDeeReminder
     };
 }

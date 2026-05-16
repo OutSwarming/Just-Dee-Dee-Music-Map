@@ -10,6 +10,7 @@ const {
         handleScheduledDeeDeeReminder,
         handleSendDeeDeeReminder,
         normalizeSmsPhone,
+        normalizeSmsPhones,
         selectScheduledDeeDeeReminder
     }
 } = require("../index.js");
@@ -19,7 +20,7 @@ function makeConfig(overrides = {}) {
         accountSid: "AC_test",
         authToken: "secret-token",
         from: "+15551234567",
-        to: "+14406281508",
+        to: "440-305-4062, 216-849-9292",
         appUrl: "https://example.test/app/",
         ...overrides
     };
@@ -70,8 +71,9 @@ function makeFirestore(existingIds = []) {
 
 describe("Dee Dee automatic SMS reminders", () => {
     it("normalizes configured SMS phone values", () => {
-        assert.equal(normalizeSmsPhone("(440) 628-1508"), "4406281508");
+        assert.equal(normalizeSmsPhone("(440) 628-1508"), "+14406281508");
         assert.equal(normalizeSmsPhone("+1 440 628 1508"), "+14406281508");
+        assert.deepEqual(normalizeSmsPhones("440-305-4062, 216-849-9292"), ["+14403054062", "+12168499292"]);
     });
 
     it("requires Twilio configuration before sending", () => {
@@ -92,7 +94,7 @@ describe("Dee Dee automatic SMS reminders", () => {
     });
 
     it("sends an immediate reminder through Twilio", async () => {
-        let postArgs = null;
+        const postCalls = [];
         const result = await handleSendDeeDeeReminder(
             { reminderId: "available-dates" },
             {},
@@ -100,21 +102,27 @@ describe("Dee Dee automatic SMS reminders", () => {
                 ...makeConfig(),
                 requireAdmin: false,
                 axiosPost: async (...args) => {
-                    postArgs = args;
-                    return { data: { sid: "SM123", status: "queued" } };
+                    postCalls.push(args);
+                    return { data: { sid: `SM${postCalls.length}`, status: "queued" } };
                 }
             }
         );
 
         assert.equal(result.ok, true);
         assert.equal(result.reminderId, "available-dates");
-        assert.equal(result.sid, "SM123");
-        assert.match(postArgs[0], /api\.twilio\.com/);
-        const formBody = new URLSearchParams(postArgs[1]);
-        assert.equal(formBody.get("To"), "+14406281508");
-        assert.equal(formBody.get("From"), "+15551234567");
-        assert.match(formBody.get("Body"), /Quick calendar quest/);
-        assert.match(formBody.get("Body"), /Open the app: https:\/\/example\.test\/app\//);
+        assert.equal(result.sentCount, 2);
+        assert.deepEqual(result.to, ["+14403054062", "+12168499292"]);
+        assert.deepEqual(result.sids, ["SM1", "SM2"]);
+        assert.equal(postCalls.length, 2);
+
+        const firstFormBody = new URLSearchParams(postCalls[0][1]);
+        const secondFormBody = new URLSearchParams(postCalls[1][1]);
+        assert.match(postCalls[0][0], /api\.twilio\.com/);
+        assert.equal(firstFormBody.get("To"), "+14403054062");
+        assert.equal(secondFormBody.get("To"), "+12168499292");
+        assert.equal(firstFormBody.get("From"), "+15551234567");
+        assert.match(firstFormBody.get("Body"), /Quick calendar quest/);
+        assert.match(firstFormBody.get("Body"), /Open the app: https:\/\/example\.test\/app\//);
     });
 
     it("selects scheduled reminders by New York hour", () => {
