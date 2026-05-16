@@ -1256,6 +1256,28 @@ body.app-tab-active #slide-panel {
     gap: 15px;
 }
 
+.home-availability-tool {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid rgba(180, 83, 9, 0.18);
+    border-radius: 8px;
+    background: #fff7ed;
+}
+
+.home-availability-tool h3 {
+    margin: 0 0 6px;
+    color: #111827;
+}
+
+.home-availability-tool p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
 .canvas-preview-container {
     max-width: 100%;
     overflow: hidden;

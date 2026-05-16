@@ -1457,9 +1457,16 @@
         if (bindSearchControls.bound) return;
         const input = qs('booking-planner-search-input');
         const clear = qs('booking-planner-search-clear');
+        const availabilityButtons = [
+            qs('home-availability-open'),
+            qs('booking-availability-open')
+        ].filter(Boolean);
         if (!input) return;
 
         bindSearchControls.bound = true;
+        availabilityButtons.forEach(button => {
+            button.addEventListener('click', () => openAvailabilityModal(null));
+        });
         input.addEventListener('input', () => {
             searchQuery = input.value;
             render();

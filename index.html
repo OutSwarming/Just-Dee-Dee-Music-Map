@@ -19,7 +19,7 @@
 
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=53">
+    <link rel="stylesheet" href="styles.css?v=54">
     <link rel="stylesheet" href="styles/mapStyles.css?v=8">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
@@ -335,40 +335,12 @@
             <p class="tool-desc">Solo and duo live music for breweries, wineries, restaurants, festivals, coffee shops,
                 private events, and listening rooms.</p>
 
-            <!-- TODO: Re-enable this photo tool after replacing BARK watermark assets with Just Dee Dee Music artwork. -->
-            <div class="watermark-tool" hidden>
-                <input type="file" id="wm-upload" accept="image/*" class="custom-file-input" hidden>
-                <label for="wm-upload" class="glass-btn primary-btn">Select Photo</label>
-                <div class="canvas-preview-container" id="wm-preview-container"
-                    style="display:none; position:relative; max-width: 100%;">
-                    <button id="wm-clear" class="close-btn"
-                        style="position:absolute; top: 15px; right: 15px; z-index: 10;"
-                        aria-label="Clear Photo">&times;</button>
-                    <canvas id="wm-canvas"
-                        style="display:block; max-width: 100%; height: auto; border-radius: 8px;"></canvas>
-
-                    <div id="wm-slider-container" style="display:none; width: 100%; margin-top: 15px;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <label for="wm-logo-size" style="font-weight: 600; color: #444; font-size: 14px;">Logo
-                                Size:</label>
-                            <span id="wm-logo-size-val"
-                                style="font-weight: 800; color: #4CAF50; font-size: 14px;">10%</span>
-                        </div>
-                        <input type="range" id="wm-logo-size" min="1" max="50" value="10" class="custom-slider">
-
-                        <div
-                            style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 8px;">
-                            <input type="checkbox" id="wm-high-res" style="width: 20px; height: 20px; cursor: pointer;">
-                            <label for="wm-high-res"
-                                style="font-size: 13px; font-weight: 600; color: #333; cursor: pointer;">Original
-                                Resolution (Print Quality)</label>
-                        </div>
-                    </div>
+            <div class="home-availability-tool">
+                <div>
+                    <h3>Available Dates</h3>
+                    <p>Check open weekends or weekdays against booked gigs and blocked calendar time.</p>
                 </div>
-
-                <button id="wm-download" class="glass-btn primary-btn" style="display:none; margin-top: 15px;">Download
-                    Branded Image</button>
+                <button id="home-availability-open" class="glass-btn primary-btn" type="button">Check Available Dates</button>
             </div>
         </div>
 
@@ -1403,7 +1375,7 @@
     <script src="modules/bookingActions.js?v=5" defer></script>
     <script src="modules/dataService.js?v=8" defer></script>
     <script src="modules/websiteBookingsService.js?v=1" defer></script>
-    <script src="modules/bookingDashboard.js?v=12" defer></script>
+    <script src="modules/bookingDashboard.js?v=13" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>
     <script src="modules/profileEngine.js?v=7" defer></script>
     <script src="modules/expeditionEngine.js?v=3" defer></script>
