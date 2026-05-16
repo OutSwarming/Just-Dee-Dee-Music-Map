@@ -1278,6 +1278,96 @@ body.app-tab-active #slide-panel {
     line-height: 1.45;
 }
 
+.home-reminder-tool {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #eff6ff;
+}
+
+.home-reminder-tool h3 {
+    margin: 0 0 6px;
+    color: #111827;
+}
+
+.home-reminder-tool p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.dee-dee-reminder-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.dee-dee-reminder-btn {
+    min-height: 70px;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    padding: 10px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
+}
+
+.dee-dee-reminder-btn span,
+.dee-dee-reminder-btn strong,
+.dee-dee-reminder-btn small {
+    display: block;
+}
+
+.dee-dee-reminder-btn span {
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.dee-dee-reminder-btn strong {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.25;
+}
+
+.dee-dee-reminder-btn small {
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.dee-dee-reminder-btn:hover,
+.dee-dee-reminder-btn:focus-visible {
+    border-color: #2563eb;
+    outline: none;
+}
+
+.dee-dee-reminder-btn:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.dee-dee-reminder-status {
+    min-height: 18px;
+    font-weight: 800;
+}
+
+.dee-dee-reminder-status[data-tone="success"] {
+    color: #047857;
+}
+
+.dee-dee-reminder-status[data-tone="error"] {
+    color: #b91c1c;
+}
+
 .canvas-preview-container {
     max-width: 100%;
     overflow: hidden;
@@ -3412,6 +3502,10 @@ body.app-tab-active #slide-panel {
     }
 
     .booking-availability-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dee-dee-reminder-list {
         grid-template-columns: 1fr;
     }
 }

@@ -342,6 +342,15 @@
                 </div>
                 <button id="home-availability-open" class="glass-btn primary-btn" type="button">Check Available Dates</button>
             </div>
+
+            <div class="home-reminder-tool">
+                <div>
+                    <h3>Automatic Dee Dee Reminders</h3>
+                    <p>Backend texts can send automatically at 9 AM, noon, 4 PM, and 7 PM. Use a button to send one now.</p>
+                </div>
+                <div id="dee-dee-reminder-list" class="dee-dee-reminder-list" aria-label="Reminder text shortcuts"></div>
+                <p id="dee-dee-reminder-status" class="dee-dee-reminder-status" data-tone="neutral" aria-live="polite"></p>
+            </div>
         </div>
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
@@ -1372,6 +1381,7 @@
     <script src="modules/bookingSchema.js?v=8" defer></script>
     <script src="modules/bookingEmailTemplates.js?v=3" defer></script>
     <script src="modules/bookingAvailability.js?v=1" defer></script>
+    <script src="modules/deeDeeReminders.js?v=2" defer></script>
     <script src="modules/bookingActions.js?v=5" defer></script>
     <script src="modules/dataService.js?v=8" defer></script>
     <script src="modules/websiteBookingsService.js?v=1" defer></script>

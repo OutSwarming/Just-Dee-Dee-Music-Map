@@ -578,6 +578,184 @@ async function handleLemonSqueezyWebhook(req, res, options = {}) {
     return safeResponse(res, 200, { ok: true });
 }
 
+const DEE_DEE_REMINDER_PHONE_DEFAULT = "4406281508";
+const DEE_DEE_REMINDER_APP_URL_DEFAULT = DEFAULT_APP_BASE_URL;
+
+const DEE_DEE_REMINDER_TEMPLATES = Object.freeze([
+    {
+        id: "today-plan",
+        label: "Plan Today",
+        slot: "morning",
+        hour: 9,
+        text: "Tiny booking manager hat on: open the app and check today's booking work."
+    },
+    {
+        id: "available-dates",
+        label: "Check Dates",
+        slot: "midday",
+        hour: 12,
+        text: "Quick calendar quest: check available dates before promising a gig."
+    },
+    {
+        id: "follow-ups",
+        label: "Follow Ups",
+        slot: "afternoon",
+        hour: 16,
+        text: "Friendly nudge hour: check follow-ups and poke the venues waiting on a reply."
+    },
+    {
+        id: "calendar-cleanup",
+        label: "Calendar Sync",
+        slot: "evening",
+        hour: 19,
+        text: "Calendar check: make sure new gigs, vacations, and blocked dates are up to date."
+    }
+]);
+
+function normalizeSmsPhone(value) {
+    return cleanSheetCell(value).replace(/[^\d+]/g, "");
+}
+
+function getDeeDeeReminderById(id) {
+    return DEE_DEE_REMINDER_TEMPLATES.find(reminder => reminder.id === id) || DEE_DEE_REMINDER_TEMPLATES[0];
+}
+
+function getDeeDeeReminderConfig(options = {}) {
+    const env = options.env || process.env;
+    const accountSid = cleanOptionalString(options.accountSid) || cleanOptionalString(env.TWILIO_ACCOUNT_SID);
+    const authToken = cleanOptionalString(options.authToken) || cleanOptionalString(env.TWILIO_AUTH_TOKEN);
+    const from = normalizeSmsPhone(options.from || env.TWILIO_FROM_NUMBER);
+    const to = normalizeSmsPhone(options.to || env.DEE_DEE_REMINDER_PHONE || DEE_DEE_REMINDER_PHONE_DEFAULT);
+    const appUrl = cleanOptionalString(options.appUrl) || cleanOptionalString(env.JDDM_APP_URL) || DEE_DEE_REMINDER_APP_URL_DEFAULT;
+
+    if (!accountSid || !authToken || !from || !to) {
+        throw new functions.https.HttpsError("failed-precondition", "Automatic SMS reminders are not configured.");
+    }
+
+    return { accountSid, authToken, from, to, appUrl };
+}
+
+function buildDeeDeeReminderBody(reminder, appUrl) {
+    const selected = reminder || DEE_DEE_REMINDER_TEMPLATES[0];
+    return [
+        `Hey Dee Dee! ${selected.text}`,
+        "",
+        `Open the app: ${appUrl || DEE_DEE_REMINDER_APP_URL_DEFAULT}`
+    ].join("\n");
+}
+
+async function sendTwilioSms({ config, body, axiosPost = axios.post }) {
+    const params = new URLSearchParams({
+        To: config.to,
+        From: config.from,
+        Body: body
+    });
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(config.accountSid)}/Messages.json`;
+    const response = await axiosPost(url, params.toString(), {
+        auth: {
+            username: config.accountSid,
+            password: config.authToken
+        },
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+    });
+    return response && response.data ? response.data : {};
+}
+
+async function handleSendDeeDeeReminder(requestOrData, context, options = {}) {
+    if (options.requireAdmin !== false) await requireAdminCallable(context, "sendDeeDeeReminder");
+    const payload = getCallablePayload(requestOrData);
+    const reminder = getDeeDeeReminderById(cleanSheetCell(payload.reminderId));
+    const config = getDeeDeeReminderConfig(options);
+    const body = buildDeeDeeReminderBody(reminder, config.appUrl);
+    const providerResult = await sendTwilioSms({
+        config,
+        body,
+        axiosPost: options.axiosPost || axios.post
+    });
+
+    return {
+        ok: true,
+        reminderId: reminder.id,
+        label: reminder.label,
+        to: config.to,
+        sid: providerResult.sid || null,
+        status: providerResult.status || "queued"
+    };
+}
+
+function getReminderDateParts(date = new Date(), timeZone = "America/New_York") {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        hour12: false
+    }).formatToParts(date);
+    const byType = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return {
+        dateKey: `${byType.year}-${byType.month}-${byType.day}`,
+        hour: Number(byType.hour)
+    };
+}
+
+function selectScheduledDeeDeeReminder(date = new Date(), options = {}) {
+    const parts = getReminderDateParts(date, options.timeZone || "America/New_York");
+    const sorted = DEE_DEE_REMINDER_TEMPLATES.slice().sort((a, b) => Math.abs(a.hour - parts.hour) - Math.abs(b.hour - parts.hour));
+    const reminder = sorted[0] || DEE_DEE_REMINDER_TEMPLATES[0];
+    return {
+        ...reminder,
+        runKey: `${parts.dateKey}_${reminder.slot}`
+    };
+}
+
+async function handleScheduledDeeDeeReminder(context = {}, options = {}) {
+    const firestore = options.firestore || admin.firestore();
+    const reminder = selectScheduledDeeDeeReminder(options.now || new Date(), options);
+    const runRef = firestore.collection("_deeDeeReminderRuns").doc(reminder.runKey);
+    let shouldSend = false;
+
+    await firestore.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(runRef);
+        if (snapshot.exists) return;
+        shouldSend = true;
+        transaction.set(runRef, {
+            reminderId: reminder.id,
+            slot: reminder.slot,
+            runKey: reminder.runKey,
+            createdAt: getServerTimestamp(options),
+            scheduleEventId: context.eventId || null
+        });
+    });
+
+    if (!shouldSend) {
+        return { ok: true, duplicate: true, reminderId: reminder.id, runKey: reminder.runKey };
+    }
+
+    const config = getDeeDeeReminderConfig(options);
+    const body = buildDeeDeeReminderBody(reminder, config.appUrl);
+    const providerResult = await sendTwilioSms({
+        config,
+        body,
+        axiosPost: options.axiosPost || axios.post
+    });
+    await runRef.set({
+        sentAt: getServerTimestamp(options),
+        providerSid: providerResult.sid || null,
+        providerStatus: providerResult.status || "queued"
+    }, { merge: true });
+
+    return {
+        ok: true,
+        reminderId: reminder.id,
+        runKey: reminder.runKey,
+        sid: providerResult.sid || null,
+        status: providerResult.status || "queued"
+    };
+}
+
 async function handlePremiumRoute(requestOrData, context, options = {}) {
     await requirePremiumCallable(context, "getPremiumRoute", options);
 
@@ -675,6 +853,20 @@ exports.lemonSqueezyWebhook = functions
         return res.status(410).json({ ok: false, error: "paywall_disabled" });
     });
 
+exports.sendDeeDeeReminder = functions
+    .runWith({ secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER", "DEE_DEE_REMINDER_PHONE", "JDDM_APP_URL"] })
+    .https.onCall(async (requestOrData, context) => {
+        return handleSendDeeDeeReminder(requestOrData, context);
+    });
+
+exports.sendScheduledDeeDeeReminders = functions
+    .runWith({ secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER", "DEE_DEE_REMINDER_PHONE", "JDDM_APP_URL"] })
+    .pubsub.schedule("0 9,12,16,19 * * *")
+    .timeZone("America/New_York")
+    .onRun(async (context) => {
+        return handleScheduledDeeDeeReminder(context);
+    });
+
 if (process.env.NODE_ENV === "test") {
     exports.__test = {
         normalizeEntitlement,
@@ -690,7 +882,15 @@ if (process.env.NODE_ENV === "test") {
         verifyLemonSqueezyWebhookSignature,
         deriveLemonSqueezyEventId,
         mapLemonSqueezyEntitlement,
-        handleLemonSqueezyWebhook
+        handleLemonSqueezyWebhook,
+        DEE_DEE_REMINDER_TEMPLATES,
+        buildDeeDeeReminderBody,
+        getDeeDeeReminderConfig,
+        getReminderDateParts,
+        handleScheduledDeeDeeReminder,
+        handleSendDeeDeeReminder,
+        normalizeSmsPhone,
+        selectScheduledDeeDeeReminder
     };
 }
 
