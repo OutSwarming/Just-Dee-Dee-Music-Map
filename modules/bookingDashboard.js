@@ -101,10 +101,6 @@
         return window.BARK.bookingEmailTemplates;
     }
 
-    function getActionService() {
-        return window.BARK.bookingActions;
-    }
-
     function getSpreadsheetService() {
         return window.BARK.services && window.BARK.services.spreadsheet;
     }
@@ -610,42 +606,6 @@
         return booking.contactStatus || 'Ready to review';
     }
 
-    function getRenderedEmail(venue, templateType) {
-        const templates = getTemplateService();
-        if (templates && typeof templates.renderTemplate === 'function') {
-            return templates.renderTemplate(templateType, venue);
-        }
-
-        const subject = 'Live acoustic music booking inquiry - Just Dee Dee Music';
-        const body = [
-            'Hi there,',
-            '',
-            'I am reaching out on behalf of Just Dee Dee Music about live acoustic music booking availability.',
-            '',
-            'Thank you,',
-            'Dee Dee',
-            'Just Dee Dee Music',
-            '440-628-1508',
-            'JustDeeDeeMusic@gmail.com',
-            'https://www.justdeedeemusic.com/'
-        ].join('\n');
-        return {
-            type: 'firstOutreach',
-            label: 'First Outreach',
-            subject,
-            body,
-            fullText: [`Subject: ${subject}`, '', body].join('\n')
-        };
-    }
-
-    function getMailtoHref(venue) {
-        const templates = getTemplateService();
-        if (templates && typeof templates.getMailtoHref === 'function') {
-            return templates.getMailtoHref(venue);
-        }
-        return '';
-    }
-
     function getGmailComposeHref(venue, templateType) {
         const templates = getTemplateService();
         if (templates && typeof templates.getGmailComposeHref === 'function') {
@@ -654,22 +614,12 @@
         return '';
     }
 
-    function getSelectedTemplateType(card) {
-        const select = card && card.querySelector('[data-booking-template-select]');
-        return select ? clean(select.value) : '';
-    }
-
-    function getStatusOptions(currentStatus = '') {
-        const schema = getSchema();
-        const ordered = schema && Array.isArray(schema.CONTACT_STATUS_VALUES)
-            ? schema.CONTACT_STATUS_VALUES
-            : getSchemaStatusOrder();
-        const options = ordered.length ? ordered.slice() : FALLBACK_STATE_SUMMARY.map(item => item.status);
-        const current = clean(currentStatus);
-        if (current && !options.some(option => option.toLowerCase() === current.toLowerCase())) {
-            options.unshift(current);
+    function getGmailAppComposeHref(venue, templateType) {
+        const templates = getTemplateService();
+        if (templates && typeof templates.getGmailAppComposeHref === 'function') {
+            return templates.getGmailAppComposeHref(venue, templateType);
         }
-        return options;
+        return '';
     }
 
     function getExternalUrl(value) {
@@ -680,92 +630,46 @@
         return '';
     }
 
-    function isStatusActionDisabled(venue, actionType) {
-        const actions = getActionService();
+
+    function isBookedTab(tabId) {
+        const value = clean(tabId).toLowerCase();
+        return value === 'booked';
+    }
+
+    function getVenueFutureGigDates(venue) {
+        if (!venue) return [];
+        const schema = window.BARK.bookingSchema;
+        if (schema && typeof schema.getVenueGigStats === 'function') {
+            const stats = schema.getVenueGigStats(venue);
+            if (stats && Array.isArray(stats.futureDates) && stats.futureDates.length) {
+                return stats.futureDates.slice();
+            }
+        }
         const booking = venue.booking || {};
-        const statuses = getSchema() && getSchema().CONTACT_STATUS ? getSchema().CONTACT_STATUS : {};
-        if (!actions || !actions.ACTION_TYPES) return true;
-        if (booking.doNotContact) return true;
-        if (actionType === actions.ACTION_TYPES.MARK_DRAFT_READY) return booking.contactStatus === statuses.DRAFT_READY || booking.isBooked || booking.isNotAFit;
-        if (actionType === actions.ACTION_TYPES.MARK_SENT) return booking.contactStatus === statuses.WAITING_REPLY || booking.isBooked;
-        if (actionType === actions.ACTION_TYPES.MARK_INTERESTED) return booking.isRespondedNeedsAction || booking.isInterested || booking.isBooked;
-        if (actionType === actions.ACTION_TYPES.MARK_BOOKED) return booking.isBooked;
-        if (actionType === actions.ACTION_TYPES.MARK_NOT_A_FIT) return booking.isNotAFit || booking.isBooked;
-        if (actionType === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT) return Boolean(booking.doNotContact);
-        return false;
+        const fallback = clean(booking.calendarNextGigDate || booking.eventDate);
+        return fallback ? [fallback] : [];
     }
 
-    function renderStatusActions(venue) {
-        const actions = getActionService();
-        if (!actions || !Array.isArray(actions.ACTION_DEFINITIONS)) return '';
-
-        return actions.ACTION_DEFINITIONS.map(action => {
-            const disabled = isStatusActionDisabled(venue, action.type) ? ' disabled' : '';
-            const danger = action.danger ? ' booking-danger-action' : '';
-            return `<button type="button" class="booking-status-action${danger}" data-booking-action="status" data-booking-status-action="${escapeHtml(action.type)}" data-venue-id="${escapeHtml(venue.id)}"${disabled}>${escapeHtml(action.label)}</button>`;
-        }).join('');
+    function getVenueNextGigDate(venue) {
+        const dates = getVenueFutureGigDates(venue);
+        return dates.length ? dates[0] : '';
     }
 
-    function getFollowUpInputValue(venue) {
-        const value = clean(venue.booking && venue.booking.nextFollowUpDate);
-        return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
-    }
-
-    function renderFollowUpControl(venue) {
-        const booking = venue.booking || {};
-        const disabled = booking.doNotContact ? ' disabled' : '';
-        const inputValue = getFollowUpInputValue(venue);
-        return `
-            <div class="booking-followup-control">
-                <label>
-                    <span>Next Follow-Up</span>
-                    <input type="date" data-booking-followup-date data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(inputValue)}"${disabled}>
-                </label>
-                <button type="button" data-booking-action="set-follow-up" data-venue-id="${escapeHtml(venue.id)}"${disabled}>Set Date</button>
-            </div>
-        `;
-    }
-
-    function getScoreInputValue(value) {
-        const numberValue = Number(clean(value));
-        if (!Number.isFinite(numberValue)) return 0;
-        return Math.max(0, Math.min(10, Math.round(numberValue)));
-    }
-
-    function renderPriorityScoreControl(venue) {
-        const booking = venue.booking || {};
-        const disabled = booking.doNotContact ? ' disabled' : '';
-        return `
-            <div class="booking-score-control">
-                <label>
-                    <span>Priority</span>
-                    <input type="number" min="0" max="10" step="1" inputmode="numeric" data-booking-priority-score data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(getScoreInputValue(booking.priority))}"${disabled}>
-                </label>
-                <label>
-                    <span>Best Fit</span>
-                    <input type="number" min="0" max="10" step="1" inputmode="numeric" data-booking-best-fit-score data-venue-id="${escapeHtml(venue.id)}" value="${escapeHtml(getScoreInputValue(booking.bestFitScore))}"${disabled}>
-                </label>
-                <button type="button" data-booking-action="set-score" data-venue-id="${escapeHtml(venue.id)}"${disabled}>Save Score</button>
-            </div>
-        `;
-    }
-
-    function renderTemplateControl(venue) {
-        const templates = getTemplateService();
-        if (!templates || typeof templates.getTemplateOptions !== 'function') return '';
-
-        const suggestedType = templates.getSuggestedTemplateType(venue);
-        const options = templates.getTemplateOptions();
-        return `
-            <div class="booking-template-control">
-                <label>
-                    <span>Email Template</span>
-                    <select data-booking-template-select data-venue-id="${escapeHtml(venue.id)}">
-                        ${options.map(option => `<option value="${escapeHtml(option.type)}"${option.type === suggestedType ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-                    </select>
-                </label>
-            </div>
-        `;
+    function formatShortGigDate(value) {
+        const text = clean(value);
+        if (!text) return '';
+        const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (isoMatch) {
+            const date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+            if (!Number.isNaN(date.getTime())) {
+                return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            }
+        }
+        const parsed = new Date(text);
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        return text;
     }
 
     function getVenueStatusBadge(venue) {
@@ -803,34 +707,31 @@
         return Promise.resolve();
     }
 
-    function copyVenueInfo(venue) {
-        const booking = venue.booking || {};
-        const text = [
-            venue.name || 'Unknown Venue',
-            getVenueLocation(venue),
-            `Status: ${booking.contactStatus || 'Not Contacted'}`,
-            booking.contactName ? `Contact: ${booking.contactName}` : '',
-            booking.contactEmail ? `Email: ${booking.contactEmail}` : '',
-            booking.contactPhone ? `Phone: ${booking.contactPhone}` : '',
-            venue.website ? `Website: ${venue.website}` : '',
-            booking.bookingUrl ? `Booking: ${booking.bookingUrl}` : ''
-        ].filter(Boolean).join('\n');
-
-        return writeClipboardText(text);
-    }
-
-    function copyEmailDraft(venue, templateType, copyTarget = 'fullText') {
-        const rendered = getRenderedEmail(venue, templateType);
-        return writeClipboardText(rendered[copyTarget] || rendered.fullText);
-    }
-
     function openEmailDraft(venue, templateType) {
-        const href = getGmailComposeHref(venue, templateType);
-        if (!href) return false;
+        const appHref = getGmailAppComposeHref(venue, templateType);
+        const webHref = getGmailComposeHref(venue, templateType);
+        if (!appHref && !webHref) return false;
+
+        if (appHref) {
+            window.location.href = appHref;
+
+            if (webHref) {
+                window.setTimeout(() => {
+                    if (document.hidden || document.visibilityState === 'hidden') return;
+
+                    const opened = typeof window.open === 'function'
+                        ? window.open(webHref, '_blank', 'noopener')
+                        : null;
+                    if (!opened) window.location.href = webHref;
+                }, 900);
+            }
+            return true;
+        }
+
         const opened = typeof window.open === 'function'
-            ? window.open(href, '_blank', 'noopener')
+            ? window.open(webHref, '_blank', 'noopener')
             : null;
-        if (!opened) window.location.href = href;
+        if (!opened) window.location.href = webHref;
         return true;
     }
 
@@ -966,7 +867,7 @@
             action: 'email',
             label: 'Email',
             sub: channels.emailLabel,
-            disabled: !channels.email && !Boolean(getGmailComposeHref(venue))
+            disabled: !channels.email && !Boolean(getGmailAppComposeHref(venue) || getGmailComposeHref(venue))
         });
         setContactChannelButton('booking-contact-call', {
             action: 'call',
@@ -1430,6 +1331,35 @@
             ? `<span class="booking-card-status-badge" data-state-tone="${escapeHtml(badge.tone)}">${escapeHtml(badge.label)}</span>`
             : '';
 
+        let gigChipMarkup = '';
+        if (isBookedTab(tabId)) {
+            const futureDates = getVenueFutureGigDates(venue);
+            if (futureDates.length) {
+                const nextLabel = formatShortGigDate(futureDates[0]);
+                const moreCount = Math.max(0, futureDates.length - 1);
+                const listMarkup = futureDates.map((date, index) => `
+                    <li class="booking-gig-list-item${index === 0 ? ' is-next' : ''}">
+                        <span class="booking-gig-list-bullet" aria-hidden="true">${index === 0 ? 'Next' : index + 1}</span>
+                        <span>${escapeHtml(formatShortGigDate(date) || date)}</span>
+                    </li>
+                `).join('');
+                gigChipMarkup = `
+                    <div class="booking-gig-chip-wrap">
+                        <button type="button" class="booking-gig-chip" data-booking-action="toggle-gig-list" data-venue-id="${escapeHtml(venue.id)}" aria-expanded="false" aria-controls="booking-gig-list-${escapeHtml(venue.id)}">
+                            <span class="booking-gig-chip-icon" aria-hidden="true">&#128197;</span>
+                            <span class="booking-gig-chip-label">Next gig <strong>${escapeHtml(nextLabel)}</strong></span>
+                            ${moreCount > 0 ? `<span class="booking-gig-chip-count">+${moreCount}</span>` : ''}
+                            <span class="booking-gig-chip-caret" aria-hidden="true">&#9662;</span>
+                        </button>
+                        <div id="booking-gig-list-${escapeHtml(venue.id)}" class="booking-gig-list" hidden>
+                            <p class="booking-gig-list-heading">${futureDates.length} upcoming gig${futureDates.length === 1 ? '' : 's'}</p>
+                            <ol class="booking-gig-list-items">${listMarkup}</ol>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
         return `
             <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}" data-state-tone="${escapeHtml(badge.tone)}">
                 <header class="booking-card-header">
@@ -1437,6 +1367,7 @@
                     ${badgeMarkup}
                 </header>
                 <p class="booking-card-location">${escapeHtml(getVenueLocation(venue))}</p>
+                ${gigChipMarkup}
                 <div class="booking-card-info" aria-label="Venue contact summary">
                     ${contactRows.map(([label, value]) => `
                         <div class="booking-info-row">
@@ -1580,154 +1511,8 @@
         status.dataset.tone = tone;
     }
 
-    function setCardButtonsBusy(card, isBusy) {
-        if (!card) return;
-        card.querySelectorAll('button').forEach(button => {
-            if (isBusy) {
-                button.dataset.wasDisabled = button.disabled ? '1' : '0';
-                button.disabled = true;
-            } else if (button.dataset.wasDisabled !== '1') {
-                button.disabled = false;
-            }
-        });
-        card.querySelectorAll('input').forEach(input => {
-            if (isBusy) {
-                input.dataset.wasDisabled = input.disabled ? '1' : '0';
-                input.disabled = true;
-            } else if (input.dataset.wasDisabled !== '1') {
-                input.disabled = false;
-            }
-        });
-        card.querySelectorAll('select').forEach(select => {
-            if (isBusy) {
-                select.dataset.wasDisabled = select.disabled ? '1' : '0';
-                select.disabled = true;
-            } else if (select.dataset.wasDisabled !== '1') {
-                select.disabled = false;
-            }
-        });
-    }
-
-    async function saveVenueStatus(card, button, venue) {
-        const actions = getActionService();
-        if (!actions || typeof actions.saveStatus !== 'function') return;
-
-        const statusAction = button.dataset.bookingStatusAction;
-        if (
-            actions.ACTION_TYPES &&
-            statusAction === actions.ACTION_TYPES.MARK_DO_NOT_CONTACT &&
-            typeof window.confirm === 'function' &&
-            !window.confirm(`Mark ${venue.name || 'this venue'} as Told No / Closed / No Music?`)
-        ) {
-            return;
-        }
-
-        const previousText = button.textContent;
-        setCardButtonsBusy(card, true);
-        setCardSaveStatus(card, 'Saving status...', 'neutral');
-        button.textContent = 'Saving';
-
-        try {
-            await actions.saveStatus(venue, statusAction);
-            button.textContent = 'Saved';
-            setCardSaveStatus(card, 'Saved to spreadsheet.', 'success');
-            setTimeout(() => render(), 350);
-        } catch (error) {
-            console.error('[bookingDashboard] status save failed:', error);
-            button.textContent = previousText;
-            setCardSaveStatus(card, error.message || 'Could not save status.', 'error');
-        } finally {
-            setCardButtonsBusy(card, false);
-        }
-    }
-
-    async function saveFollowUpDate(card, button, venue) {
-        const actions = getActionService();
-        if (!actions || typeof actions.saveFollowUpDate !== 'function') return;
-
-        const input = card && card.querySelector('[data-booking-followup-date]');
-        const nextDate = input ? input.value : '';
-        const previousText = button.textContent;
-
-        setCardButtonsBusy(card, true);
-        setCardSaveStatus(card, 'Saving follow-up date...', 'neutral');
-        button.textContent = 'Saving';
-
-        try {
-            await actions.saveFollowUpDate(venue, nextDate);
-            button.textContent = 'Saved';
-            setCardSaveStatus(card, 'Follow-up date saved.', 'success');
-            setTimeout(() => render(), 350);
-        } catch (error) {
-            console.error('[bookingDashboard] follow-up save failed:', error);
-            button.textContent = previousText;
-            setCardSaveStatus(card, error.message || 'Could not save follow-up date.', 'error');
-        } finally {
-            setCardButtonsBusy(card, false);
-        }
-    }
-
-    async function savePriorityScore(card, button, venue) {
-        const actions = getActionService();
-        if (!actions || typeof actions.savePriorityScore !== 'function') return;
-
-        const priorityInput = card && card.querySelector('[data-booking-priority-score]');
-        const bestFitInput = card && card.querySelector('[data-booking-best-fit-score]');
-        const previousText = button.textContent;
-
-        setCardButtonsBusy(card, true);
-        setCardSaveStatus(card, 'Saving priority score...', 'neutral');
-        button.textContent = 'Saving';
-
-        try {
-            await actions.savePriorityScore(venue, priorityInput ? priorityInput.value : 0, bestFitInput ? bestFitInput.value : 0);
-            button.textContent = 'Saved';
-            setCardSaveStatus(card, 'Priority score saved.', 'success');
-            setTimeout(() => render(), 350);
-        } catch (error) {
-            console.error('[bookingDashboard] priority score save failed:', error);
-            button.textContent = previousText;
-            setCardSaveStatus(card, error.message || 'Could not save priority score.', 'error');
-        } finally {
-            setCardButtonsBusy(card, false);
-        }
-    }
-
-    async function saveVenueState(card, select, venue) {
-        const actions = getActionService();
-        if (!actions || typeof actions.saveContactStatus !== 'function') return;
-
-        const previousValue = clean(select.dataset.previousValue || venue.booking && venue.booking.contactStatus || venue.contactStatus);
-        const nextValue = clean(select.value);
-        if (!nextValue || nextValue === previousValue) return;
-
-        setCardButtonsBusy(card, true);
-        setCardSaveStatus(card, 'Saving state...', 'neutral');
-
-        try {
-            await actions.saveContactStatus(venue, nextValue);
-            select.dataset.previousValue = nextValue;
-            setCardSaveStatus(card, 'State saved.', 'success');
-            setTimeout(() => render(), 350);
-        } catch (error) {
-            console.error('[bookingDashboard] state save failed:', error);
-            select.value = previousValue;
-            setCardSaveStatus(card, error.message || 'Could not save state.', 'error');
-        } finally {
-            setCardButtonsBusy(card, false);
-        }
-    }
-
     function bindCardActions(container, data) {
         const byId = new Map((data.all || []).map(venue => [venue.id, venue]));
-        container.querySelectorAll('[data-booking-state-select]').forEach(select => {
-            select.dataset.previousValue = select.value;
-            select.addEventListener('change', async () => {
-                const venue = byId.get(select.dataset.venueId);
-                if (!venue) return;
-                await saveVenueState(select.closest('.booking-card'), select, venue);
-            });
-        });
         container.querySelectorAll('[data-booking-action]').forEach(button => {
             button.addEventListener('click', async () => {
                 const venue = byId.get(button.dataset.venueId);
@@ -1757,43 +1542,16 @@
                     }
                     return;
                 }
-                if (button.dataset.bookingAction === 'status') {
-                    await saveVenueStatus(card, button, venue);
+                if (button.dataset.bookingAction === 'toggle-gig-list') {
+                    const controlledId = button.getAttribute('aria-controls');
+                    const list = controlledId ? document.getElementById(controlledId) : null;
+                    if (!list) return;
+                    const expanded = button.getAttribute('aria-expanded') === 'true';
+                    const next = !expanded;
+                    button.setAttribute('aria-expanded', next ? 'true' : 'false');
+                    list.hidden = !next;
+                    button.classList.toggle('is-open', next);
                     return;
-                }
-                if (button.dataset.bookingAction === 'set-follow-up') {
-                    await saveFollowUpDate(card, button, venue);
-                    return;
-                }
-                if (button.dataset.bookingAction === 'set-score') {
-                    await savePriorityScore(card, button, venue);
-                    return;
-                }
-                if (button.dataset.bookingAction === 'open-email-draft') {
-                    if (!openEmailDraft(venue, getSelectedTemplateType(card))) {
-                        setCardSaveStatus(card, 'Missing contact email for this venue.', 'error');
-                    }
-                    return;
-                }
-                if (button.dataset.bookingAction === 'copy' || button.dataset.bookingAction === 'copy-template') {
-                    const previousText = button.textContent;
-                    button.disabled = true;
-                    try {
-                        if (button.dataset.bookingAction === 'copy-template') {
-                            await copyEmailDraft(venue, getSelectedTemplateType(card), button.dataset.copyTarget);
-                        } else {
-                            await copyVenueInfo(venue);
-                        }
-                        button.textContent = 'Copied';
-                    } catch (error) {
-                        console.error('[bookingDashboard] copy failed:', error);
-                        button.textContent = 'Copy failed';
-                    } finally {
-                        setTimeout(() => {
-                            button.textContent = previousText;
-                            button.disabled = false;
-                        }, 1400);
-                    }
                 }
             });
         });
@@ -1856,9 +1614,20 @@
                 : activeIsStateTab
                     ? getActiveStatusVenues(data)
                     : (data[activeTab] || []);
-        const venues = query && schema && typeof schema.filterVenues === 'function'
+        let venues = query && schema && typeof schema.filterVenues === 'function'
             ? schema.filterVenues(sourceVenues, query)
             : sourceVenues;
+
+        const resolvedTabId = activeIsStateTab ? activeStatusState : activeTab;
+        if (isBookedTab(resolvedTabId) && Array.isArray(venues)) {
+            const FAR_FUTURE = '9999-99-99';
+            venues = venues.slice().sort((a, b) => {
+                const aNext = getVenueNextGigDate(a) || FAR_FUTURE;
+                const bNext = getVenueNextGigDate(b) || FAR_FUTURE;
+                if (aNext !== bNext) return aNext < bNext ? -1 : 1;
+                return clean(a.name).localeCompare(clean(b.name));
+            });
+        }
         const sourceEvents = query ? (data.websiteAll || []) : (activeIsWebsiteEventTab ? (data[activeTab] || []) : []);
         const events = filterWebsiteEvents(sourceEvents, query);
         const rows = query

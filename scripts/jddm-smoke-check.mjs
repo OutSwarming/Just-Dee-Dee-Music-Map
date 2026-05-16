@@ -36,6 +36,7 @@ const manifest = read('manifest.json');
 const bookingDashboard = read('modules/bookingDashboard.js');
 const bookingActions = read('modules/bookingActions.js');
 const bookingSchema = read('modules/bookingSchema.js');
+const websiteBookingsService = read('modules/websiteBookingsService.js');
 const bridge = read('google-apps-script/jddm-spreadsheet-bridge/Code.gs');
 
 const runtimeText = [
@@ -66,7 +67,7 @@ assertCheck('Booking dashboard module is loaded', /modules\/bookingDashboard\.js
 assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(bookingActions) && /savePriorityScore/.test(bookingActions));
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
-assertCheck('Apps Script website event staging action exists', /stageWebsiteBookingEvents/.test(bridge) && /websiteBookingEvents/.test(bridge));
+assertCheck('Website booking service reads staged event files', /loadWebsiteBookings/.test(websiteBookingsService) && /getWebsiteBookingGroups/.test(websiteBookingsService));
 assertCheck('Apps Script calendar gig sync action exists', /syncCalendarGigEvents/.test(bridge) && /CalendarGigs/.test(bridge));
 
 const dashboardVersion = matchVersion(
@@ -87,20 +88,44 @@ assertCheck(
 
 [
     'contactStatus',
+    'lastContactedDate',
+    'nextFollowUpDate',
+    'priority',
+    'bestFitScore',
+    'calendarLastGigDate',
+    'calendarNextGigDate',
+    'calendarTotalGigsPlayed',
+    'calendarLastSyncedAt'
+].forEach((header) => {
+    assertCheck(`Bridge exposes ${header}`, bridge.includes(header));
+});
+
+[
+    'contactStatus',
     'draftStatus',
     'lastContactedDate',
     'nextFollowUpDate',
     'doNotContact',
     'priority',
     'bestFitScore',
-    'websiteBookingEvents',
     'calendarGigEvents',
     'calendarLastGigDate',
     'calendarNextGigDate',
     'calendarTotalGigsPlayed',
     'calendarLastSyncedAt'
-].forEach((header) => {
-    assertCheck(`Bridge/dashboard require ${header}`, bridge.includes(header) && bookingDashboard.includes(header));
+].forEach((field) => {
+    assertCheck(`Booking schema normalizes ${field}`, bookingSchema.includes(field));
+});
+
+[
+    'contactStatus',
+    'lastContactedDate',
+    'nextFollowUpDate',
+    'priority',
+    'bestFitScore',
+    'calendarNextGigDate'
+].forEach((field) => {
+    assertCheck(`Dashboard uses ${field}`, bookingDashboard.includes(field));
 });
 
 assertCheck('Website event planner tabs exist', /websiteUpcoming/.test(bookingDashboard) && /websitePast/.test(bookingDashboard));

@@ -133,11 +133,33 @@ test('gmail compose draft encodes the selected template for Gmail', () => {
     assert.match(href, /^https:\/\/mail\.google\.com\/mail\/\?/);
 
     const params = new URLSearchParams(href.split('?')[1]);
+    assert.equal(params.get('authuser'), 'JustDeeDeeMusic@gmail.com');
     assert.equal(params.get('view'), 'cm');
     assert.equal(params.get('fs'), '1');
     assert.equal(params.get('to'), 'riley@example.com');
     assert.match(params.get('su'), /Live acoustic music booking inquiry/);
     assert.match(params.get('body'), /Hi Riley,/);
+});
+
+test('gmail app compose draft uses the native Gmail URL scheme', () => {
+    const bark = loadBookingModules();
+    const href = bark.bookingEmailTemplates.getGmailAppComposeHref({
+        name: 'App Draft Room',
+        city: 'Cleveland',
+        booking: {
+            contactName: 'Jamie',
+            contactEmail: 'jamie@example.com',
+            contactStatus: bark.bookingSchema.CONTACT_STATUS.DRAFT_READY
+        }
+    }, bark.bookingEmailTemplates.TEMPLATE_TYPES.FIRST_OUTREACH);
+
+    assert.match(href, /^googlegmail:\/\/\/co\?/);
+
+    const params = new URLSearchParams(href.split('?')[1]);
+    assert.equal(params.get('to'), 'jamie@example.com');
+    assert.match(params.get('subject'), /Live acoustic music booking inquiry/);
+    assert.match(params.get('body'), /Hi Jamie,/);
+    assert.match(params.get('body'), /App Draft Room/);
 });
 
 test('template options expose manual choices and explicit template overrides', () => {

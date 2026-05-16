@@ -18,3 +18,7 @@ playwright/.auth/
 tests/.auth/
 *.storageState.json
 storageState*.json
+
+# Local automation artifacts
+.codex/
+test-results/
