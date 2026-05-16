@@ -1,20 +1,23 @@
 {
   "ok": true,
-  "generatedAt": "2026-05-06T20:35:27.988Z",
+  "generatedAt": "2026-05-16T15:47:48.928Z",
   "mode": "jddm-google-calendar-ics-gig-staging",
   "sourceCount": 2,
   "gigCount": 191,
-  "pastGigCount": 132,
-  "futureGigCount": 57,
+  "pastGigCount": 136,
+  "futureGigCount": 53,
   "proposedGigCount": 2,
+  "blockedEventCount": 11,
   "sources": [
     {
       "input": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "parsedGigCount": 159
+      "parsedGigCount": 159,
+      "parsedBlockedCount": 11
     },
     {
       "input": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "parsedGigCount": 32
+      "parsedGigCount": 32,
+      "parsedBlockedCount": 0
     }
   ],
   "gigs": [
@@ -36,7 +39,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7r5ias9jnkv7k417hrmmhc2bko@google.com",
@@ -56,7 +59,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0ag4harbb9v4jtoo2ms6m3genq@google.com",
@@ -76,7 +79,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0dvg4bmj5tejvfs3592ptj76hq@google.com",
@@ -96,7 +99,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4dkbqt13mld4497alro2i03s4h@google.com",
@@ -116,7 +119,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6l8m5ctacpj11uvb33h4fgbv82@google.com",
@@ -136,7 +139,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "64pjaphhcphj6b9l6csjcb9k6cqj0b9o6dh3eb9kc5j38e9hclgjee9hcg@google.com",
@@ -156,7 +159,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "48c828q023d7a51bmc32fa35f6@google.com",
@@ -176,7 +179,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4hejtvqrj33b4kt7m7og2tueql@google.com",
@@ -196,7 +199,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "53g3p3r99djd13bac646oneev0@google.com",
@@ -216,7 +219,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1ngdetekfmm3rsmrn51bkl0oma@google.com",
@@ -236,7 +239,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "3a5kn8dmn7jsai78048e13euom@google.com",
@@ -256,7 +259,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1liu53gqcv48360l3app6lacot@google.com",
@@ -276,7 +279,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "4rs44ufqmc8t6g9cjrgminrpip@google.com",
@@ -296,7 +299,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "ot91ui5s5do22vb780avvla3mo@google.com",
@@ -316,7 +319,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "b9k34v2a0jm5v74u9jnie3hamc@google.com",
@@ -336,7 +339,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1nq5re6tlvho1h2ms4ktl8ths8@google.com",
@@ -356,7 +359,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4he16ibbvkbnaosnv27p6bql38@google.com",
@@ -376,7 +379,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "691kl84gqr82ht60hspo3criph@google.com",
@@ -396,7 +399,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5dt69gjd41ocrbc24ek6fehak1@google.com",
@@ -416,7 +419,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1td1dgqhcmejgg6ej1tncggkkb@google.com",
@@ -436,7 +439,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3qb1jppldhjqqoihiij5n1gk2o@google.com",
@@ -456,7 +459,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "6344CD54-4DD3-4DD4-9F02-CED9E98729C0",
@@ -476,7 +479,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7tt1dvkb8gah0ahsttior4f9hv@google.com",
@@ -496,7 +499,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6dej1oglef90nrrp626gf74mqt@google.com",
@@ -516,7 +519,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "50i3rf8dbadrscgq8a3i5geth9@google.com",
@@ -536,7 +539,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6huhsf04mrhbbm404usvahak8s@google.com",
@@ -556,7 +559,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "358kf0h8ic47da1a4s9p98htuj@google.com",
@@ -576,7 +579,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7gs166mmpp8t8b6dle8vtaiip9@google.com",
@@ -596,7 +599,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "ss89m6h9ibkpp5co5iqjn3om5s@google.com",
@@ -616,7 +619,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "55rql4dbhert8sscmfvjdkldck@google.com",
@@ -636,7 +639,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3te59i898vvltbrlmoqknji1lt@google.com",
@@ -656,7 +659,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5ccdvlh65970f37nt48r3ai93m@google.com",
@@ -676,7 +679,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4gb29edejbsqaif7v6ribmjibc@google.com",
@@ -696,7 +699,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "683ntm5ag7aoko388tvd6j5pig@google.com",
@@ -716,7 +719,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "3p2srbrh1ohcem3da1u5l0rvsh@google.com",
@@ -736,7 +739,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "18pgkgmme59qruib5n954jjgvt@google.com",
@@ -756,7 +759,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0652047E-BC04-49D7-A65A-0C8B8241844B",
@@ -776,7 +779,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0hv6ser6ifo3v8h1lakabi9q64@google.com",
@@ -796,7 +799,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6doav067b8n1flqpjnj067b61r@google.com",
@@ -816,7 +819,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "13u9kq1il4stubbc374h6evid7@google.com",
@@ -836,7 +839,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "na5c4s11mkbfoq5jvp94005qg0@google.com",
@@ -856,7 +859,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "61hu4e07js52dpsoj0b7m8skl0@google.com",
@@ -876,7 +879,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "2avpqtjfokbmtrd7lk1eer1o9e@google.com",
@@ -896,7 +899,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4k49ll2usekdnbufrq1it7569q@google.com",
@@ -916,7 +919,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2jjv8ndfnbj9pjc62gjq861m99@google.com",
@@ -936,7 +939,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5617vb89315ouo2t0dmfs1qo4u@google.com",
@@ -956,7 +959,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "30csongn7h5a13ornubpse8bd3@google.com",
@@ -976,7 +979,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3674ohp6qnasraompcocoiv16m@google.com",
@@ -996,7 +999,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2u05a3vpvn8no7ohv9vfnt039e@google.com",
@@ -1016,7 +1019,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "i0uen1ctl02np4ppf6gb7aards@google.com",
@@ -1036,7 +1039,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1qq9mjjll19qmljk96h7fjf116@google.com",
@@ -1056,7 +1059,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "u0gn6ipd2vmodkhrtibri5lohg@google.com",
@@ -1076,7 +1079,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3nhvne27dnsrfa05gjsutlfumf@google.com",
@@ -1096,7 +1099,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7b0nvbkef97u4gnatjceaae1uj@google.com",
@@ -1116,7 +1119,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5uj5r0evsf9fmpaqd5oqq46hm8@google.com",
@@ -1136,7 +1139,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "6pjjoiu85r9nle1pkdc2fad479@google.com",
@@ -1156,7 +1159,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6rfigohqd0uq3okniqvvdvca4a@google.com",
@@ -1176,7 +1179,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "6rid9hbi8eoa20k8hu2ijs2hte@google.com",
@@ -1196,7 +1199,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "49ako0jvojomd9bc9ovicjuj7n@google.com",
@@ -1216,7 +1219,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2pm9miu9g9jlaaac49jrsear6r@google.com",
@@ -1236,7 +1239,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "733d1oarsppi7d9s8p8t0lfjir@google.com",
@@ -1256,7 +1259,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "853B6E99-8BA3-4C49-A5FF-88AAA1E5EB56",
@@ -1276,7 +1279,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "hcobekjr7j07kqmptuqga6qisk@google.com",
@@ -1296,7 +1299,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1r4d1br7p5hn6domji9nefr53s@google.com",
@@ -1316,7 +1319,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "16l1qeond5s2i90vr2tijg1nh5@google.com",
@@ -1336,7 +1339,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "30cbrbor5hlc47tliee7nc3ums@google.com",
@@ -1356,7 +1359,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "s7vo728cc4tdakvtl4t5d6g5b0@google.com",
@@ -1376,7 +1379,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "87F5FE47-60DE-4BD2-9BFE-F20F09B2DA19",
@@ -1396,7 +1399,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1mso4k7smn96mgiub0grd09s5m@google.com",
@@ -1416,7 +1419,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3hqiavl6urrgn1bvf8qbib25n0@google.com",
@@ -1436,7 +1439,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0ue41qd5foabjbu696nv5rd95l@google.com",
@@ -1456,7 +1459,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1o37oqov62fmdb92r0r476676p@google.com",
@@ -1476,7 +1479,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7aqosovt6ih884tpnbipo2m4ft@google.com",
@@ -1496,7 +1499,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5a4qrhi39af95d1d1u0knen45b@google.com",
@@ -1516,7 +1519,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6b119g9gsd59rkhsocjdgebck0@google.com",
@@ -1536,7 +1539,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2b2qs55he720h3ll9mep68h2el@google.com",
@@ -1556,7 +1559,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3q6l7tutdk2gu3ishe9s6sk5ho@google.com",
@@ -1576,7 +1579,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "34n8jc8r805212u5dhedipp29f@google.com",
@@ -1596,7 +1599,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "15sm57qqqrk3g95dcuqgr5lmmr@google.com",
@@ -1616,7 +1619,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5mhno5jlrpoj3ee7gtvg93oa9p@google.com",
@@ -1636,7 +1639,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "23ftd4i3m2hsnl3qfspmjsjr40@google.com",
@@ -1656,7 +1659,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5B8F2AC4-DF92-48AC-A93A-2C6E1753320E",
@@ -1676,7 +1679,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1jilu931igmrrcn283kmoa8nlu@google.com",
@@ -1696,7 +1699,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "kae1mq01ga2or1gg8agne1gquk@google.com",
@@ -1716,7 +1719,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3oafiq7v2mhe0louoe191uui8l@google.com",
@@ -1736,7 +1739,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "80043F15-56EA-4672-B45E-CDDF835D3A4E",
@@ -1756,7 +1759,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "51kj2o2bcqlhcq2db6oot47n12@google.com",
@@ -1776,7 +1779,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "gr9rep5gvk7tr523lrudbvrg98@google.com",
@@ -1796,7 +1799,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "06m8rqkg5dife3fsc5alqt9hfk@google.com",
@@ -1816,7 +1819,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4hvpsl3fmhisfep2e9gorm6pft@google.com",
@@ -1836,7 +1839,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "r8umgvt4gvnclvdjq34vrt94e0@google.com",
@@ -1856,7 +1859,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "125llr2g2venqsj6t2bph6a3q2@google.com",
@@ -1876,7 +1879,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7bel4kq80313ab7gmdlso0hm5k@google.com",
@@ -1896,7 +1899,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "57ldagvo54g5a0co8ffr5bhdr5@google.com",
@@ -1916,7 +1919,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3mbv8pg473a8ns4l0an8lmeaue@google.com",
@@ -1936,7 +1939,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "02qd4iqfi0b9umjkluj8i74u3s@google.com",
@@ -1956,7 +1959,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "571id1d3ma1vlpu132e0402gtp@google.com",
@@ -1976,7 +1979,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0ucabrv91eifn595o23r3tudgu@google.com",
@@ -1996,7 +1999,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1bv0cembmds4ddel1ure2c568p@google.com",
@@ -2016,7 +2019,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4hskhoag9ugo6adrqbf287fabr@google.com",
@@ -2036,7 +2039,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2f4d7ba92tb8vgv21ubhe47hj9@google.com",
@@ -2056,7 +2059,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "34ot58pm6es1ip6lo1tfvq7evt@google.com",
@@ -2076,7 +2079,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "63c17246rnk7rkqml5oo8sguha@google.com",
@@ -2096,7 +2099,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6cr46ek5qcdfq5m7o1kom8u65s@google.com",
@@ -2116,7 +2119,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4s1o5julcfno5dqdgjqfqvdir6@google.com",
@@ -2136,7 +2139,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1pn39efsk7865lvgpb4fgg7v8k@google.com",
@@ -2156,7 +2159,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7adpk1qknh9f1e6cd7tqujl5na@google.com",
@@ -2176,7 +2179,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2id16caeph072n4fb6l9ud80pa@google.com",
@@ -2196,7 +2199,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3ocbcjhrf1e9orgmqufgoamih1@google.com",
@@ -2216,7 +2219,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5r17uskdlr6dulgptqrcnm772i@google.com",
@@ -2236,7 +2239,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5risdovs5pdcc8ug93njbmicg2@google.com",
@@ -2256,7 +2259,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "39ujmnu2cjn64hr61mq35ghfsu@google.com",
@@ -2276,7 +2279,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7lg4e16eniakn89dcd08hti8ru@google.com",
@@ -2296,7 +2299,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "19d3o15c095bb3sj9vjg76h8b6@google.com",
@@ -2316,7 +2319,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0bfau4b8sd9fcchuecbdnpam6b@google.com",
@@ -2336,7 +2339,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "63n85a4q4sv4smdllsfe9lumer@google.com",
@@ -2356,7 +2359,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5bt3r2gkrea98bkkpadj1jmh95@google.com",
@@ -2376,7 +2379,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "74gqltunvi337fnjp4c4k0q7vk@google.com",
@@ -2396,7 +2399,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "65lnbq7eu5cv2m7dr1hc2qf7hn@google.com",
@@ -2416,7 +2419,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "A7391F19-4A50-4C71-9C06-5DC1B4D110E2",
@@ -2436,7 +2439,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7r4h5c9ep6v5bvv8ops3a9ku6n@google.com",
@@ -2456,7 +2459,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "10kolkcqhqip2ck7m3u85f1tp0@google.com",
@@ -2476,7 +2479,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "50lctdhjfti2fgig26gtla0le4@google.com",
@@ -2496,7 +2499,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7jhdvm94hva0216s3mmbfnealv@google.com",
@@ -2516,7 +2519,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7r1qk8l0kvd2u73tdb5od44ft3@google.com",
@@ -2536,7 +2539,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5cdkqsduuu4fvacv3haq5m8b9u@google.com",
@@ -2556,7 +2559,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7FDE5CB5-E344-4B46-B24D-CD2B224DD9E8",
@@ -2576,7 +2579,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7rgbf9nmbsrrm5ei6hme33sghg@google.com",
@@ -2596,7 +2599,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "60msgdls9puefn4cg6gv51p9sc@google.com",
@@ -2616,7 +2619,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6g6uh6se43trjafteianlklgqh@google.com",
@@ -2636,7 +2639,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4jlqoo3fts3p1lg6vd2acvdnev@google.com",
@@ -2656,7 +2659,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "04vohko72mug00cnd5otfjmafv@google.com",
@@ -2676,7 +2679,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6r6qd4hrtcp70lg22ds7boho4i@google.com",
@@ -2686,7 +2689,7 @@
       "eventEndDate": "2026-05-06",
       "eventTime": "7:00pm",
       "eventEndTime": "9:00pm",
-      "status": "BOOKED",
+      "status": "COMPLETED",
       "venueName": "Brighton Brewing",
       "summary": "Brighton Brewing",
       "location": "",
@@ -2696,7 +2699,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0hcvnimnt3esdlf82bjtdncuk9@google.com",
@@ -2706,7 +2709,7 @@
       "eventEndDate": "2026-05-08",
       "eventTime": "6:00pm",
       "eventEndTime": "10:00pm",
-      "status": "BOOKED",
+      "status": "COMPLETED",
       "venueName": "Private Event",
       "summary": "JDDM 2026 Scheduled Private Event",
       "location": "",
@@ -2716,7 +2719,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1s1fq43laem86f5kkg2deg65v6@google.com",
@@ -2726,7 +2729,7 @@
       "eventEndDate": "2026-05-09",
       "eventTime": "1:00pm",
       "eventEndTime": "6:00pm",
-      "status": "BOOKED",
+      "status": "COMPLETED",
       "venueName": "Private Event",
       "summary": "JDDM 2026 Scheduled Private Event",
       "location": "",
@@ -2736,7 +2739,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "7lvje09ofgq6va704skuu887s6@google.com",
@@ -2746,7 +2749,7 @@
       "eventEndDate": "2026-05-15",
       "eventTime": "7:30pm",
       "eventEndTime": "10:30pm",
-      "status": "BOOKED",
+      "status": "COMPLETED",
       "venueName": "Village Inn",
       "summary": "Village Inn",
       "location": "",
@@ -2756,7 +2759,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3go25crecvt5c5n2dn5s0fbl65@google.com",
@@ -2776,7 +2779,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5qvhm4thk3hgivl2b8sj15drej@google.com",
@@ -2796,7 +2799,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5eimro6b288h380soce9cc560p@google.com",
@@ -2816,7 +2819,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5jbj7cqe6k2gps6rojt0a9oij0@google.com",
@@ -2836,7 +2839,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "5iu41ai2tum33m1gq1uvsbo1mp@google.com",
@@ -2856,7 +2859,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1tui6eij94k43a8c9vpg4kucp5@google.com",
@@ -2876,7 +2879,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "25vo7mh21ckba1muv2bfto0had@google.com",
@@ -2896,7 +2899,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6pck8ccbrnt1dp2lri6esfshmj@google.com",
@@ -2916,7 +2919,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "6drjslp652taglafilkc3agclg@google.com",
@@ -2936,7 +2939,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2ds75pvub86kj566d8g262qrv0@google.com",
@@ -2956,7 +2959,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4kg44ktggf0bf5f07rv8q66k56@google.com",
@@ -2976,7 +2979,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0d723581nj9f26fl9uooscmdvk@google.com",
@@ -2996,7 +2999,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "085mf1ln0sp70gd0184cji29ng@google.com",
@@ -3016,7 +3019,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "537aq22nge6ml0eemgse7rrjcc@google.com",
@@ -3036,7 +3039,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0jcmr3h4i3jnlmmpcktho503c5@google.com",
@@ -3056,7 +3059,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2E9A184E-0F73-43C1-892D-7D6CA9C16BB3",
@@ -3076,7 +3079,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7tl8af0baq2ibqssh0hmkc58if@google.com",
@@ -3096,7 +3099,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "2mrdbt3goib9v8g2kms4jqpgi9@google.com",
@@ -3116,7 +3119,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "45rv28t5bm1gelgtq31ejr4r3q@google.com",
@@ -3136,7 +3139,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "h1hpvvaukltetnnmlssef4o74s@google.com",
@@ -3156,7 +3159,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "uuslbh9qqdelp1un8bfub21b8s@google.com",
@@ -3176,7 +3179,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "13oiil9a2jiouktpsnejldnaet@google.com",
@@ -3196,7 +3199,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0u4ovf02t8kpgd4g8md71cs7gn@google.com",
@@ -3216,7 +3219,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "288B1C09-705C-4C4F-92AA-32A5EB5CC7FC",
@@ -3236,7 +3239,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1ohhuq5le7a0lcfl4i62e3t2hi@google.com",
@@ -3256,7 +3259,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "61lvejoptcqi94f9f1bj0ng0r8@google.com",
@@ -3276,7 +3279,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1e444o6si6feukdkko56qqquj4@google.com",
@@ -3296,7 +3299,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "39pah3re4u66av8bvdv8qe7hhv@google.com",
@@ -3316,7 +3319,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1japr7ndhb4kvah96lat0bjfg0@google.com",
@@ -3336,7 +3339,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4uh80ul51m231ilj2gpg65rpqr@google.com",
@@ -3356,7 +3359,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "42bthrd9h5ju29dmj0dg1p6rm6@google.com",
@@ -3376,7 +3379,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "36f4bcpuh1l6je590ijv0h8e3o@google.com",
@@ -3396,7 +3399,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3n0cbvkt0jc9cedon95b56fjsg@google.com",
@@ -3416,7 +3419,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1ab95f1o2uqpgo957c2rhbt66e@google.com",
@@ -3436,7 +3439,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "3e1cn51kdejpk5lqri851fl419@google.com",
@@ -3456,7 +3459,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5cjtmhfp0jvi3gv4k8k7u6fspq@google.com",
@@ -3476,7 +3479,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7gc49jbgduinqom4pu2pvnkrp0@google.com",
@@ -3496,7 +3499,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1bbf23v52c4ccbsp6qb9dritjt@google.com",
@@ -3516,7 +3519,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1ljoc15mjg68akfkgso3dgpmvm@google.com",
@@ -3536,7 +3539,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "5fibmau4lpu40hajlaq3hqnt5t@google.com",
@@ -3556,7 +3559,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "1o0olpjvbf74dfdlaclk527qob@google.com",
@@ -3576,7 +3579,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0vn5o1du65f5ohqgoqqs6s2o46@google.com",
@@ -3596,7 +3599,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "6ee0t8k3274buihub3msosjlaf@google.com",
@@ -3616,7 +3619,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "01li5lh28cesub3jfhbccm9bnp@google.com",
@@ -3636,7 +3639,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4m35m6k10fstmvink5pq8jkqs7@google.com",
@@ -3656,7 +3659,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "7ve696o80eq3ce3taarfp3j0bc@google.com",
@@ -3676,7 +3679,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1jrmgadmedhov9qrdiu1gn00d2@google.com",
@@ -3696,7 +3699,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "4p33l7e4rs4ve9t6lqrp30o65t@google.com",
@@ -3716,7 +3719,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0tahmuqn3abi1bni1ded4tfjkj@google.com",
@@ -3736,7 +3739,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0kbthq8fns079hnjb4v9hpk3c3@google.com",
@@ -3756,7 +3759,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "7snfc3aavu80pc9rib3aresoc1@google.com",
@@ -3776,7 +3779,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
     },
     {
       "calendarEventId": "7mciku64sqonu2aaojsf7cg8p3@google.com",
@@ -3796,7 +3799,7 @@
       "isPublicPlaceholder": false,
       "isAllDay": false,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "1pbrf88gfcbagh5gdqk6j90iqt@google.com",
@@ -3816,7 +3819,7 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.701Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     },
     {
       "calendarEventId": "0si5r9kv42tp7kanuvfh6s048e@google.com",
@@ -3836,7 +3839,229 @@
       "isPublicPlaceholder": true,
       "isAllDay": true,
       "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/JDDM Web Events_051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com.ics",
-      "sourceCapturedAt": "2026-05-06T20:35:27.968Z"
+      "sourceCapturedAt": "2026-05-16T15:47:48.915Z"
+    }
+  ],
+  "blockedEvents": [
+    {
+      "calendarEventId": "0fv0b1nadeqq07q28n6fug26g3@google.com",
+      "eventId": "0fv0b1nadeqq07q28n6fug26g3@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2024-03-09",
+      "eventEndDate": "2024-03-10",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Available for Booking",
+      "summary": "Available for Booking",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "6tsiv170rkqln717muqf75mfko@google.com",
+      "eventId": "6tsiv170rkqln717muqf75mfko@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2024-03-23",
+      "eventEndDate": "2024-03-24",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Available for Booking",
+      "summary": "Available for Booking",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "1ql8pla2nd5v17a4sk7i2c12s9@google.com",
+      "eventId": "1ql8pla2nd5v17a4sk7i2c12s9@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2025-04-20",
+      "eventEndDate": "2025-04-21",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Easter",
+      "summary": "Easter",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "27s18u5li3724ctn7v6lh16ae3@google.com",
+      "eventId": "27s18u5li3724ctn7v6lh16ae3@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-08",
+      "eventEndDate": "2026-05-09",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Hocking Hills State Park",
+      "summary": "Camping Hocking Hills State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "6m894v9fitklc9jnkr22k699l3@google.com",
+      "eventId": "6m894v9fitklc9jnkr22k699l3@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-09",
+      "eventEndDate": "2026-05-10",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Hocking Hills State Park",
+      "summary": "Camping Hocking Hills State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "051e7djo1g8lq499l834e1qvfc@google.com",
+      "eventId": "051e7djo1g8lq499l834e1qvfc@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-21",
+      "eventEndDate": "2026-05-22",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Gilead State Park",
+      "summary": "Camping Gilead State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "4h7ikjsl2o3q839tsn4h50m9n3@google.com",
+      "eventId": "4h7ikjsl2o3q839tsn4h50m9n3@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-22",
+      "eventEndDate": "2026-05-23",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Gilead State Park",
+      "summary": "Camping Gilead State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "6asiheca0504svf0gc0o218b2d@google.com",
+      "eventId": "6asiheca0504svf0gc0o218b2d@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-23",
+      "eventEndDate": "2026-05-24",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Gilead State Park",
+      "summary": "Camping Gilead State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "4d2o450usi9tqh8a8vqap66lsf@google.com",
+      "eventId": "4d2o450usi9tqh8a8vqap66lsf@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-05-24",
+      "eventEndDate": "2026-05-25",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "Camping Gilead State Park",
+      "summary": "Camping Gilead State Park",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "5ej7aq2ldvlebb72g4kbvgetq5@google.com",
+      "eventId": "5ej7aq2ldvlebb72g4kbvgetq5@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2026-06-09",
+      "eventEndDate": "2026-06-12",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "JD - In office Meetings",
+      "summary": "JD - In office Meetings",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
+    },
+    {
+      "calendarEventId": "2l0fd8b0fardn50bv8482p40eu@google.com",
+      "eventId": "2l0fd8b0fardn50bv8482p40eu@google.com",
+      "sourceCalendarName": "justdeedeemusic@gmail.com",
+      "eventDate": "2027-06-08",
+      "eventEndDate": "2027-06-11",
+      "eventTime": "",
+      "eventEndTime": "",
+      "status": "BLOCKED",
+      "venueName": "JD - In office Meetings",
+      "summary": "JD - In office Meetings",
+      "location": "",
+      "address": "",
+      "description": "",
+      "isPrivateEvent": false,
+      "isPublicPlaceholder": false,
+      "isAllDay": true,
+      "sourceUrl": "/Users/carterswarm/Downloads/Google Calendar Export.ical/justdeedeemusic@gmail.com.ics",
+      "sourceCapturedAt": "2026-05-16T15:47:48.804Z"
     }
   ]
 }

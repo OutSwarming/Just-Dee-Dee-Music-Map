@@ -19,7 +19,7 @@
 
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=52">
+    <link rel="stylesheet" href="styles.css?v=53">
     <link rel="stylesheet" href="styles/mapStyles.css?v=8">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
@@ -295,6 +295,29 @@
             <div id="booking-contact-status" class="venue-edit-status" data-tone="neutral" aria-live="polite"></div>
             <div class="venue-edit-actions">
                 <button type="button" class="glass-btn outline-btn" data-close-booking-contact="true">Close</button>
+            </div>
+        </section>
+    </div>
+
+    <div id="booking-availability-modal" class="venue-edit-modal booking-availability-modal" hidden>
+        <div class="venue-edit-backdrop" data-close-booking-availability="true"></div>
+        <section class="venue-edit-card booking-availability-card" role="dialog" aria-modal="true" aria-labelledby="booking-availability-title">
+            <div class="venue-edit-header">
+                <div>
+                    <p class="venue-edit-eyebrow">Just Dee Dee Music</p>
+                    <h2 id="booking-availability-title">Check available dates</h2>
+                </div>
+                <button type="button" class="venue-edit-close" data-close-booking-availability="true" aria-label="Close available dates">&times;</button>
+            </div>
+            <p id="booking-availability-summary" class="venue-edit-help"></p>
+            <div class="booking-availability-toggle" role="group" aria-label="Date type">
+                <button id="booking-availability-weekends" type="button" data-availability-mode="weekends">Weekends</button>
+                <button id="booking-availability-weekdays" type="button" data-availability-mode="weekdays">Weekdays</button>
+            </div>
+            <div id="booking-availability-status" class="venue-edit-status" data-tone="neutral" aria-live="polite"></div>
+            <div id="booking-availability-list" class="booking-availability-list" aria-live="polite"></div>
+            <div class="venue-edit-actions">
+                <button type="button" class="glass-btn outline-btn" data-close-booking-availability="true">Close</button>
             </div>
         </section>
     </div>
@@ -1376,10 +1399,11 @@
     <script src="modules/searchEngine.js?v=6" defer></script>
     <script src="modules/bookingSchema.js?v=8" defer></script>
     <script src="modules/bookingEmailTemplates.js?v=3" defer></script>
+    <script src="modules/bookingAvailability.js?v=1" defer></script>
     <script src="modules/bookingActions.js?v=5" defer></script>
     <script src="modules/dataService.js?v=8" defer></script>
     <script src="modules/websiteBookingsService.js?v=1" defer></script>
-    <script src="modules/bookingDashboard.js?v=11" defer></script>
+    <script src="modules/bookingDashboard.js?v=12" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>
     <script src="modules/profileEngine.js?v=7" defer></script>
     <script src="modules/expeditionEngine.js?v=3" defer></script>

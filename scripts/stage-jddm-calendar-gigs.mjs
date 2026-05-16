@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
+    parseJddmCalendarAvailabilityBlocks,
     parseJddmCalendarIcs,
     splitPastFutureCalendarGigs,
     toCalendarGigCsv
@@ -18,22 +19,31 @@ async function main() {
     const options = parseArgs(process.argv.slice(2));
     const inputs = options.inputs.length ? options.inputs : DEFAULT_INPUTS;
     const collections = [];
+    const blockCollections = [];
     const sources = [];
 
     for (const input of inputs) {
         const icsText = await readInput(input);
+        const sourceCapturedAt = new Date().toISOString();
         const events = parseJddmCalendarIcs(icsText, {
             sourceUrl: input,
-            sourceCapturedAt: new Date().toISOString()
+            sourceCapturedAt
+        });
+        const blockedEvents = parseJddmCalendarAvailabilityBlocks(icsText, {
+            sourceUrl: input,
+            sourceCapturedAt
         });
         collections.push(events);
+        blockCollections.push(blockedEvents);
         sources.push({
             input,
-            parsedGigCount: events.length
+            parsedGigCount: events.length,
+            parsedBlockedCount: blockedEvents.length
         });
     }
 
     const gigs = mergeEvents(collections.flat());
+    const blockedEvents = mergeEvents(blockCollections.flat());
     const split = splitPastFutureCalendarGigs(gigs, { now: options.now });
     const payload = {
         ok: true,
@@ -44,8 +54,10 @@ async function main() {
         pastGigCount: split.past.length,
         futureGigCount: split.future.length,
         proposedGigCount: split.proposed.length,
+        blockedEventCount: blockedEvents.length,
         sources,
-        gigs
+        gigs,
+        blockedEvents
     };
 
     if (options.write) {
@@ -124,6 +136,7 @@ function printSummary(payload, options) {
     console.log(`Past: ${payload.pastGigCount}`);
     console.log(`Future: ${payload.futureGigCount}`);
     console.log(`Proposed: ${payload.proposedGigCount}`);
+    console.log(`Blocked: ${payload.blockedEventCount}`);
     if (options.write) {
         console.log(`Wrote ${options.jsonOut}`);
         console.log(`Wrote ${options.csvOut}`);

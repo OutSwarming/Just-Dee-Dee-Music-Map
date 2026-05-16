@@ -2495,10 +2495,89 @@ body.app-tab-active #slide-panel {
     width: min(520px, 100%);
 }
 
+.booking-availability-card {
+    width: min(560px, 100%);
+}
+
 .booking-email-field {
     display: grid;
     gap: 8px;
     margin: 18px 0 12px;
+}
+
+.booking-availability-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 16px 0 12px;
+    padding: 5px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.booking-availability-toggle button {
+    min-height: 42px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.booking-availability-toggle button.active,
+.booking-availability-toggle button:focus-visible {
+    background: #111827;
+    color: #ffffff;
+    outline: none;
+}
+
+.booking-availability-list {
+    margin-top: 8px;
+}
+
+.booking-availability-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.booking-availability-date {
+    padding: 12px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #eff6ff;
+}
+
+.booking-availability-date strong,
+.booking-availability-date span {
+    display: block;
+}
+
+.booking-availability-date strong {
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.25;
+}
+
+.booking-availability-date span {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.booking-availability-empty {
+    margin: 0;
+    padding: 16px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
 }
 
 .website-event-card {
@@ -3308,6 +3387,10 @@ body.app-tab-active #slide-panel {
 
     .venue-edit-actions .glass-btn {
         width: 100%;
+    }
+
+    .booking-availability-grid {
+        grid-template-columns: 1fr;
     }
 }
 

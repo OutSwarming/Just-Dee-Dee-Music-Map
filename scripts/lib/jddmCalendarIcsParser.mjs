@@ -8,6 +8,21 @@ const EXCLUDED_SUMMARY_PATTERNS = [
 ];
 
 export function parseJddmCalendarIcs(icsText, options = {}) {
+    return parseJddmCalendarIcsEvents(icsText, options)
+        .filter(event => event.availabilityType === 'gig')
+        .map(({ availabilityType, ...event }) => event);
+}
+
+export function parseJddmCalendarAvailabilityBlocks(icsText, options = {}) {
+    return parseJddmCalendarIcsEvents(icsText, options)
+        .filter(event => event.availabilityType === 'blocked')
+        .map(({ availabilityType, ...event }) => ({
+            ...event,
+            status: 'BLOCKED'
+        }));
+}
+
+export function parseJddmCalendarIcsEvents(icsText, options = {}) {
     const timezone = options.timezone || DEFAULT_TIMEZONE;
     const sourceUrl = options.sourceUrl || '';
     const sourceCapturedAt = options.sourceCapturedAt || new Date().toISOString();
@@ -35,7 +50,12 @@ export function parseJddmCalendarIcs(icsText, options = {}) {
                     sourceCapturedAt,
                     sourceCalendarName: calendarName
                 });
-                if (event && isLikelyJddmGig(event)) events.push(event);
+                if (event) {
+                    events.push({
+                        ...event,
+                        availabilityType: isLikelyJddmGig(event) ? 'gig' : 'blocked'
+                    });
+                }
             }
             current = null;
             continue;

@@ -75,6 +75,14 @@
     };
     let emailDraftVenue = null;
     let contactMenuVenue = null;
+    let availabilityMode = 'weekends';
+    let availabilityVenue = null;
+    let calendarAvailabilityState = {
+        loading: false,
+        loaded: false,
+        payload: null,
+        error: null
+    };
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -99,6 +107,10 @@
 
     function getTemplateService() {
         return window.BARK.bookingEmailTemplates;
+    }
+
+    function getAvailabilityService() {
+        return window.BARK.bookingAvailability;
     }
 
     function getSpreadsheetService() {
@@ -130,7 +142,8 @@
                 loading: Boolean(websiteGroups.loading),
                 loadedAt: websiteGroups.loadedAt || null,
                 error: websiteGroups.error || null
-            }
+            },
+            calendarAvailability: calendarAvailabilityState.payload
         };
     }
 
@@ -967,6 +980,176 @@
         });
     }
 
+    function loadCalendarAvailabilityData() {
+        if (calendarAvailabilityState.loading || calendarAvailabilityState.loaded) {
+            return Promise.resolve(calendarAvailabilityState.payload);
+        }
+        if (typeof fetch !== 'function') {
+            calendarAvailabilityState = {
+                loading: false,
+                loaded: false,
+                payload: null,
+                error: new Error('Calendar fetch is not available.')
+            };
+            return Promise.resolve(null);
+        }
+
+        calendarAvailabilityState = {
+            ...calendarAvailabilityState,
+            loading: true,
+            error: null
+        };
+
+        return fetch('data/staged/jddm-calendar-gigs.json?v=2', { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error(`Calendar data unavailable (${response.status})`);
+                return response.json();
+            })
+            .then(payload => {
+                calendarAvailabilityState = {
+                    loading: false,
+                    loaded: true,
+                    payload,
+                    error: null
+                };
+                renderAvailabilityModalResults();
+                return payload;
+            })
+            .catch(error => {
+                console.warn('[bookingDashboard] calendar availability load failed:', error);
+                calendarAvailabilityState = {
+                    loading: false,
+                    loaded: false,
+                    payload: null,
+                    error
+                };
+                renderAvailabilityModalResults();
+                return null;
+            });
+    }
+
+    function setAvailabilityStatus(message, tone = 'neutral') {
+        const status = qs('booking-availability-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.dataset.tone = tone;
+    }
+
+    function closeAvailabilityModal() {
+        const modal = qs('booking-availability-modal');
+        if (!modal) return;
+        modal.hidden = true;
+        document.body.classList.remove('venue-edit-open');
+        availabilityVenue = null;
+        setAvailabilityStatus('', 'neutral');
+    }
+
+    function getAvailabilityCalendarPayload() {
+        const payload = calendarAvailabilityState.payload || {};
+        return {
+            gigs: Array.isArray(payload.gigs) ? payload.gigs : [],
+            blockedEvents: Array.isArray(payload.blockedEvents) ? payload.blockedEvents : []
+        };
+    }
+
+    function renderAvailabilityModalResults() {
+        const modal = qs('booking-availability-modal');
+        const list = qs('booking-availability-list');
+        const summary = qs('booking-availability-summary');
+        if (!modal || modal.hidden || !list) return;
+
+        const service = getAvailabilityService();
+        if (!service || typeof service.getAvailableDates !== 'function') {
+            list.innerHTML = '';
+            setAvailabilityStatus('Available date checks are not ready yet.', 'error');
+            return;
+        }
+
+        const data = getDashboardData();
+        const payload = getAvailabilityCalendarPayload();
+        const result = service.getAvailableDates({
+            venues: data.all || [],
+            websiteEvents: data.websiteUpcoming || [],
+            calendarEvents: payload.gigs,
+            blockedEvents: payload.blockedEvents,
+            mode: availabilityMode,
+            lookaheadDays: 120,
+            limit: 24
+        });
+
+        const modeButtons = Array.from(document.querySelectorAll('[data-availability-mode]'));
+        modeButtons.forEach(button => {
+            const active = button.dataset.availabilityMode === availabilityMode;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        if (summary) {
+            const venueLabel = availabilityVenue && availabilityVenue.name ? ` for ${availabilityVenue.name}` : '';
+            summary.textContent = `Looking at upcoming Just Dee Dee Music dates${venueLabel}. Weekends include Friday night, Saturday, and Sunday.`;
+        }
+
+        if (!result.dates.length) {
+            list.innerHTML = '<p class="booking-availability-empty">No open dates found in the next 120 days for this filter.</p>';
+        } else {
+            list.innerHTML = `
+                <div class="booking-availability-grid">
+                    ${result.dates.map(item => `
+                        <div class="booking-availability-date">
+                            <strong>${escapeHtml(item.label)}</strong>
+                            <span>${escapeHtml(item.date)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        if (calendarAvailabilityState.loading) {
+            setAvailabilityStatus('Checking staged calendar blocks...', 'neutral');
+        } else if (calendarAvailabilityState.error) {
+            setAvailabilityStatus('Using loaded venue and website dates only; staged calendar blocks could not load.', 'warning');
+        } else {
+            setAvailabilityStatus(`${result.modeLabel}: ${result.dates.length} open date${result.dates.length === 1 ? '' : 's'} found. ${result.busyCount} booked or blocked date${result.busyCount === 1 ? '' : 's'} skipped.`, 'success');
+        }
+    }
+
+    function openAvailabilityModal(venue) {
+        const modal = qs('booking-availability-modal');
+        if (!modal) return false;
+        availabilityVenue = venue || null;
+        modal.hidden = false;
+        document.body.classList.add('venue-edit-open');
+        renderAvailabilityModalResults();
+        loadCalendarAvailabilityData();
+        const activeButton = qs(availabilityMode === 'weekdays' ? 'booking-availability-weekdays' : 'booking-availability-weekends');
+        if (activeButton) activeButton.focus({ preventScroll: true });
+        return true;
+    }
+
+    function bindAvailabilityModalEvents() {
+        if (bindAvailabilityModalEvents.bound) return;
+        bindAvailabilityModalEvents.bound = true;
+
+        const modal = qs('booking-availability-modal');
+        if (!modal) return;
+
+        modal.addEventListener('click', event => {
+            if (event.target && event.target.dataset && event.target.dataset.closeBookingAvailability === 'true') {
+                closeAvailabilityModal();
+                return;
+            }
+            const modeButton = event.target.closest && event.target.closest('[data-availability-mode]');
+            if (modeButton && modal.contains(modeButton)) {
+                availabilityMode = modeButton.dataset.availabilityMode === 'weekdays' ? 'weekdays' : 'weekends';
+                renderAvailabilityModalResults();
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && modal && !modal.hidden) closeAvailabilityModal();
+        });
+    }
+
     function getVenueMarker(venue) {
         const manager = window.BARK.markerManager;
         if (manager && manager.markers && typeof manager.markers.get === 'function') {
@@ -1379,6 +1562,7 @@
                 <div class="booking-card-actions booking-card-actions--minimal">
                     <button type="button" class="booking-primary-action" data-booking-action="open-contact-menu" data-venue-id="${escapeHtml(venue.id)}">Contact</button>
                     <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Update Info</button>
+                    <button type="button" data-booking-action="check-availability" data-venue-id="${escapeHtml(venue.id)}">Check Dates</button>
                 </div>
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
@@ -1542,6 +1726,12 @@
                     }
                     return;
                 }
+                if (button.dataset.bookingAction === 'check-availability') {
+                    if (!openAvailabilityModal(venue)) {
+                        setCardSaveStatus(card, 'Available dates are not available yet.', 'error');
+                    }
+                    return;
+                }
                 if (button.dataset.bookingAction === 'toggle-gig-list') {
                     const controlledId = button.getAttribute('aria-controls');
                     const list = controlledId ? document.getElementById(controlledId) : null;
@@ -1700,7 +1890,9 @@
         bindSearchControls();
         bindEmailModalEvents();
         bindContactMenuEvents();
+        bindAvailabilityModalEvents();
         render();
+        loadCalendarAvailabilityData();
         checkSheetBridgeHealth(false);
         if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {
             dataRefreshState = {

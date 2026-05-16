@@ -64,6 +64,7 @@ assertCheck('Booking schema module is loaded', /modules\/bookingSchema\.js/.test
 assertCheck('Booking actions module is loaded', /modules\/bookingActions\.js/.test(indexHtml));
 assertCheck('Website booking service module is loaded', /modules\/websiteBookingsService\.js/.test(indexHtml));
 assertCheck('Booking dashboard module is loaded', /modules\/bookingDashboard\.js/.test(indexHtml));
+assertCheck('Booking availability module is loaded', /modules\/bookingAvailability\.js/.test(indexHtml) && /bookingAvailability/.test(read('modules/bookingAvailability.js')));
 assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(bookingActions) && /savePriorityScore/.test(bookingActions));
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));

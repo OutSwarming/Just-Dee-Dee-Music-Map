@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    parseJddmCalendarAvailabilityBlocks,
     parseJddmCalendarIcs,
     splitPastFutureCalendarGigs
 } from '../scripts/lib/jddmCalendarIcsParser.mjs';
@@ -19,6 +20,12 @@ DTSTART;VALUE=DATE:20260521
 DTEND;VALUE=DATE:20260522
 UID:camping@example.com
 SUMMARY:Camping Gilead State Park
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20260601
+DTEND;VALUE=DATE:20260605
+UID:vacation@example.com
+SUMMARY:Vacation
 END:VEVENT
 BEGIN:VEVENT
 DTSTART:20260424T220000Z
@@ -60,6 +67,25 @@ test('parseJddmCalendarIcs extracts gigs and filters obvious non-gig calendar bl
 
     const proposed = gigs.find((gig) => gig.calendarEventId === 'proposed@example.com');
     assert.equal(proposed.status, 'PROPOSED');
+});
+
+test('parseJddmCalendarAvailabilityBlocks keeps non-gig blocked dates', () => {
+    const blocks = parseJddmCalendarAvailabilityBlocks(FIXTURE_ICS, {
+        sourceUrl: 'calendar.ics',
+        sourceCapturedAt: '2026-05-06T12:00:00Z',
+        timezone: 'America/New_York'
+    });
+
+    assert.deepEqual(blocks.map((block) => block.calendarEventId), [
+        'camping@example.com',
+        'vacation@example.com'
+    ]);
+
+    const vacation = blocks.find((block) => block.calendarEventId === 'vacation@example.com');
+    assert.equal(vacation.status, 'BLOCKED');
+    assert.equal(vacation.eventDate, '2026-06-01');
+    assert.equal(vacation.eventEndDate, '2026-06-05');
+    assert.equal(vacation.summary, 'Vacation');
 });
 
 test('splitPastFutureCalendarGigs separates completed, booked, and proposed events', () => {
