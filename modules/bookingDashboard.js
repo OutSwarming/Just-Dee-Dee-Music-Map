@@ -74,6 +74,7 @@
         error: null
     };
     let emailDraftVenue = null;
+    let contactMenuVenue = null;
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -767,24 +768,16 @@
         `;
     }
 
-    function renderStateControl(venue) {
+    function getVenueStatusBadge(venue) {
         const booking = venue.booking || {};
-        const currentStatus = clean(booking.contactStatus || venue.contactStatus || 'Not Set');
-        const options = getStatusOptions(currentStatus);
-        return `
-            <div class="booking-state-control">
-                <label for="booking-state-${escapeHtml(venue.id)}">Current State</label>
-                <select id="booking-state-${escapeHtml(venue.id)}" data-booking-state-select data-venue-id="${escapeHtml(venue.id)}">
-                    ${options.map(option => `<option value="${escapeHtml(option)}"${option === currentStatus ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
-                </select>
-            </div>
-        `;
+        const status = clean(booking.contactStatus || venue.contactStatus || '');
+        if (!status) return { label: '', tone: 'neutral' };
+        return { label: getStateDisplayLabel(status), tone: getStateTone(status, 'neutral') };
     }
 
     function getContactRows(venue) {
         const booking = venue.booking || {};
         const rows = [
-            ['Venue', venue.name || 'Unknown Venue'],
             ['Contact', booking.contactName || venue.contactName || 'Not set'],
             ['Email', booking.contactEmail || venue.contactEmail || 'Missing contact info']
         ];
@@ -906,6 +899,170 @@
 
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && modal && !modal.hidden) closeEmailTemplateModal();
+        });
+    }
+
+    function getContactChannels(venue) {
+        const booking = venue.booking || {};
+        const email = clean(booking.contactEmail || venue.contactEmail);
+        const rawPhone = clean(booking.contactPhone || venue.contactPhone);
+        const digits = rawPhone.replace(/[^\d+]/g, '');
+        const facebookUrl = clean(booking.facebookUrl || venue.facebookUrl);
+        let messengerHref = '';
+        if (facebookUrl) {
+            const handleMatch = facebookUrl.match(/facebook\.com\/(?:pg\/|pages\/[^/]+\/)?([^/?#]+)/i);
+            messengerHref = handleMatch && handleMatch[1] ? `https://m.me/${handleMatch[1]}` : facebookUrl;
+        }
+        return {
+            email,
+            emailLabel: email || 'Missing email',
+            phone: rawPhone,
+            phoneDigits: digits,
+            phoneLabel: rawPhone || 'Missing phone',
+            messengerHref,
+            messengerLabel: facebookUrl ? 'Facebook Messenger' : 'No Facebook page'
+        };
+    }
+
+    function setContactMenuStatus(message, tone = 'neutral') {
+        const status = qs('booking-contact-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.dataset.tone = tone;
+    }
+
+    function closeContactMenu() {
+        const modal = qs('booking-contact-modal');
+        if (!modal) return;
+        modal.hidden = true;
+        document.body.classList.remove('venue-edit-open');
+        contactMenuVenue = null;
+        setContactMenuStatus('', 'neutral');
+    }
+
+    function setContactChannelButton(id, opts) {
+        const btn = qs(id);
+        if (!btn) return;
+        const { label, href, action, disabled, sub } = opts;
+        btn.dataset.contactAction = action || '';
+        btn.dataset.contactHref = href || '';
+        btn.disabled = Boolean(disabled);
+        const labelEl = btn.querySelector('[data-channel-label]');
+        const subEl = btn.querySelector('[data-channel-sub]');
+        if (labelEl) labelEl.textContent = label;
+        if (subEl) subEl.textContent = sub || '';
+    }
+
+    function openContactMenu(venue) {
+        const modal = qs('booking-contact-modal');
+        const summary = qs('booking-contact-summary');
+        if (!modal || !summary) return false;
+
+        contactMenuVenue = venue;
+        const channels = getContactChannels(venue);
+        summary.textContent = venue.name || 'This venue';
+
+        setContactChannelButton('booking-contact-email', {
+            action: 'email',
+            label: 'Email',
+            sub: channels.emailLabel,
+            disabled: !channels.email && !Boolean(getGmailComposeHref(venue))
+        });
+        setContactChannelButton('booking-contact-call', {
+            action: 'call',
+            href: channels.phoneDigits ? `tel:${channels.phoneDigits}` : '',
+            label: 'Call',
+            sub: channels.phoneLabel,
+            disabled: !channels.phoneDigits
+        });
+        setContactChannelButton('booking-contact-text', {
+            action: 'text',
+            href: channels.phoneDigits ? `sms:${channels.phoneDigits}` : '',
+            label: 'Text',
+            sub: channels.phoneLabel,
+            disabled: !channels.phoneDigits
+        });
+        setContactChannelButton('booking-contact-messenger', {
+            action: 'messenger',
+            href: channels.messengerHref,
+            label: 'Messenger',
+            sub: channels.messengerLabel,
+            disabled: !channels.messengerHref
+        });
+
+        setContactMenuStatus('', 'neutral');
+        modal.hidden = false;
+        document.body.classList.add('venue-edit-open');
+        return true;
+    }
+
+    function handleContactChannelClick(action) {
+        if (!contactMenuVenue) return;
+        const venue = contactMenuVenue;
+        const channels = getContactChannels(venue);
+
+        if (action === 'email') {
+            if (openEmailTemplateModal(venue)) {
+                closeContactMenu();
+            } else {
+                setContactMenuStatus('Email templates are not available yet.', 'error');
+            }
+            return;
+        }
+        if (action === 'call') {
+            if (!channels.phoneDigits) {
+                setContactMenuStatus('No phone number on file for this venue.', 'error');
+                return;
+            }
+            window.location.href = `tel:${channels.phoneDigits}`;
+            closeContactMenu();
+            return;
+        }
+        if (action === 'text') {
+            if (!channels.phoneDigits) {
+                setContactMenuStatus('No phone number on file for this venue.', 'error');
+                return;
+            }
+            const body = 'Hi! This is Just Dee Dee Music - ';
+            const sep = /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent || '') ? '&' : '?';
+            window.location.href = `sms:${channels.phoneDigits}${sep}body=${encodeURIComponent(body)}`;
+            closeContactMenu();
+            return;
+        }
+        if (action === 'messenger') {
+            if (!channels.messengerHref) {
+                setContactMenuStatus('No Facebook page on file for this venue.', 'error');
+                return;
+            }
+            const opened = typeof window.open === 'function'
+                ? window.open(channels.messengerHref, '_blank', 'noopener')
+                : null;
+            if (!opened) window.location.href = channels.messengerHref;
+            closeContactMenu();
+            return;
+        }
+    }
+
+    function bindContactMenuEvents() {
+        if (bindContactMenuEvents.bound) return;
+        bindContactMenuEvents.bound = true;
+
+        const modal = qs('booking-contact-modal');
+        if (!modal) return;
+
+        modal.addEventListener('click', event => {
+            if (event.target && event.target.dataset && event.target.dataset.closeBookingContact === 'true') {
+                closeContactMenu();
+                return;
+            }
+            const channelBtn = event.target.closest && event.target.closest('[data-contact-action]');
+            if (channelBtn && modal.contains(channelBtn) && !channelBtn.disabled) {
+                handleContactChannelClick(channelBtn.dataset.contactAction);
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && modal && !modal.hidden) closeContactMenu();
         });
     }
 
@@ -1266,25 +1423,31 @@
 
     function renderVenueCard(venue, tabId) {
         const booking = venue.booking || {};
-        const hasEmailDraft = Boolean(getGmailComposeHref(venue));
         const contactRows = getContactRows(venue);
         const emailMissing = !clean(booking.contactEmail || venue.contactEmail);
+        const badge = getVenueStatusBadge(venue);
+        const badgeMarkup = badge.label
+            ? `<span class="booking-card-status-badge" data-state-tone="${escapeHtml(badge.tone)}">${escapeHtml(badge.label)}</span>`
+            : '';
 
         return `
-            <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}">
-                ${renderStateControl(venue)}
+            <article class="booking-card" data-booking-venue-id="${escapeHtml(venue.id)}" data-state-tone="${escapeHtml(badge.tone)}">
+                <header class="booking-card-header">
+                    <h3>${escapeHtml(venue.name || 'Unknown Venue')}</h3>
+                    ${badgeMarkup}
+                </header>
+                <p class="booking-card-location">${escapeHtml(getVenueLocation(venue))}</p>
                 <div class="booking-card-info" aria-label="Venue contact summary">
                     ${contactRows.map(([label, value]) => `
-                        <div>
+                        <div class="booking-info-row">
                             <span>${escapeHtml(label)}</span>
                             <strong${label === 'Email' && emailMissing ? ' class="booking-missing-value"' : ''}>${escapeHtml(value)}</strong>
                         </div>
                     `).join('')}
                 </div>
-                <p class="booking-card-location">${escapeHtml(getVenueLocation(venue))}</p>
                 <div class="booking-card-actions booking-card-actions--minimal">
-                    <button type="button" class="booking-primary-action" data-booking-action="choose-email-template" data-venue-id="${escapeHtml(venue.id)}"${hasEmailDraft ? '' : ' disabled'}>Send Email</button>
-                    <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Update Contact Info</button>
+                    <button type="button" class="booking-primary-action" data-booking-action="open-contact-menu" data-venue-id="${escapeHtml(venue.id)}">Contact</button>
+                    <button type="button" data-booking-action="edit" data-venue-id="${escapeHtml(venue.id)}">Update Info</button>
                 </div>
                 <p class="booking-card-save-status" aria-live="polite"></p>
             </article>
@@ -1588,6 +1751,12 @@
                     }
                     return;
                 }
+                if (button.dataset.bookingAction === 'open-contact-menu') {
+                    if (!openContactMenu(venue)) {
+                        setCardSaveStatus(card, 'Contact menu is not available yet.', 'error');
+                    }
+                    return;
+                }
                 if (button.dataset.bookingAction === 'status') {
                     await saveVenueStatus(card, button, venue);
                     return;
@@ -1761,6 +1930,7 @@
     function init() {
         bindSearchControls();
         bindEmailModalEvents();
+        bindContactMenuEvents();
         render();
         checkSheetBridgeHealth(false);
         if (typeof window.addEventListener === 'function') window.addEventListener(window.BARK.VENUE_DATA_SYNC_EVENT || 'jddm:venue-data-sync', () => {

@@ -11,7 +11,8 @@ Implementation update:
 - Added backend callable `createCheckoutSession`.
 - The callable requires Firebase auth and trusts only `context.auth.uid`.
 - The callable reads `LEMONSQUEEZY_API_KEY` from Firebase/backend secret env.
-- The callable forces store ID `363425`, annual variant ID `1604336`, and app base URL `https://outswarming.github.io/bark-ranger-map/`.
+- The callable forces store ID `363425` and annual variant ID `1604336`.
+- The callable defaults return URLs to `https://outswarming.github.io/bark-ranger-map/`, but backend env `APP_BASE_URL` can override the app return origin for internal/local checkout testing.
 - The callable creates a Lemon Squeezy test-mode hosted checkout and includes `checkout_data.custom.firebase_uid = context.auth.uid`.
 - The callable returns only the hosted checkout URL.
 - No API key was committed.
@@ -21,7 +22,7 @@ Current pricing note:
 
 - Phase 4D recommended `$15/year` for beta planning.
 - The current Lemon Squeezy test variant configured for Phase 4E is `$9.99/year`.
-- The backend forces variant ID `1604336`; the client cannot choose price, product, store, or variant.
+- The backend forces variant ID `1604336`; the client cannot choose price, product, store, variant, success URL, cancel URL, or app base URL.
 
 Verification status:
 
@@ -100,6 +101,9 @@ Provider values needed by Codex before 4E implementation:
 - `LEMONSQUEEZY_STORE_ID`: test-mode store ID.
 - `LEMONSQUEEZY_VARIANT_ID_ANNUAL`: test-mode annual variant ID for `$9.99/year`.
 - `APP_BASE_URL`: app URL used for success/cancel planning.
+  - Defaults to `https://outswarming.github.io/bark-ranger-map/`.
+  - For internal localhost checkout smoke, set backend env/config to the exact app URL that holds the signed-in Firebase session, for example `http://localhost:4173/index.html`.
+  - Do not allow the client request to provide or override this value.
 
 ## 2. Backend Function Design
 
@@ -125,7 +129,7 @@ For signed-in free users:
 5. Use the backend-forced store `363425` and annual variant `1604336` relationships.
 6. Set `attributes.test_mode = true`.
 7. Set `product_options.enabled_variants = [1604336]` so other variants are hidden.
-8. Set `product_options.redirect_url` to `https://outswarming.github.io/bark-ranger-map/?checkout=success&provider=lemonsqueezy`.
+8. Set `product_options.redirect_url` to `${APP_BASE_URL}?checkout=success&provider=lemonsqueezy`.
 9. Set `checkout_data.email` and `checkout_data.name` if available.
 10. Set `checkout_data.custom.firebase_uid = context.auth.uid`.
 11. Optionally include custom data such as:
@@ -168,13 +172,23 @@ Required for 4E:
 - `LEMONSQUEEZY_VARIANT_ID_ANNUAL`
   - Backend-forced annual `$9.99/year` test variant in 4E: `1604336`.
 - `APP_BASE_URL`
-  - Backend-forced app URL in 4E: `https://outswarming.github.io/bark-ranger-map/`.
+  - Backend-owned app return URL.
+  - Production/default value: `https://outswarming.github.io/bark-ranger-map/`.
+  - Internal/local testing value can be set with backend env/config, for example `http://localhost:4173/index.html`.
+  - The client must never send or choose this value.
 
 Secret setup command for later deploy:
 
 ```bash
 firebase functions:secrets:set LEMONSQUEEZY_API_KEY
 ```
+
+Internal return URL setup note:
+
+- If checkout is started from localhost but Lemon Squeezy returns to GitHub Pages, the webhook can still write entitlement correctly while the browser that receives `?checkout=success` is signed into a different Firebase UID or no Firebase session.
+- In that case the frontend must stay on `Verifying payment...`; this is correct and safe.
+- For internal checkout smoke, deploy `createCheckoutSession` with backend `APP_BASE_URL` set to the same app origin/session that created checkout.
+- Do not use this as a client-provided value and do not unlock from the success URL.
 
 Later deployment command, do not run without explicit approval:
 
@@ -201,6 +215,7 @@ Checkout creation trust rules:
 
 - Client cannot create or update `users/{uid}.entitlement`.
 - Client cannot choose arbitrary price, store, variant, provider customer ID, or subscription ID.
+- Client cannot choose success URL, cancel URL, or app base URL.
 - Client cannot submit a trusted `uid`; backend uses `context.auth.uid`.
 - Backend decides `LEMONSQUEEZY_VARIANT_ID_ANNUAL`.
 - Backend forces `test_mode: true` in 4E.
@@ -226,7 +241,10 @@ Covered cases:
 - Already-premium branching is intentionally not implemented in 4E.
 - Client-provided `uid` is ignored.
 - Client-provided price, store ID, variant ID, `test_mode`, and provider fields are ignored.
+- Client-provided success URL, cancel URL, and app base URL are ignored.
 - Backend request uses forced annual variant `1604336`, not client data.
+- Backend request uses GitHub Pages return URLs by default.
+- Backend request uses `APP_BASE_URL` return URLs when configured for internal/local testing.
 - Backend request includes `checkout_data.custom.firebase_uid` from `context.auth.uid`.
 - Backend request sets `test_mode: true`.
 - Backend request includes prefilled email/display name when available.

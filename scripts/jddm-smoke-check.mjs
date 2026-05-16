@@ -67,6 +67,7 @@ assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(booki
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
 assertCheck('Apps Script website event staging action exists', /stageWebsiteBookingEvents/.test(bridge) && /websiteBookingEvents/.test(bridge));
+assertCheck('Apps Script calendar gig sync action exists', /syncCalendarGigEvents/.test(bridge) && /CalendarGigs/.test(bridge));
 
 const dashboardVersion = matchVersion(
     bookingDashboard,
@@ -92,7 +93,12 @@ assertCheck(
     'doNotContact',
     'priority',
     'bestFitScore',
-    'websiteBookingEvents'
+    'websiteBookingEvents',
+    'calendarGigEvents',
+    'calendarLastGigDate',
+    'calendarNextGigDate',
+    'calendarTotalGigsPlayed',
+    'calendarLastSyncedAt'
 ].forEach((header) => {
     assertCheck(`Bridge/dashboard require ${header}`, bridge.includes(header) && bookingDashboard.includes(header));
 });

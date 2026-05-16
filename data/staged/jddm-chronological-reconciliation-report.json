@@ -1,0 +1,2033 @@
+{
+  "source": "data/staged/JustDeeDeeMusic Chronological Events V2.csv",
+  "historicalEventCount": 162,
+  "masterVenueCount": 514,
+  "masterPastEventCount": 165,
+  "masterPastNotInHistoricalCount": 4,
+  "masterPastNotInHistorical": [
+    {
+      "eventDate": "2025-02-07",
+      "eventTime": "6:00pm",
+      "status": "COMPLETED",
+      "summary": "Madison Brewing",
+      "venueName": "Madison Brewing Company",
+      "venueKey": "madison brewing company",
+      "venueKeys": [
+        "madison brewing company",
+        "madison brewing"
+      ],
+      "siteId": "madison-brewing-company-madison-oh-44057",
+      "line": "2025-02-07 6:00pm ET | COMPLETED | Madison Brewing | ss89m6h9ibkpp5co5iqjn3om5s@google.com",
+      "historicalHasSameDate": false
+    },
+    {
+      "eventDate": "2026-02-05",
+      "eventTime": "6:00pm",
+      "status": "COMPLETED",
+      "summary": "Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueKey": "ridge and rail",
+      "venueKeys": [
+        "ridge and rail",
+        "rail"
+      ],
+      "siteId": "ridge-and-rail-wadsworth-oh-44281",
+      "line": "2026-02-05 6:00pm ET | COMPLETED | Ridge & Rail | 0bfau4b8sd9fcchuecbdnpam6b@google.com",
+      "historicalHasSameDate": false
+    },
+    {
+      "eventDate": "2026-03-25",
+      "eventTime": "7:00pm",
+      "status": "COMPLETED",
+      "summary": "Ridge & Rail",
+      "venueName": "Ridge & Rail",
+      "venueKey": "ridge and rail",
+      "venueKeys": [
+        "ridge and rail",
+        "rail"
+      ],
+      "siteId": "ridge-and-rail-wadsworth-oh-44281",
+      "line": "2026-03-25 7:00pm ET | COMPLETED | Ridge & Rail | 50lctdhjfti2fgig26gtla0le4@google.com",
+      "historicalHasSameDate": false
+    },
+    {
+      "eventDate": "2026-04-19",
+      "eventTime": "3:00pm",
+      "status": "COMPLETED",
+      "summary": "Das Weinhaus Open Mic",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "siteId": "das-weinhaus-litchfield-oh-44253",
+      "line": "2026-04-19 3:00pm ET | COMPLETED | Das Weinhaus Open Mic | 7rgbf9nmbsrrm5ei6hme33sghg@google.com",
+      "historicalHasSameDate": false
+    }
+  ],
+  "historicalEvents": [
+    {
+      "eventDate": "2023-12-16",
+      "eventName": "Just Dee Dee Music at Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "Das Weinhaus",
+      "time": "Not Listed",
+      "sourceRowNumber": 2
+    },
+    {
+      "eventDate": "2024-01-26",
+      "eventName": "JDDM Live @ The Ugly Bunny Winery",
+      "venueName": "The Ugly Bunny Winery",
+      "venueKey": "ugly bunny winery",
+      "venueKeys": [
+        "ugly bunny winery"
+      ],
+      "address": "16104 OH-39, Loudonville, OH 44842",
+      "time": "Not Listed",
+      "sourceRowNumber": 3
+    },
+    {
+      "eventDate": "2024-01-27",
+      "eventName": "JDDM Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 4
+    },
+    {
+      "eventDate": "2024-02-03",
+      "eventName": "JDDM Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 5
+    },
+    {
+      "eventDate": "2024-02-17",
+      "eventName": "JDDM Live @ Hoppy Dude Brews",
+      "venueName": "Hoppy Dude Brews",
+      "venueKey": "hoppy dude brews",
+      "venueKeys": [
+        "hoppy dude brews"
+      ],
+      "address": "1369 Ridge Rd, Hinckley, OH 44233",
+      "time": "Not Listed",
+      "sourceRowNumber": 6
+    },
+    {
+      "eventDate": "2024-02-23",
+      "eventName": "JustDeeDeeMuisc Live @ Bascule Brewery and Public House",
+      "venueName": "Bascule Brewery and Public House",
+      "venueKey": "bascule brewery public house",
+      "venueKeys": [
+        "bascule brewery public house"
+      ],
+      "address": "1397 Colorado Ave, Lorain, OH 44052",
+      "time": "Not Listed",
+      "sourceRowNumber": 7
+    },
+    {
+      "eventDate": "2024-03-02",
+      "eventName": "Just Dee Dee back at Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Road, Litchfield, OH, United States, Ohio 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 8
+    },
+    {
+      "eventDate": "2024-03-15",
+      "eventName": "JustDeeDeeMuisc Live @ AMY'S ARBORS",
+      "venueName": "AMY'S ARBORS",
+      "venueKey": "amys arbors",
+      "venueKeys": [
+        "amys arbors"
+      ],
+      "address": "6735 Center Rd, Valley City, OH 44280",
+      "time": "Not Listed",
+      "sourceRowNumber": 9
+    },
+    {
+      "eventDate": "2024-03-28",
+      "eventName": "JustDeeDeeMuisc Live @ Lost Trail Winery And Vineyard",
+      "venueName": "Lost Trail Winery And Vineyard",
+      "venueKey": "lost trail winery and vineyard",
+      "venueKeys": [
+        "lost trail winery and vineyard"
+      ],
+      "address": "5228 State St NE, Canton, OH 44721",
+      "time": "Not Listed",
+      "sourceRowNumber": 10
+    },
+    {
+      "eventDate": "2024-04-13",
+      "eventName": "JustDeeDeeMusic Live @ Uncle Chuck's Place",
+      "venueName": "Uncle Chuck's Place",
+      "venueKey": "uncle chucks place",
+      "venueKeys": [
+        "uncle chucks place"
+      ],
+      "address": "19 W Main St, Wakeman, OH 44889",
+      "time": "Not Listed",
+      "sourceRowNumber": 11
+    },
+    {
+      "eventDate": "2024-04-14",
+      "eventName": "JustDeeDeeMuisc Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 12
+    },
+    {
+      "eventDate": "2024-04-20",
+      "eventName": "JustDeeDeeMuisc Live @ Hoppy Dude Brews",
+      "venueName": "Hoppy Dude Brews",
+      "venueKey": "hoppy dude brews",
+      "venueKeys": [
+        "hoppy dude brews"
+      ],
+      "address": "1369 Ridge Rd, Hinckley, OH 44233",
+      "time": "Not Listed",
+      "sourceRowNumber": 13
+    },
+    {
+      "eventDate": "2024-04-26",
+      "eventName": "JustDeeDeeMuisc Live @ AMY'S ARBORS",
+      "venueName": "AMY'S ARBORS",
+      "venueKey": "amys arbors",
+      "venueKeys": [
+        "amys arbors"
+      ],
+      "address": "6735 Center Rd, Valley City, OH 44280",
+      "time": "Not Listed",
+      "sourceRowNumber": 14
+    },
+    {
+      "eventDate": "2024-04-27",
+      "eventName": "JustDeeDeeMuisc Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 15
+    },
+    {
+      "eventDate": "2024-05-03",
+      "eventName": "JustDeeDeeMusic Live @ Kalaveras (Modern Mexican Cocina & Bar)",
+      "venueName": "Kalaveras (Modern Mexican Cocina & Bar)",
+      "venueKey": "kalaveras modern mexican cocina bar",
+      "venueKeys": [
+        "kalaveras modern mexican cocina bar"
+      ],
+      "address": "11204 Royalton Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 16
+    },
+    {
+      "eventDate": "2024-05-04",
+      "eventName": "JustDeeDeeMusic Live @ Uncle Chuck's Place",
+      "venueName": "Uncle Chuck's Place",
+      "venueKey": "uncle chucks place",
+      "venueKeys": [
+        "uncle chucks place"
+      ],
+      "address": "19 W Main St, Wakeman, OH 44889",
+      "time": "Not Listed",
+      "sourceRowNumber": 17
+    },
+    {
+      "eventDate": "2024-05-05",
+      "eventName": "JustDeeDeeMuisc Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 18
+    },
+    {
+      "eventDate": "2024-05-10",
+      "eventName": "JustDeeDeeMuisc Live @ Sense By The Falls",
+      "venueName": "Sense By The Falls",
+      "venueKey": "sense by the falls",
+      "venueKeys": [
+        "sense by the falls"
+      ],
+      "address": "1749 Front St Unit C, Cuyahoga Falls, OH 44221",
+      "time": "Not Listed",
+      "sourceRowNumber": 19
+    },
+    {
+      "eventDate": "2024-05-11",
+      "eventName": "JustDeeDeeMusic Live @ Unplugged Brewing Co.",
+      "venueName": "Unplugged Brewing Co.",
+      "venueKey": "unplugged brewing co",
+      "venueKeys": [
+        "unplugged brewing co",
+        "unplugged brewing"
+      ],
+      "address": "201 E Bridge St, Elyria, OH 44035",
+      "time": "Not Listed",
+      "sourceRowNumber": 20
+    },
+    {
+      "eventDate": "2024-05-17",
+      "eventName": "JustDeeDeeMusic Live @ The Cleveland Winery / Vino Veritas Cellars",
+      "venueName": "The Cleveland Winery / Vino Veritas Cellars",
+      "venueKey": "the cleveland winery vino veritas cellars",
+      "venueKeys": [
+        "the cleveland winery vino veritas cellars"
+      ],
+      "address": "4103 Memphis Ave, Cleveland, OH 44109",
+      "time": "Not Listed",
+      "sourceRowNumber": 22
+    },
+    {
+      "eventDate": "2024-05-22",
+      "eventName": "JustDeeDeeMusic Live @ Caston & Main Brew Yard",
+      "venueName": "Caston & Main Brew Yard",
+      "venueKey": "caston main brew yard",
+      "venueKeys": [
+        "caston main brew yard"
+      ],
+      "address": "5010 S Main St, Akron, OH 44319",
+      "time": "Not Listed",
+      "sourceRowNumber": 23
+    },
+    {
+      "eventDate": "2024-05-24",
+      "eventName": "JustDeeDeeMuisc Live @ Blue Monkey Brewing Company",
+      "venueName": "Blue Monkey Brewing Company",
+      "venueKey": "blue monkey brewing company",
+      "venueKeys": [
+        "blue monkey brewing company",
+        "blue monkey brewing"
+      ],
+      "address": "5540 Wallings Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 24
+    },
+    {
+      "eventDate": "2024-06-07",
+      "eventName": "JustDeeDeeMusic Live @ The Cleveland Winery / Vino Veritas Cellars",
+      "venueName": "The Cleveland Winery / Vino Veritas Cellars",
+      "venueKey": "the cleveland winery vino veritas cellars",
+      "venueKeys": [
+        "the cleveland winery vino veritas cellars"
+      ],
+      "address": "4103 Memphis Ave, Cleveland, OH 44109",
+      "time": "Not Listed",
+      "sourceRowNumber": 25
+    },
+    {
+      "eventDate": "2024-06-13",
+      "eventName": "JustDeeDeeMusic Live @ Lincoln Way Vineyards",
+      "venueName": "Lincoln Way Vineyards",
+      "venueKey": "lincoln way vineyards",
+      "venueKeys": [
+        "lincoln way vineyards"
+      ],
+      "address": "9050 W Old Lincoln Way, Wooster, OH 44691",
+      "time": "Not Listed",
+      "sourceRowNumber": 26
+    },
+    {
+      "eventDate": "2024-06-14",
+      "eventName": "JustDeeDeeMusic Live @ Kalaveras (Modern Mexican Cocina & Bar)",
+      "venueName": "Kalaveras (Modern Mexican Cocina & Bar)",
+      "venueKey": "kalaveras modern mexican cocina bar",
+      "venueKeys": [
+        "kalaveras modern mexican cocina bar"
+      ],
+      "address": "11204 Royalton Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 27
+    },
+    {
+      "eventDate": "2024-06-16",
+      "eventName": "JustDeeDeeMuisc Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 28
+    },
+    {
+      "eventDate": "2024-07-18",
+      "eventName": "JustDeeDeeMusic Live @ New Berlin Brewing Company",
+      "venueName": "New Berlin Brewing Company",
+      "venueKey": "new berlin brewing company",
+      "venueKeys": [
+        "new berlin brewing company",
+        "new berlin brewing"
+      ],
+      "address": "1664 N Main St, North Canton, OH 44720",
+      "time": "Not Listed",
+      "sourceRowNumber": 29
+    },
+    {
+      "eventDate": "2024-07-20",
+      "eventName": "JustDeeDeeMusic Live @ Marie's Restaurant",
+      "venueName": "Marie's Restaurant",
+      "venueKey": "maries restaurant",
+      "venueKeys": [
+        "maries restaurant"
+      ],
+      "address": "130 E Smokerise Dr, Wadsworth, OH 44281",
+      "time": "Not Listed",
+      "sourceRowNumber": 30
+    },
+    {
+      "eventDate": "2024-07-20",
+      "eventName": "JustDeeDeeMusic Live @ Seville Farm Market",
+      "venueName": "Seville Farm Market",
+      "venueKey": "seville farmers market",
+      "venueKeys": [
+        "seville farmers market"
+      ],
+      "address": "73 W Main St, Seville, OH, United States, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 31
+    },
+    {
+      "eventDate": "2024-07-21",
+      "eventName": "JustDeeDeeMuisc Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 32
+    },
+    {
+      "eventDate": "2024-07-26",
+      "eventName": "JustDeeDeeMusic Live @ The Village Inn",
+      "venueName": "The Village Inn",
+      "venueKey": "the village inn",
+      "venueKeys": [
+        "the village inn"
+      ],
+      "address": "5875 Longacre Ln, Chippewa Lake, OH 44215",
+      "time": "Not Listed",
+      "sourceRowNumber": 33
+    },
+    {
+      "eventDate": "2024-07-27",
+      "eventName": "JustDeeDeeMusic Live @ Sense By The Falls",
+      "venueName": "Sense By The Falls",
+      "venueKey": "sense by the falls",
+      "venueKeys": [
+        "sense by the falls"
+      ],
+      "address": "1749 Front St Unit C, Cuyahoga Falls, OH 44221",
+      "time": "Not Listed",
+      "sourceRowNumber": 34
+    },
+    {
+      "eventDate": "2024-07-28",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Brunswick",
+      "venueName": "The Brew Kettle Brunswick",
+      "venueKey": "the brew kettle brunswick",
+      "venueKeys": [
+        "the brew kettle brunswick"
+      ],
+      "address": "5288 Center Rd, Brunswick, OH 44212",
+      "time": "Not Listed",
+      "sourceRowNumber": 35
+    },
+    {
+      "eventDate": "2024-08-02",
+      "eventName": "JustDeeDeeMusic Live @ Wolf Wine Company",
+      "venueName": "Wolf Wine Company",
+      "venueKey": "wolf wine company",
+      "venueKeys": [
+        "wolf wine company",
+        "wolf wine"
+      ],
+      "address": "50738 OH-113, Amherst, OH 44001",
+      "time": "Not Listed",
+      "sourceRowNumber": 36
+    },
+    {
+      "eventDate": "2024-08-03",
+      "eventName": "JustDeeDeeMuisc Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 37
+    },
+    {
+      "eventDate": "2024-08-09",
+      "eventName": "JustDeeDeeMusic Live @ Tricky Tortoise Brewing Co.",
+      "venueName": "Tricky Tortoise Brewing Co.",
+      "venueKey": "tricky tortoise brewing co",
+      "venueKeys": [
+        "tricky tortoise brewing co",
+        "tricky tortoise brewing"
+      ],
+      "address": "4057 Erie St, Willoughby, OH 44094",
+      "time": "Not Listed",
+      "sourceRowNumber": 38
+    },
+    {
+      "eventDate": "2024-08-10",
+      "eventName": "JustDeeDeeMusic Live @ The Cleveland Winery / Vino Veritas Cellars",
+      "venueName": "The Cleveland Winery / Vino Veritas Cellars",
+      "venueKey": "the cleveland winery vino veritas cellars",
+      "venueKeys": [
+        "the cleveland winery vino veritas cellars"
+      ],
+      "address": "4103 Memphis Ave, Cleveland, OH 44109",
+      "time": "Not Listed",
+      "sourceRowNumber": 39
+    },
+    {
+      "eventDate": "2024-08-11",
+      "eventName": "Just Dee Dee returns to Das Weinhaus with originals & cover!",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Road, Litchfield, OH, United States, Ohio 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 40
+    },
+    {
+      "eventDate": "2024-08-16",
+      "eventName": "JustDeeDeeMusic Live @ Railroad Brewing Center Station",
+      "venueName": "Railroad Brewing Center Station",
+      "venueKey": "railroad brewing center station",
+      "venueKeys": [
+        "railroad brewing center station"
+      ],
+      "address": "820 Center Rd, Avon, OH 44011",
+      "time": "Not Listed",
+      "sourceRowNumber": 41
+    },
+    {
+      "eventDate": "2024-08-17",
+      "eventName": "JustDeeDeeMuisc Live @ Bascule Brewery and Public House",
+      "venueName": "Bascule Brewery and Public House",
+      "venueKey": "bascule brewery public house",
+      "venueKeys": [
+        "bascule brewery public house"
+      ],
+      "address": "1397 Colorado Ave, Lorain, OH 44052",
+      "time": "Not Listed",
+      "sourceRowNumber": 42
+    },
+    {
+      "eventDate": "2024-08-17",
+      "eventName": "JustDeeDeeMusic Live @ Day Dream Farm Winery",
+      "venueName": "Day Dream Farm Winery",
+      "venueKey": "day dream farm winery",
+      "venueKeys": [
+        "day dream farm winery"
+      ],
+      "address": "5703 OH-166, Rock Creek, OH 44084",
+      "time": "Not Listed",
+      "sourceRowNumber": 43
+    },
+    {
+      "eventDate": "2024-08-21",
+      "eventName": "JustDeeDeeMusic Live @ Debonné Vineyards",
+      "venueName": "Debonné Vineyards",
+      "venueKey": "debonne vineyards",
+      "venueKeys": [
+        "debonne vineyards"
+      ],
+      "address": "7840 Doty Rd, Madison, OH 44057",
+      "time": "Not Listed",
+      "sourceRowNumber": 44
+    },
+    {
+      "eventDate": "2024-08-23",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Brunswick",
+      "venueName": "The Brew Kettle Brunswick",
+      "venueKey": "the brew kettle brunswick",
+      "venueKeys": [
+        "the brew kettle brunswick"
+      ],
+      "address": "5288 Center Rd, Brunswick, OH 44212",
+      "time": "Not Listed",
+      "sourceRowNumber": 45
+    },
+    {
+      "eventDate": "2024-08-30",
+      "eventName": "JustDeeDeeMusic Live @ Tavern of Independence",
+      "venueName": "Tavern of Independence",
+      "venueKey": "tavern of independence",
+      "venueKeys": [
+        "tavern of independence",
+        "of independence"
+      ],
+      "address": "5530 Brecksville Rd, Independence, OH 44131",
+      "time": "Not Listed",
+      "sourceRowNumber": 46
+    },
+    {
+      "eventDate": "2024-08-31",
+      "eventName": "Live Music with Just Dee Dee",
+      "venueName": "ESP Brewing",
+      "venueKey": "esp brewing",
+      "venueKeys": [
+        "esp brewing"
+      ],
+      "address": "8055 Leavitt Road, Amherst, OH, United States, Ohio 44001",
+      "time": "Not Listed",
+      "sourceRowNumber": 47
+    },
+    {
+      "eventDate": "2024-09-05",
+      "eventName": "Live Music: Just Dee Dee Music",
+      "venueName": "New Berlin Brewing Company",
+      "venueKey": "new berlin brewing company",
+      "venueKeys": [
+        "new berlin brewing company",
+        "new berlin brewing"
+      ],
+      "address": "1664 North Main St, North Canton, OH, United States, Ohio 44720",
+      "time": "Not Listed",
+      "sourceRowNumber": 48
+    },
+    {
+      "eventDate": "2024-09-07",
+      "eventName": "JustDeeDeeMuisc Live @ Main Street Wooster (Pavilion)",
+      "venueName": "Main Street Wooster (Pavilion)",
+      "venueKey": "main street wooster",
+      "venueKeys": [
+        "main street wooster"
+      ],
+      "address": "NE Quadrant- Intersection of Liberty St. & Market St., Wooster, Ohio 44691",
+      "time": "Not Listed",
+      "sourceRowNumber": 49
+    },
+    {
+      "eventDate": "2024-09-11",
+      "eventName": "JustDeeDeeMusic Live @ Caston & Main Brew Yard",
+      "venueName": "Caston & Main Brew Yard",
+      "venueKey": "caston main brew yard",
+      "venueKeys": [
+        "caston main brew yard"
+      ],
+      "address": "5010 S Main St, Akron, OH 44319",
+      "time": "Not Listed",
+      "sourceRowNumber": 50
+    },
+    {
+      "eventDate": "2024-09-13",
+      "eventName": "JustDeeDeeMusic Live @ The Village Inn",
+      "venueName": "The Village Inn",
+      "venueKey": "the village inn",
+      "venueKeys": [
+        "the village inn"
+      ],
+      "address": "5875 Longacre Ln, Chippewa Lake, OH 44215",
+      "time": "Not Listed",
+      "sourceRowNumber": 51
+    },
+    {
+      "eventDate": "2024-09-14",
+      "eventName": "JustDeeDeeMusic Live @ Peninsula Coffee House and Market",
+      "venueName": "Peninsula Coffee House and Market",
+      "venueKey": "peninsula coffee house market",
+      "venueKeys": [
+        "peninsula coffee house market"
+      ],
+      "address": "1653 Main St, Peninsula, OH 44264",
+      "time": "Not Listed",
+      "sourceRowNumber": 52
+    },
+    {
+      "eventDate": "2024-09-20",
+      "eventName": "JustDeeDeeMuisc Live @ Bascule Brewery and Public House",
+      "venueName": "Bascule Brewery and Public House",
+      "venueKey": "bascule brewery public house",
+      "venueKeys": [
+        "bascule brewery public house"
+      ],
+      "address": "1397 Colorado Ave, Lorain, OH 44052",
+      "time": "Not Listed",
+      "sourceRowNumber": 53
+    },
+    {
+      "eventDate": "2024-09-22",
+      "eventName": "JustDeeDeeMuisc Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 54
+    },
+    {
+      "eventDate": "2024-09-27",
+      "eventName": "JustDeeDeeMusic Live @ Marie's Restaurant",
+      "venueName": "Marie's Restaurant",
+      "venueKey": "maries restaurant",
+      "venueKeys": [
+        "maries restaurant"
+      ],
+      "address": "130 E Smokerise Dr, Wadsworth, OH 44281",
+      "time": "Not Listed",
+      "sourceRowNumber": 55
+    },
+    {
+      "eventDate": "2024-10-04",
+      "eventName": "JustDeeDeeMusic Live @ Hoppy Dude Brews",
+      "venueName": "Hoppy Dude Brews",
+      "venueKey": "hoppy dude brews",
+      "venueKeys": [
+        "hoppy dude brews"
+      ],
+      "address": "1369 Ridge Rd, Hinckley, OH 44233",
+      "time": "Not Listed",
+      "sourceRowNumber": 56
+    },
+    {
+      "eventDate": "2024-10-05",
+      "eventName": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 57
+    },
+    {
+      "eventDate": "2024-10-11",
+      "eventName": "JustDeeDeeMusic Live @ Bistro On Main",
+      "venueName": "Bistro On Main",
+      "venueKey": "bistro on main",
+      "venueKeys": [
+        "bistro on main"
+      ],
+      "address": "1313 W Main St, Kent, OH 44240-1939, United States",
+      "time": "Not Listed",
+      "sourceRowNumber": 58
+    },
+    {
+      "eventDate": "2024-10-12",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 59
+    },
+    {
+      "eventDate": "2024-10-12",
+      "eventName": "JustDeeDeeMusic Live @ Haymaker Farmers' Market",
+      "venueName": "Haymaker Farmers' Market",
+      "venueKey": "haymakers farmers market",
+      "venueKeys": [
+        "haymakers farmers market"
+      ],
+      "address": "217 N Mantua St, Kent, OH 44240",
+      "time": "Not Listed",
+      "sourceRowNumber": 60
+    },
+    {
+      "eventDate": "2024-10-19",
+      "eventName": "JustDeeDeeMusic Live @ Jonny J's Pub & Grill Medina",
+      "venueName": "Jonny J's Pub & Grill Medina",
+      "venueKey": "jonny js pub grill medina",
+      "venueKeys": [
+        "jonny js pub grill medina"
+      ],
+      "address": "925 N Court St, Medina, OH 44256",
+      "time": "Not Listed",
+      "sourceRowNumber": 61
+    },
+    {
+      "eventDate": "2024-10-26",
+      "eventName": "JustDeeDeeMusic Live @ Sense By The Falls",
+      "venueName": "Sense By The Falls",
+      "venueKey": "sense by the falls",
+      "venueKeys": [
+        "sense by the falls"
+      ],
+      "address": "1749 Front St Unit C, Cuyahoga Falls, OH 44221",
+      "time": "Not Listed",
+      "sourceRowNumber": 62
+    },
+    {
+      "eventDate": "2024-11-02",
+      "eventName": "JustDeeDeeMusic Live @ The Market at Amish Door Village",
+      "venueName": "The Market at Amish Door Village",
+      "venueKey": "the market at amish door village",
+      "venueKeys": [
+        "the market at amish door village"
+      ],
+      "address": "1108 Winesburg St, Wilmot, OH 44689, United States",
+      "time": "Not Listed",
+      "sourceRowNumber": 63
+    },
+    {
+      "eventDate": "2024-11-09",
+      "eventName": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 64
+    },
+    {
+      "eventDate": "2024-11-09",
+      "eventName": "JustDeeDeeMusic Live @ Seville's Christmas Preview",
+      "venueName": "Seville's Christmas Preview",
+      "venueKey": "sevilles christmas preview",
+      "venueKeys": [
+        "sevilles christmas preview"
+      ],
+      "address": "Seville, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 65
+    },
+    {
+      "eventDate": "2024-11-10",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 66
+    },
+    {
+      "eventDate": "2024-11-20",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 67
+    },
+    {
+      "eventDate": "2024-11-22",
+      "eventName": "JustDeeDeeMusic Live @ Via Roma",
+      "venueName": "Via Roma",
+      "venueKey": "via roma",
+      "venueKeys": [
+        "via roma"
+      ],
+      "address": "8922 Ridge Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 68
+    },
+    {
+      "eventDate": "2024-11-29",
+      "eventName": "JustDeeDeeMusic Live @ Madison Brewing Company",
+      "venueName": "Madison Brewing Company",
+      "venueKey": "madison brewing company",
+      "venueKeys": [
+        "madison brewing company",
+        "madison brewing"
+      ],
+      "address": "70 W Main St, Madison, OH 44057-3126, United States",
+      "time": "Not Listed",
+      "sourceRowNumber": 69
+    },
+    {
+      "eventDate": "2024-12-06",
+      "eventName": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueKey": "bummin beaver brewery",
+      "venueKeys": [
+        "bummin beaver brewery"
+      ],
+      "address": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "time": "Not Listed",
+      "sourceRowNumber": 70
+    },
+    {
+      "eventDate": "2024-12-08",
+      "eventName": "Christmas Party with music by Just Dee Dee at Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Road, Litchfield, OH, United States, Ohio 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 71
+    },
+    {
+      "eventDate": "2024-12-13",
+      "eventName": "JustDeeDeeMusic Live @ Sense By The Falls",
+      "venueName": "Sense By The Falls",
+      "venueKey": "sense by the falls",
+      "venueKeys": [
+        "sense by the falls"
+      ],
+      "address": "1749 Front St Unit C, Cuyahoga Falls, OH 44221",
+      "time": "Not Listed",
+      "sourceRowNumber": 72
+    },
+    {
+      "eventDate": "2024-12-14",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Amherst",
+      "venueName": "The Brew Kettle Amherst",
+      "venueKey": "the brew kettle amherst",
+      "venueKeys": [
+        "the brew kettle amherst"
+      ],
+      "address": "300 Church St, Amherst, OH 44001-2204, United States",
+      "time": "Not Listed",
+      "sourceRowNumber": 73
+    },
+    {
+      "eventDate": "2025-01-10",
+      "eventName": "Live Music with Just Dee Dee",
+      "venueName": "ESP Brewing",
+      "venueKey": "esp brewing",
+      "venueKeys": [
+        "esp brewing"
+      ],
+      "address": "8055 Leavitt Road, Amherst, OH, United States, Ohio 44001",
+      "time": "Not Listed",
+      "sourceRowNumber": 74
+    },
+    {
+      "eventDate": "2025-01-11",
+      "eventName": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueKey": "hallidays winery",
+      "venueKeys": [
+        "hallidays winery"
+      ],
+      "address": "2400 NE River Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 75
+    },
+    {
+      "eventDate": "2025-01-17",
+      "eventName": "JustDeeDeeMusic Live @ Via Roma",
+      "venueName": "Via Roma",
+      "venueKey": "via roma",
+      "venueKeys": [
+        "via roma"
+      ],
+      "address": "8922 Ridge Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 76
+    },
+    {
+      "eventDate": "2025-01-19",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 77
+    },
+    {
+      "eventDate": "2025-01-24",
+      "eventName": "JustDeeDeeMusic Live @ Via Roma",
+      "venueName": "Via Roma",
+      "venueKey": "via roma",
+      "venueKeys": [
+        "via roma"
+      ],
+      "address": "8922 Ridge Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 78
+    },
+    {
+      "eventDate": "2025-02-16",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 79
+    },
+    {
+      "eventDate": "2025-02-28",
+      "eventName": "JustDeeDeeMusic Live @ Via Roma",
+      "venueName": "Via Roma",
+      "venueKey": "via roma",
+      "venueKeys": [
+        "via roma"
+      ],
+      "address": "8922 Ridge Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 80
+    },
+    {
+      "eventDate": "2025-03-07",
+      "eventName": "JustDeeDeeMusic Live @ The Village Inn",
+      "venueName": "The Village Inn",
+      "venueKey": "the village inn",
+      "venueKeys": [
+        "the village inn"
+      ],
+      "address": "5875 Longacre Ln, Chippewa Lake, OH 44215",
+      "time": "Not Listed",
+      "sourceRowNumber": 81
+    },
+    {
+      "eventDate": "2025-03-14",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 82
+    },
+    {
+      "eventDate": "2025-03-16",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 83
+    },
+    {
+      "eventDate": "2025-03-20",
+      "eventName": "JustDeeDeeMusic Live @ New Berlin Brewing Company",
+      "venueName": "New Berlin Brewing Company",
+      "venueKey": "new berlin brewing company",
+      "venueKeys": [
+        "new berlin brewing company",
+        "new berlin brewing"
+      ],
+      "address": "1664 N Main St, North Canton, OH 44720",
+      "time": "Not Listed",
+      "sourceRowNumber": 84
+    },
+    {
+      "eventDate": "2025-03-21",
+      "eventName": "JustDeeDeeMusic Live @ Via Roma",
+      "venueName": "Via Roma",
+      "venueKey": "via roma",
+      "venueKeys": [
+        "via roma"
+      ],
+      "address": "8922 Ridge Rd, North Royalton, OH 44133",
+      "time": "Not Listed",
+      "sourceRowNumber": 85
+    },
+    {
+      "eventDate": "2025-03-22",
+      "eventName": "JustDeeDeeMusic Live @ Debonné Vineyards",
+      "venueName": "Debonné Vineyards",
+      "venueKey": "debonne vineyards",
+      "venueKeys": [
+        "debonne vineyards"
+      ],
+      "address": "7840 Doty Rd, Madison, OH 44057",
+      "time": "Not Listed",
+      "sourceRowNumber": 86
+    },
+    {
+      "eventDate": "2025-04-04",
+      "eventName": "JustDeeDeeMusic Live @ Mastropietro Winery",
+      "venueName": "Mastropietro Winery",
+      "venueKey": "mastropietro winery",
+      "venueKeys": [
+        "mastropietro winery"
+      ],
+      "address": "14558 Ellsworth Rd, Berlin Center, OH 44401",
+      "time": "Not Listed",
+      "sourceRowNumber": 87
+    },
+    {
+      "eventDate": "2025-04-13",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 88
+    },
+    {
+      "eventDate": "2025-04-17",
+      "eventName": "Just DeeDee on Sunday, May 11, 3-6pm",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Road, Litchfield, OH, United States, Ohio 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 89
+    },
+    {
+      "eventDate": "2025-04-18",
+      "eventName": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueKey": "hallidays winery",
+      "venueKeys": [
+        "hallidays winery"
+      ],
+      "address": "2400 NE River Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 90
+    },
+    {
+      "eventDate": "2025-04-26",
+      "eventName": "JustDeeDeeMusic Live @ North Water Brewing Company",
+      "venueName": "North Water Brewing Company",
+      "venueKey": "north water brewing company",
+      "venueKeys": [
+        "north water brewing company",
+        "north water brewing"
+      ],
+      "address": "101 Crain Ave, Kent, OH 44240",
+      "time": "Not Listed",
+      "sourceRowNumber": 91
+    },
+    {
+      "eventDate": "2025-05-02",
+      "eventName": "JustDeeDeeMusic Live @ The Village Inn",
+      "venueName": "The Village Inn",
+      "venueKey": "the village inn",
+      "venueKeys": [
+        "the village inn"
+      ],
+      "address": "5875 Longacre Ln, Chippewa Lake, OH 44215",
+      "time": "Not Listed",
+      "sourceRowNumber": 92
+    },
+    {
+      "eventDate": "2025-05-04",
+      "eventName": "JustDeeDeeMusic Live @ Debonné Vineyards",
+      "venueName": "Debonné Vineyards",
+      "venueKey": "debonne vineyards",
+      "venueKeys": [
+        "debonne vineyards"
+      ],
+      "address": "7840 Doty Rd, Madison, OH 44057",
+      "time": "Not Listed",
+      "sourceRowNumber": 93
+    },
+    {
+      "eventDate": "2025-05-10",
+      "eventName": "JustDeeDeeMusic Live @ White Timbers Winery",
+      "venueName": "White Timbers Winery",
+      "venueKey": "white timbers winery",
+      "venueKeys": [
+        "white timbers winery"
+      ],
+      "address": "10036 Rittman Rd, Wadsworth, OH 44281",
+      "time": "Not Listed",
+      "sourceRowNumber": 94
+    },
+    {
+      "eventDate": "2025-05-11",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 95
+    },
+    {
+      "eventDate": "2025-05-18",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 96
+    },
+    {
+      "eventDate": "2025-05-31",
+      "eventName": "JustDeeDeeMusic Live @ Day Dream Farm Winery",
+      "venueName": "Day Dream Farm Winery",
+      "venueKey": "day dream farm winery",
+      "venueKeys": [
+        "day dream farm winery"
+      ],
+      "address": "5703 OH-166, Rock Creek, OH 44084",
+      "time": "Not Listed",
+      "sourceRowNumber": 97
+    },
+    {
+      "eventDate": "2025-06-07",
+      "eventName": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 98
+    },
+    {
+      "eventDate": "2025-06-08",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Brunswick",
+      "venueName": "The Brew Kettle Brunswick",
+      "venueKey": "the brew kettle brunswick",
+      "venueKeys": [
+        "the brew kettle brunswick"
+      ],
+      "address": "5288 Center Rd, Brunswick, OH 44212",
+      "time": "Not Listed",
+      "sourceRowNumber": 99
+    },
+    {
+      "eventDate": "2025-06-11",
+      "eventName": "JustDeeDeeMusc Live @ Little Birdie Wine Nest",
+      "venueName": "Little Birdie Wine Nest",
+      "venueKey": "little birdie wine nest",
+      "venueKeys": [
+        "little birdie wine nest"
+      ],
+      "address": "6060 Broadview Rd, Parma, OH 44134",
+      "time": "Not Listed",
+      "sourceRowNumber": 100
+    },
+    {
+      "eventDate": "2025-06-14",
+      "eventName": "JustDeeDeeMusic Live @ Castaway Craig's",
+      "venueName": "Castaway Craig's",
+      "venueKey": "castaway craigs",
+      "venueKeys": [
+        "castaway craigs"
+      ],
+      "address": "2114 Grandview Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 101
+    },
+    {
+      "eventDate": "2025-06-15",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 102
+    },
+    {
+      "eventDate": "2025-07-12",
+      "eventName": "JustDeeDeeMusic Live @ Peninsula Coffee House and Market",
+      "venueName": "Peninsula Coffee House and Market",
+      "venueKey": "peninsula coffee house market",
+      "venueKeys": [
+        "peninsula coffee house market"
+      ],
+      "address": "1653 Main St, Peninsula, OH 44264",
+      "time": "Not Listed",
+      "sourceRowNumber": 103
+    },
+    {
+      "eventDate": "2025-07-12",
+      "eventName": "JustDeeDeeMusic Live @ Seville Farm Market",
+      "venueName": "Seville Farm Market",
+      "venueKey": "seville farmers market",
+      "venueKeys": [
+        "seville farmers market"
+      ],
+      "address": "73 W Main St, Seville, OH, United States, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 104
+    },
+    {
+      "eventDate": "2025-07-19",
+      "eventName": "JustDeeDeeMusic Live @ Castaway Craig's",
+      "venueName": "Castaway Craig's",
+      "venueKey": "castaway craigs",
+      "venueKeys": [
+        "castaway craigs"
+      ],
+      "address": "2114 Grandview Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 105
+    },
+    {
+      "eventDate": "2025-07-20",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 106
+    },
+    {
+      "eventDate": "2025-07-26",
+      "eventName": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueKey": "bummin beaver brewery",
+      "venueKeys": [
+        "bummin beaver brewery"
+      ],
+      "address": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "time": "Not Listed",
+      "sourceRowNumber": 107
+    },
+    {
+      "eventDate": "2025-07-27",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Brunswick",
+      "venueName": "The Brew Kettle Brunswick",
+      "venueKey": "the brew kettle brunswick",
+      "venueKeys": [
+        "the brew kettle brunswick"
+      ],
+      "address": "5288 Center Rd, Brunswick, OH 44212",
+      "time": "Not Listed",
+      "sourceRowNumber": 108
+    },
+    {
+      "eventDate": "2025-08-01",
+      "eventName": "JustDeeDeeMusic Live @ The Village Inn",
+      "venueName": "The Village Inn",
+      "venueKey": "the village inn",
+      "venueKeys": [
+        "the village inn"
+      ],
+      "address": "5875 Longacre Ln, Chippewa Lake, OH 44215",
+      "time": "Not Listed",
+      "sourceRowNumber": 109
+    },
+    {
+      "eventDate": "2025-08-02",
+      "eventName": "JustDeeDeeMusic Live @ The Lazy Pinapple",
+      "venueName": "The Lazy Pinapple",
+      "venueKey": "the lazy pinapple",
+      "venueKeys": [
+        "the lazy pinapple"
+      ],
+      "address": "The Lazy Pineapple",
+      "time": "Not Listed",
+      "sourceRowNumber": 110
+    },
+    {
+      "eventDate": "2025-08-09",
+      "eventName": "JustDeeDeeMusic Live @ Second Saturdays - Downtown Lorain",
+      "venueName": "Second Saturdays - Downtown Lorain",
+      "venueKey": "second saturdays downtown lorain",
+      "venueKeys": [
+        "second saturdays downtown lorain"
+      ],
+      "address": "404 Broadway, Lorain, OH 44052-1740, United States",
+      "time": "Not Listed",
+      "sourceRowNumber": 111
+    },
+    {
+      "eventDate": "2025-08-15",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 112
+    },
+    {
+      "eventDate": "2025-08-17",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 113
+    },
+    {
+      "eventDate": "2025-08-22",
+      "eventName": "JustDeeDeeMusic Live @ Old Fish House Huron",
+      "venueName": "Old Fish House Huron",
+      "venueKey": "old fish house huron",
+      "venueKeys": [
+        "old fish house huron"
+      ],
+      "address": "Old Fish House Huron",
+      "time": "Not Listed",
+      "sourceRowNumber": 114
+    },
+    {
+      "eventDate": "2025-08-23",
+      "eventName": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueKey": "bummin beaver brewery",
+      "venueKeys": [
+        "bummin beaver brewery"
+      ],
+      "address": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "time": "Not Listed",
+      "sourceRowNumber": 115
+    },
+    {
+      "eventDate": "2025-08-24",
+      "eventName": "JustDeeDeeMusic Live @ The Brew Kettle Brunswick",
+      "venueName": "The Brew Kettle Brunswick",
+      "venueKey": "the brew kettle brunswick",
+      "venueKeys": [
+        "the brew kettle brunswick"
+      ],
+      "address": "5288 Center Rd, Brunswick, OH 44212",
+      "time": "Not Listed",
+      "sourceRowNumber": 116
+    },
+    {
+      "eventDate": "2025-08-30",
+      "eventName": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 117
+    },
+    {
+      "eventDate": "2025-08-30",
+      "eventName": "JustDeeDeeMusic Live @ Seville Farm Market",
+      "venueName": "Seville Farm Market",
+      "venueKey": "seville farmers market",
+      "venueKeys": [
+        "seville farmers market"
+      ],
+      "address": "73 W Main St, Seville, OH, United States, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 118
+    },
+    {
+      "eventDate": "2025-09-05",
+      "eventName": "JustDeeDeeMuisc Live @ Main Street Wooster (Pavilion)",
+      "venueName": "Main Street Wooster (Pavilion)",
+      "venueKey": "main street wooster",
+      "venueKeys": [
+        "main street wooster"
+      ],
+      "address": "NE Quadrant- Intersection of Liberty St. & Market St., Wooster, Ohio 44691",
+      "time": "Not Listed",
+      "sourceRowNumber": 119
+    },
+    {
+      "eventDate": "2025-09-06",
+      "eventName": "JustDeeDeeMuisc Live @ Hoppy Dude Brews",
+      "venueName": "Hoppy Dude Brews",
+      "venueKey": "hoppy dude brews",
+      "venueKeys": [
+        "hoppy dude brews"
+      ],
+      "address": "1369 Ridge Rd, Hinckley, OH 44233",
+      "time": "Not Listed",
+      "sourceRowNumber": 120
+    },
+    {
+      "eventDate": "2025-09-12",
+      "eventName": "JustDeeDeeMusic Live @ Marie's Restaurant",
+      "venueName": "Marie's Restaurant",
+      "venueKey": "maries restaurant",
+      "venueKeys": [
+        "maries restaurant"
+      ],
+      "address": "130 E Smokerise Dr, Wadsworth, OH 44281",
+      "time": "Not Listed",
+      "sourceRowNumber": 121
+    },
+    {
+      "eventDate": "2025-09-13",
+      "eventName": "JustDeeDeeMusic Live @ Peninsula Coffee House and Market",
+      "venueName": "Peninsula Coffee House and Market",
+      "venueKey": "peninsula coffee house market",
+      "venueKeys": [
+        "peninsula coffee house market"
+      ],
+      "address": "1653 Main St, Peninsula, OH 44264",
+      "time": "Not Listed",
+      "sourceRowNumber": 122
+    },
+    {
+      "eventDate": "2025-09-13",
+      "eventName": "JustDeeDeeMusic Live @ Seville Farm Market",
+      "venueName": "Seville Farm Market",
+      "venueKey": "seville farmers market",
+      "venueKeys": [
+        "seville farmers market"
+      ],
+      "address": "73 W Main St, Seville, OH, United States, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 123
+    },
+    {
+      "eventDate": "2025-09-14",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 124
+    },
+    {
+      "eventDate": "2025-09-17",
+      "eventName": "JustDeeDeeMusc Live @ Little Birdie Wine Nest",
+      "venueName": "Little Birdie Wine Nest",
+      "venueKey": "little birdie wine nest",
+      "venueKeys": [
+        "little birdie wine nest"
+      ],
+      "address": "6060 Broadview Rd, Parma, OH 44134",
+      "time": "Not Listed",
+      "sourceRowNumber": 125
+    },
+    {
+      "eventDate": "2025-09-19",
+      "eventName": "JustDeeDeeMusic Live @ Mastropietro Winery",
+      "venueName": "Mastropietro Winery",
+      "venueKey": "mastropietro winery",
+      "venueKeys": [
+        "mastropietro winery"
+      ],
+      "address": "14558 Ellsworth Rd, Berlin Center, OH 44401",
+      "time": "Not Listed",
+      "sourceRowNumber": 126
+    },
+    {
+      "eventDate": "2025-09-20",
+      "eventName": "JustDeeDeeMusic Live @ Castaway Craig's",
+      "venueName": "Castaway Craig's",
+      "venueKey": "castaway craigs",
+      "venueKeys": [
+        "castaway craigs"
+      ],
+      "address": "2114 Grandview Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 127
+    },
+    {
+      "eventDate": "2025-09-27",
+      "eventName": "JustDeeDeeMusic Live @ Medina Brewing Company",
+      "venueName": "Medina Brewing Company",
+      "venueKey": "medina brewing company",
+      "venueKeys": [
+        "medina brewing company",
+        "medina brewing"
+      ],
+      "address": "320 S Court St G9, Medina, OH 44256",
+      "time": "Not Listed",
+      "sourceRowNumber": 128
+    },
+    {
+      "eventDate": "2025-10-04",
+      "eventName": "JustDeeDeeMusic Live @ Wooster Farmers Market",
+      "venueName": "Wooster Farmers Market",
+      "venueKey": "wooster farmers market",
+      "venueKeys": [
+        "wooster farmers market"
+      ],
+      "address": "The City of Wooster",
+      "time": "Not Listed",
+      "sourceRowNumber": 129
+    },
+    {
+      "eventDate": "2025-10-10",
+      "eventName": "JustDeeDeeMusic Live @ Red Eagle Distillery",
+      "venueName": "Red Eagle Distillery",
+      "venueKey": "red eagle distillery",
+      "venueKeys": [
+        "red eagle distillery"
+      ],
+      "address": "6202 S River Rd W, Geneva, OH 44041",
+      "time": "Not Listed",
+      "sourceRowNumber": 130
+    },
+    {
+      "eventDate": "2025-10-12",
+      "eventName": "JustDeeDeeMusic Live @ BACI Winery",
+      "venueName": "BACI Winery",
+      "venueKey": "baci winery",
+      "venueKeys": [
+        "baci winery"
+      ],
+      "address": "7800 Warner Rd, Madison, OH 44057",
+      "time": "Not Listed",
+      "sourceRowNumber": 131
+    },
+    {
+      "eventDate": "2025-10-18",
+      "eventName": "JustDeeDeeMusic Live @ South River Vineyard",
+      "venueName": "South River Vineyard",
+      "venueKey": "south river vineyard",
+      "venueKeys": [
+        "south river vineyard"
+      ],
+      "address": "6062 S River Rd W, Geneva, OH 44041",
+      "time": "Not Listed",
+      "sourceRowNumber": 132
+    },
+    {
+      "eventDate": "2025-10-19",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 133
+    },
+    {
+      "eventDate": "2025-10-22",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 134
+    },
+    {
+      "eventDate": "2025-10-24",
+      "eventName": "JustDeeDeeMusic Live @ The Willoughby Tavern",
+      "venueName": "The Willoughby Tavern",
+      "venueKey": "the willoughby tavern",
+      "venueKeys": [
+        "the willoughby tavern",
+        "the willoughby"
+      ],
+      "address": "38464 Lakeshore Blvd, Willoughby, OH 44094",
+      "time": "Not Listed",
+      "sourceRowNumber": 135
+    },
+    {
+      "eventDate": "2025-10-25",
+      "eventName": "JustDeeDeeMusic Live @ Markko Vineyard and Winery",
+      "venueName": "Markko Vineyard and Winery",
+      "venueKey": "markko vineyard winery",
+      "venueKeys": [
+        "markko vineyard winery"
+      ],
+      "address": "4500 S Ridge Rd W, Conneaut, OH 44030",
+      "time": "Not Listed",
+      "sourceRowNumber": 136
+    },
+    {
+      "eventDate": "2025-11-01",
+      "eventName": "JustDeeDeeMusic Live @ Peninsula Coffee House and Market",
+      "venueName": "Peninsula Coffee House and Market",
+      "venueKey": "peninsula coffee house market",
+      "venueKeys": [
+        "peninsula coffee house market"
+      ],
+      "address": "1653 Main St, Peninsula, OH 44264",
+      "time": "Not Listed",
+      "sourceRowNumber": 137
+    },
+    {
+      "eventDate": "2025-11-08",
+      "eventName": "JustDeeDeeMusic Live @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 138
+    },
+    {
+      "eventDate": "2025-11-08",
+      "eventName": "JustDeeDeeMusic Live @ Seville's Christmas Preview",
+      "venueName": "Seville's Christmas Preview",
+      "venueKey": "sevilles christmas preview",
+      "venueKeys": [
+        "sevilles christmas preview"
+      ],
+      "address": "Seville, Ohio",
+      "time": "Not Listed",
+      "sourceRowNumber": 139
+    },
+    {
+      "eventDate": "2025-11-16",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 140
+    },
+    {
+      "eventDate": "2025-11-28",
+      "eventName": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueKey": "hallidays winery",
+      "venueKeys": [
+        "hallidays winery"
+      ],
+      "address": "2400 NE River Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 141
+    },
+    {
+      "eventDate": "2025-12-03",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 142
+    },
+    {
+      "eventDate": "2025-12-06",
+      "eventName": "JustDeeDeeMusic Live @ The Pint & Pie Works",
+      "venueName": "The Pint & Pie Works",
+      "venueKey": "pint and pie works",
+      "venueKeys": [
+        "pint and pie works"
+      ],
+      "address": "1925 N Cleveland Massillon Rd, Akron, OH 44333",
+      "time": "Not Listed",
+      "sourceRowNumber": 143
+    },
+    {
+      "eventDate": "2025-12-13",
+      "eventName": "JustDeeDeeMusic Live @ Markko Vineyard and Winery",
+      "venueName": "Markko Vineyard and Winery",
+      "venueKey": "markko vineyard winery",
+      "venueKeys": [
+        "markko vineyard winery"
+      ],
+      "address": "4500 S Ridge Rd W, Conneaut, OH 44030",
+      "time": "Not Listed",
+      "sourceRowNumber": 144
+    },
+    {
+      "eventDate": "2025-12-19",
+      "eventName": "JustDeeDeeMusic Live @ CountyLine Saloon",
+      "venueName": "CountyLine Saloon",
+      "venueKey": "countyline saloon",
+      "venueKeys": [
+        "countyline saloon"
+      ],
+      "address": "13007 Chippewa Rd, Brecksville, OH 44141",
+      "time": "Not Listed",
+      "sourceRowNumber": 145
+    },
+    {
+      "eventDate": "2025-12-21",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 146
+    },
+    {
+      "eventDate": "2026-01-16",
+      "eventName": "JustDeeDeeMusic Live @ Hallidays Winery",
+      "venueName": "Hallidays Winery",
+      "venueKey": "hallidays winery",
+      "venueKeys": [
+        "hallidays winery"
+      ],
+      "address": "2400 NE River Rd, Lake Milton, OH 44429",
+      "time": "Not Listed",
+      "sourceRowNumber": 147
+    },
+    {
+      "eventDate": "2026-01-18",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 148
+    },
+    {
+      "eventDate": "2026-01-30",
+      "eventName": "Just DeeDee is keeping us warm tonight with outstanding music!",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Road, Litchfield, OH, United States, Ohio 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 149
+    },
+    {
+      "eventDate": "2026-01-31",
+      "eventName": "JustDeeDeeMusic Live @ The Tipsy Flamingo",
+      "venueName": "The Tipsy Flamingo",
+      "venueKey": "the tipsy flamingo",
+      "venueKeys": [
+        "the tipsy flamingo"
+      ],
+      "address": "5775 Chevrolet Blvd, Parma, OH 44130",
+      "time": "Not Listed",
+      "sourceRowNumber": 150
+    },
+    {
+      "eventDate": "2026-02-07",
+      "eventName": "JustDeeDeeMusic Live @ Carso Rosso Winery",
+      "venueName": "Carso Rosso Winery",
+      "venueKey": "carso rosso winery",
+      "venueKeys": [
+        "carso rosso winery"
+      ],
+      "address": "19583 Hunt Rd, Strongsville, OH 44136",
+      "time": "Not Listed",
+      "sourceRowNumber": 151
+    },
+    {
+      "eventDate": "2026-02-15",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 152
+    },
+    {
+      "eventDate": "2026-03-01",
+      "eventName": "JUST DEE DEE MUSIC LIVE @RIDGE&RAIL THIS SUNDAY!!!",
+      "venueName": "RIDGE&RAIL",
+      "venueKey": "ridge and rail",
+      "venueKeys": [
+        "ridge and rail"
+      ],
+      "address": "6784 Ridge Rd, Wadsworth, OH, United States, Ohio 44281",
+      "time": "Not Listed",
+      "sourceRowNumber": 153
+    },
+    {
+      "eventDate": "2026-03-07",
+      "eventName": "JustDeeDeeMusic Live @ Bummin' Beaver Brewery",
+      "venueName": "Bummin' Beaver Brewery",
+      "venueKey": "bummin beaver brewery",
+      "venueKeys": [
+        "bummin beaver brewery"
+      ],
+      "address": "11610 E Washington St, Chagrin Falls, OH 44023",
+      "time": "Not Listed",
+      "sourceRowNumber": 154
+    },
+    {
+      "eventDate": "2026-03-14",
+      "eventName": "JustDeeDeeMusic Live @ Patina Porch",
+      "venueName": "Patina Porch",
+      "venueKey": "patina porch",
+      "venueKeys": [
+        "patina porch"
+      ],
+      "address": "2434 W Monroe St, Sandusky, OH 44870",
+      "time": "Not Listed",
+      "sourceRowNumber": 155
+    },
+    {
+      "eventDate": "2026-03-15",
+      "eventName": "JustDeeDeeMusic Open Mic @ Das Weinhaus",
+      "venueName": "Das Weinhaus",
+      "venueKey": "das weinhaus",
+      "venueKeys": [
+        "das weinhaus"
+      ],
+      "address": "3232 Erhart Rd, Litchfield, OH 44253",
+      "time": "Not Listed",
+      "sourceRowNumber": 156
+    },
+    {
+      "eventDate": "2026-03-18",
+      "eventName": "JustDeeDeeMusc Live @ Little Birdie Wine Nest",
+      "venueName": "Little Birdie Wine Nest",
+      "venueKey": "little birdie wine nest",
+      "venueKeys": [
+        "little birdie wine nest"
+      ],
+      "address": "6060 Broadview Rd, Parma, OH 44134",
+      "time": "Not Listed",
+      "sourceRowNumber": 157
+    },
+    {
+      "eventDate": "2026-04-11",
+      "eventName": "JustDeeDeeMusic Live @ The Phoenix Brewing Company",
+      "venueName": "The Phoenix Brewing Company",
+      "venueKey": "the phoenix brewing company",
+      "venueKeys": [
+        "the phoenix brewing company",
+        "the phoenix brewing"
+      ],
+      "address": "131 B, 131 N Diamond St, Mansfield, OH 44902",
+      "time": "Not Listed",
+      "sourceRowNumber": 158
+    },
+    {
+      "eventDate": "2026-04-17",
+      "eventName": "JustDeeDeeMusc Live @ OLESIA's Taverne Of Richfield",
+      "venueName": "OLESIA's Taverne Of Richfield",
+      "venueKey": "olesias",
+      "venueKeys": [
+        "olesias"
+      ],
+      "address": "3960 Broadview Rd, Richfield, OH 44286",
+      "time": "Not Listed",
+      "sourceRowNumber": 159
+    },
+    {
+      "eventDate": "2026-04-24",
+      "eventName": "JustDeeDeeMusic Live @ Bait House Brewery",
+      "venueName": "Bait House Brewery",
+      "venueKey": "bait house brewery",
+      "venueKeys": [
+        "bait house brewery"
+      ],
+      "address": "223 Meigs St, Sandusky, OH 44870",
+      "time": "Not Listed",
+      "sourceRowNumber": 160
+    },
+    {
+      "eventDate": "2026-05-01",
+      "eventName": "JustDeeDeeMusic Live @ Carso Rosso Winery",
+      "venueName": "Carso Rosso Winery",
+      "venueKey": "carso rosso winery",
+      "venueKeys": [
+        "carso rosso winery"
+      ],
+      "address": "19583 Hunt Rd, Strongsville, OH 44136",
+      "time": "Not Listed",
+      "sourceRowNumber": 161
+    },
+    {
+      "eventDate": "2026-05-02",
+      "eventName": "JustDeeDeeMusic Live @ BACI Winery",
+      "venueName": "BACI Winery",
+      "venueKey": "baci winery",
+      "venueKeys": [
+        "baci winery"
+      ],
+      "address": "7800 Warner Rd, Madison, OH 44057",
+      "time": "Not Listed",
+      "sourceRowNumber": 162
+    },
+    {
+      "eventDate": "2026-05-02",
+      "eventName": "JustDeeDeeMusic Live @ Haymaker Farmers' Market",
+      "venueName": "Haymaker Farmers' Market",
+      "venueKey": "haymakers farmers market",
+      "venueKeys": [
+        "haymakers farmers market"
+      ],
+      "address": "217 N Mantua St, Kent, OH 44240",
+      "time": "Not Listed",
+      "sourceRowNumber": 163
+    },
+    {
+      "eventDate": "2026-05-06",
+      "eventName": "JustDeeDeeMusic Live @ Brighten Brewing Company",
+      "venueName": "Brighten Brewing Company",
+      "venueKey": "brighten brewing company",
+      "venueKeys": [
+        "brighten brewing company",
+        "brighten brewing"
+      ],
+      "address": "1374 S Cleve-Mass Rd, Copley, OH 44321",
+      "time": "Not Listed",
+      "sourceRowNumber": 164
+    }
+  ]
+}
