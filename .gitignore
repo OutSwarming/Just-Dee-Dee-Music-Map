@@ -22,3 +22,6 @@ storageState*.json
 # Local automation artifacts
 .codex/
 test-results/
+data/scraped/
+__pycache__/
+scripts/__pycache__/
