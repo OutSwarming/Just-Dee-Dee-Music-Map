@@ -11,6 +11,8 @@ const APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/";
 const RECIPIENTS = ["+14403054062", "+12168499292"];
 const LOG_PATH = path.join(homedir(), "Library", "Logs", "jddm-dee-dee-reminders.log");
 const STATE_PATH = path.join(homedir(), "Library", "Application Support", "Just Dee Dee Music Map", "local-text-reminders-state.json");
+const MESSAGES_DB_PATH = path.join(homedir(), "Library", "Messages", "chat.db");
+const SERVICE_PRIORITY = ["iMessage", "SMS"];
 
 const REMINDERS = Object.freeze([
     {
@@ -102,56 +104,114 @@ async function writeState(state) {
 async function assertSmsServiceAvailable() {
     const script = `
         tell application "Messages"
+            set hasIMessage to false
+            set hasSms to false
             repeat with svc in services
                 try
-                    if service type of svc is SMS then return id of svc as text
+                    if service type of svc is iMessage then set hasIMessage to true
+                    if service type of svc is SMS then set hasSms to true
                 end try
             end repeat
+            if hasIMessage then return "iMessage"
+            if hasSms then return "SMS"
         end tell
-        error "No SMS service is available. Enable iPhone Text Message Forwarding to this Mac."
+        error "No Messages sending service is available. Sign in to Messages on this Mac."
     `;
     const { stdout } = await execFileAsync("osascript", ["-e", script], { timeout: 15000 });
     return stdout.trim();
 }
 
-async function sendSmsViaMessages({ body, recipients }) {
-    const recipientList = recipients.map(appleString).join(", ");
+async function sendViaMessagesService({ body, recipient, serviceType }) {
+    const serviceTest = serviceType === "SMS" ? "SMS" : "iMessage";
     const script = `
         set reminderBody to ${appleString(body)}
-        set targetNumbers to {${recipientList}}
-        set sentCount to 0
-        set failedMessages to {}
+        set targetNumber to ${appleString(recipient)}
 
         tell application "Messages"
-            set smsService to missing value
+            set selectedService to missing value
             repeat with svc in services
                 try
-                    if service type of svc is SMS then
-                        set smsService to svc
+                    if service type of svc is ${serviceTest} then
+                        set selectedService to svc
                         exit repeat
                     end if
                 end try
             end repeat
-            if smsService is missing value then error "No SMS service is available. Enable iPhone Text Message Forwarding to this Mac."
-
-            repeat with phoneNumber in targetNumbers
-                try
-                    send reminderBody to buddy (phoneNumber as text) of smsService
-                    set sentCount to sentCount + 1
-                on error errText number errNo
-                    set end of failedMessages to ((phoneNumber as text) & ": " & errText & " (" & errNo & ")")
-                end try
-            end repeat
+            if selectedService is missing value then error "No ${serviceType} service is available."
+            send reminderBody to buddy targetNumber of selectedService
         end tell
-
-        if (count of failedMessages) > 0 then
-            set AppleScript's text item delimiters to linefeed
-            error (failedMessages as text)
-        end if
-        return "sent " & sentCount
+        return "${serviceType}"
     `;
     const { stdout } = await execFileAsync("osascript", ["-e", script], { timeout: 30000 });
     return stdout.trim();
+}
+
+function appleMessageDate(date) {
+    return Math.floor((date.getTime() / 1000 - 978307200) * 1000000000);
+}
+
+function sqlString(value) {
+    return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+async function readLatestMessageStatus(recipient, since) {
+    const sinceDate = appleMessageDate(new Date(since.getTime() - 2000));
+    const sql = `
+        SELECT m.service || '|' || m.is_sent || '|' || m.is_delivered || '|' || m.error
+        FROM message m
+        LEFT JOIN handle h ON h.ROWID = m.handle_id
+        WHERE h.id = ${sqlString(recipient)} AND m.date >= ${sinceDate}
+        ORDER BY m.date DESC
+        LIMIT 1;
+    `;
+    try {
+        const { stdout } = await execFileAsync("sqlite3", [MESSAGES_DB_PATH, sql], { timeout: 15000 });
+        const [service, isSent, isDelivered, error] = stdout.trim().split("|");
+        if (!service) return null;
+        return {
+            service,
+            isSent: Number(isSent) === 1,
+            isDelivered: Number(isDelivered) === 1,
+            error: Number(error || 0)
+        };
+    } catch {
+        return null;
+    }
+}
+
+async function sendToRecipient({ body, recipient }) {
+    const startedAt = new Date();
+    const errors = [];
+
+    for (const serviceType of SERVICE_PRIORITY) {
+        try {
+            const service = await sendViaMessagesService({ body, recipient, serviceType });
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            const status = await readLatestMessageStatus(recipient, startedAt);
+            if (!status || status.error === 0 || status.isSent || status.isDelivered) {
+                return { recipient, service, status };
+            }
+            errors.push(`${serviceType} database status error ${status.error}`);
+        } catch (error) {
+            errors.push(`${serviceType} ${error && error.message ? error.message : String(error)}`);
+        }
+    }
+
+    throw new Error(`${recipient}: ${errors.join("; ")}`);
+}
+
+async function sendMessages({ body, recipients }) {
+    const results = [];
+    const failures = [];
+    for (const recipient of recipients) {
+        try {
+            results.push(await sendToRecipient({ body, recipient }));
+        } catch (error) {
+            failures.push(error && error.message ? error.message : String(error));
+        }
+    }
+    if (failures.length) throw new Error(failures.join("\n"));
+    return results;
 }
 
 async function sendReminder(reminder, options = {}) {
@@ -161,9 +221,10 @@ async function sendReminder(reminder, options = {}) {
         console.log(reminder.body);
         return;
     }
-    const result = await sendSmsViaMessages({ body: reminder.body, recipients });
-    await appendLog(`${reminder.id} ${result} to ${recipients.join(",")}`);
-    console.log(`${reminder.label}: ${result}`);
+    const results = await sendMessages({ body: reminder.body, recipients });
+    const serviceSummary = results.map(result => `${result.recipient}:${result.service}`).join(",");
+    await appendLog(`${reminder.id} sent ${results.length} via ${serviceSummary}`);
+    console.log(`${reminder.label}: sent ${results.length} via ${serviceSummary}`);
 }
 
 async function runScheduled() {
@@ -194,7 +255,7 @@ async function main() {
 
     if (hasFlag("--check")) {
         const serviceId = await assertSmsServiceAvailable();
-        console.log(`SMS service available: ${serviceId}`);
+        console.log(`Messages service available: ${serviceId}`);
         return;
     }
 
