@@ -71,6 +71,27 @@ ALEX_BEVAN_BANDSINTOWN_URL = (
 )
 DOUG_RIBLEY_PUBLIC_SOURCE_URL = "https://filiacellars.com/"
 DOUG_RIBLEY_RIALTO_URL = "https://www.therialtotheatre.com/calendar/2024/4/27/doug-ribley-in-the-rialto-living-room"
+FILIA_CELLARS_URL = "https://filiacellars.com/"
+FILIA_CELLARS_VENUE = {
+    "venue_name": "Filia Cellars",
+    "city": "Wadsworth",
+    "zip_code": "44281",
+    "address": "3059 Greenwich Rd, Wadsworth, Ohio 44281",
+}
+FILIA_ARTIST_ALIASES = {
+    "greg n jill": ["Greg n", "Greg N Jill"],
+    "half craic d": ["Half Craic'd", "Half Craicd"],
+    "little steve o": ["Steve-O", "Steve O"],
+}
+HALF_CRAICD_URL = "https://craicbrothers.com/"
+HALF_CRAICD_VENUES = {
+    "p j mcintyre": ("P.J. McIntyre's Irish Pub", "Cleveland", "44111", "17119 Lorain Ave, Cleveland, OH 44111"),
+    "pj mcintyre": ("P.J. McIntyre's Irish Pub", "Cleveland", "44111", "17119 Lorain Ave, Cleveland, OH 44111"),
+    "filia": ("Filia Cellars", "Wadsworth", "44281", "3059 Greenwich Rd, Wadsworth, OH 44281"),
+    "felia": ("Filia Cellars", "Wadsworth", "44281", "3059 Greenwich Rd, Wadsworth, OH 44281"),
+    "gandalf": ("Gandalf's Pub & Restaurant", "Valley City", "44280", "6757 Center Rd, Valley City, OH 44280"),
+    "kelleys island wine": ("Kelleys Island Wine Co.", "Kelleys Island", "43438", "418 Woodford Rd, Kelleys Island, OH 43438"),
+}
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -367,6 +388,24 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Brewpub",
         "phone_number": "216-368-0090",
         "website": "https://thejollyscholar.com/",
+    },
+    "p j mcintyre s irish pub": {
+        "place_name": "P.J. McIntyre's Irish Pub",
+        "address": "17119 Lorain Ave",
+        "city": "Cleveland",
+        "zip": "44111",
+        "venue_type": "Irish Pub",
+        "phone_number": "216-941-9311",
+        "website": "https://www.pjmcintyres.com/",
+    },
+    "pj mcintyre s irish pub": {
+        "place_name": "P.J. McIntyre's Irish Pub",
+        "address": "17119 Lorain Ave",
+        "city": "Cleveland",
+        "zip": "44111",
+        "venue_type": "Irish Pub",
+        "phone_number": "216-941-9311",
+        "website": "https://www.pjmcintyres.com/",
     },
     "art in the park": {
         "place_name": "Art in the Park",
@@ -1633,6 +1672,194 @@ def parse_doug_ribley_calendar(artist: dict[str, str], logger: logging.Logger) -
     events = parse_doug_ribley_filia_events(filia_html, artist) if filia_html else []
     events.extend(doug_ribley_recovered_events(artist))
     return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
+def filia_match_names(artist: dict[str, str]) -> set[str]:
+    canonical = clean(artist.get("canonical_name"))
+    names = {norm(canonical)}
+    names.update(norm(alias) for alias in FILIA_ARTIST_ALIASES.get(norm(canonical), []))
+    return {name for name in names if name}
+
+
+def make_filia_cellars_event(artist: dict[str, str], event_date: str, schedule_name: str) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name")) or clean(schedule_name)
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "unknown"
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time="",
+        end_time="",
+        title=f"{artist_name} @ {FILIA_CELLARS_VENUE['venue_name']}",
+        venue_name=FILIA_CELLARS_VENUE["venue_name"],
+        city=FILIA_CELLARS_VENUE["city"],
+        state="OH",
+        zip_code=FILIA_CELLARS_VENUE["zip_code"],
+        source=artist_site_source(FILIA_CELLARS_URL),
+        source_record_id=short_hash(FILIA_CELLARS_URL, event_date, schedule_name, artist_id, length=12),
+        source_url=FILIA_CELLARS_URL,
+        description=f"{clean(schedule_name)} listed on Filia Cellars music schedule. {FILIA_CELLARS_VENUE['address']}.",
+    )
+
+
+def parse_filia_cellars_schedule(html_text: str, artists: list[dict[str, str]]) -> ArtistSiteScrape:
+    artist_by_match_name: dict[str, dict[str, str]] = {}
+    for artist in artists:
+        for match_name in filia_match_names(artist):
+            artist_by_match_name.setdefault(match_name, artist)
+
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    events: list[ScrapedArtistEvent] = []
+    checked_artist_ids: set[str] = set()
+    for line in parser.lines():
+        match = re.match(r"^\s*(\d{1,2})-([A-Za-z]{3})-(\d{2})\s+(.+?)\s*$", clean(line))
+        if not match:
+            continue
+        day, month_text, year_text, schedule_name = match.groups()
+        artist = artist_by_match_name.get(norm(schedule_name))
+        if not artist:
+            continue
+        try:
+            event_day = datetime.strptime(f"20{year_text} {month_text} {day}", "%Y %b %d").date()
+        except ValueError:
+            continue
+        events.append(make_filia_cellars_event(artist, event_day.isoformat(), schedule_name))
+        artist_id = clean(artist.get("artist_id")) or make_id("artist", artist.get("canonical_name"))
+        if artist_id:
+            checked_artist_ids.add(artist_id)
+
+    return ArtistSiteScrape(
+        events=sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.artist_name)),
+        checked_artist_ids=checked_artist_ids,
+        checked_sources={artist_site_source(FILIA_CELLARS_URL)} if checked_artist_ids else set(),
+    )
+
+
+def scrape_filia_cellars_schedule(artists: list[dict[str, str]], logger: logging.Logger) -> ArtistSiteScrape:
+    try:
+        html_text = fetch_url(FILIA_CELLARS_URL)
+    except Exception as exc:
+        logger.warning("Could not fetch Filia Cellars public schedule %s: %s", FILIA_CELLARS_URL, exc)
+        return ArtistSiteScrape(events=[], checked_artist_ids=set(), checked_sources=set())
+    scrape = parse_filia_cellars_schedule(html_text, artists)
+    logger.info("Filia Cellars yielded %d artist-site events", len(scrape.events))
+    return scrape
+
+
+def half_craicd_venue_from_text(value: str) -> tuple[str, str, str, str]:
+    key = norm(value)
+    for needle, venue in HALF_CRAICD_VENUES.items():
+        if needle in key:
+            return venue
+    return clean(value), "", "", ""
+
+
+def make_half_craicd_event(
+    artist: dict[str, str],
+    event_date: str,
+    start_time: str,
+    end_time: str,
+    venue_text: str,
+    source_line: str,
+) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name")) or "Half Craic'd"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "band"
+    venue_name, city, zip_code, address = half_craicd_venue_from_text(venue_text)
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time=start_time,
+        end_time=end_time,
+        title=f"{artist_name} @ {venue_name}",
+        venue_name=venue_name,
+        city=city,
+        state="OH",
+        zip_code=zip_code,
+        source=artist_site_source(HALF_CRAICD_URL),
+        source_record_id=short_hash(HALF_CRAICD_URL, source_line, event_date, venue_name, length=12),
+        source_url=HALF_CRAICD_URL,
+        description=clean(" | ".join(part for part in [source_line, address] if clean(part))),
+    )
+
+
+def parse_half_craicd_schedule_lines(lines: list[str], artist: dict[str, str], year: int = 2026) -> list[ScrapedArtistEvent]:
+    events: list[ScrapedArtistEvent] = []
+    for line in lines:
+        text = clean(line)
+        new_year_match = re.match(r"^Irish New Years @ PJ's Dec (\d{1,2})(?:st|nd|rd|th)?\s+(\d{1,2})-(\d{1,2})$", text, re.I)
+        if new_year_match:
+            day, start_hour, end_hour = new_year_match.groups()
+            event_day = date(year, 12, int(day))
+            events.append(
+                make_half_craicd_event(
+                    artist,
+                    event_day.isoformat(),
+                    f"{start_hour}PM",
+                    f"{end_hour}PM",
+                    "P.J. McIntyre's Irish Pub",
+                    text,
+                )
+            )
+            continue
+
+        match = re.match(
+            r"^(?:Fri|Sat|Sun)\s+([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(.+?)(?:\s+(\d{1,2})-(\d{1,2}))?$",
+            text,
+            re.I,
+        )
+        if match:
+            month_text, day, venue_text, start_hour, end_hour = match.groups()
+            if month_text.lower().startswith("sept"):
+                month_text = "Sep"
+            try:
+                event_day = datetime.strptime(f"{year} {month_text} {day}", "%Y %B %d").date()
+            except ValueError:
+                try:
+                    event_day = datetime.strptime(f"{year} {month_text} {day}", "%Y %b %d").date()
+                except ValueError:
+                    continue
+            start_time = f"{start_hour}PM" if start_hour else ""
+            end_time = f"{end_hour}PM" if end_hour else ""
+            events.append(make_half_craicd_event(artist, event_day.isoformat(), start_time, end_time, venue_text, text))
+            continue
+
+        range_match = re.match(r"^(May|Jun|Jul|Aug)\s+(\d{1,2})-(\d{1,2})$", text, re.I)
+        if range_match:
+            month_text, first_day, second_day = range_match.groups()
+            for index, day in enumerate([first_day, second_day]):
+                try:
+                    event_day = datetime.strptime(f"{year} {month_text} {day}", "%Y %b %d").date()
+                except ValueError:
+                    continue
+                start_time, end_time = ("5PM", "8PM") if index == 0 else ("3PM", "6PM")
+                events.append(
+                    make_half_craicd_event(
+                        artist,
+                        event_day.isoformat(),
+                        start_time,
+                        end_time,
+                        "Kelleys Island Wine Co.",
+                        f"Kelleys Island Summer shows at the KI Wine Co. {text}",
+                    )
+                )
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
+def parse_half_craicd_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    try:
+        html_text = fetch_url(clean(artist.get("website")) or HALF_CRAICD_URL)
+    except Exception as exc:
+        logger.warning("Could not fetch Half Craic'd calendar %s: %s", HALF_CRAICD_URL, exc)
+        return []
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    return parse_half_craicd_schedule_lines(parser.lines(), artist)
 
 
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
@@ -3027,9 +3254,10 @@ def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) 
 
 
 def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging.Logger) -> ArtistSiteScrape:
-    events: list[ScrapedArtistEvent] = []
-    checked_artist_ids: set[str] = set()
-    checked_sources: set[str] = set()
+    filia_scrape = scrape_filia_cellars_schedule(artists, logger)
+    events: list[ScrapedArtistEvent] = list(filia_scrape.events)
+    checked_artist_ids: set[str] = set(filia_scrape.checked_artist_ids)
+    checked_sources: set[str] = set(filia_scrape.checked_sources)
     for artist in artists:
         website = clean(artist.get("website"))
         if not website:
@@ -3072,6 +3300,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             scraped = parse_alex_bevan_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
+        elif "craicbrothers.com" in website.lower():
+            scraped = parse_half_craicd_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
         else:
             home_html = ""
             try:
@@ -3096,7 +3328,8 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_artist_ids.discard(artist_id)
             checked_sources.discard(artist_site_source(website))
         events.extend(scraped)
-    return ArtistSiteScrape(events=events, checked_artist_ids=checked_artist_ids, checked_sources=checked_sources)
+    deduped_events = sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.title))
+    return ArtistSiteScrape(events=deduped_events, checked_artist_ids=checked_artist_ids, checked_sources=checked_sources)
 
 
 def row_by_key(rows: Iterable[dict[str, str]], key: str) -> dict[str, dict[str, str]]:

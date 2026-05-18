@@ -748,6 +748,65 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("The Rialto Theatre", venues)
         self.assertIn("Ridge & Rail", venues)
 
+    def test_filia_cellars_schedule_matches_known_artists_and_aliases(self):
+        scrape = artist_gig_tracker.parse_filia_cellars_schedule("""
+            <div>18-Apr-26 Katy Robinson</div>
+            <div>8-May-26 Steve-O</div>
+            <div>22-May-26 Half Craic'd</div>
+            <div>27-Jun-26 Greg n</div>
+            <div>5-Jul-26 Unknown Person</div>
+        """, [
+            {
+                "artist_id": "artist-katy-robinson-85e5c143",
+                "canonical_name": "Katy Robinson",
+                "artist_type": "solo",
+            },
+            {
+                "artist_id": "artist-little-steve-o-9cb5864a",
+                "canonical_name": "Little Steve-O",
+                "artist_type": "solo",
+            },
+            {
+                "artist_id": "artist-half-craicd-f083f6c2",
+                "canonical_name": "Half Craic'd",
+                "artist_type": "band",
+            },
+            {
+                "artist_id": "artist-greg-n-jill-12345678",
+                "canonical_name": "Greg n Jill",
+                "artist_type": "duo",
+            },
+        ])
+
+        self.assertEqual(len(scrape.events), 4)
+        self.assertIn("artist_site:filiacellars.com", scrape.checked_sources)
+        self.assertEqual(
+            {event.artist_name for event in scrape.events},
+            {"Katy Robinson", "Little Steve-O", "Half Craic'd", "Greg n Jill"},
+        )
+        self.assertTrue(all(event.venue_name == "Filia Cellars" for event in scrape.events))
+
+    def test_half_craicd_parser_handles_public_schedule_and_island_ranges(self):
+        events = artist_gig_tracker.parse_half_craicd_schedule_lines([
+            "Sat May 16th PJ McIntyre's 7-10",
+            "Fri May 22nd Felia Cellars in Wadsworth",
+            "Sat June 6th Gandalf's",
+            "May 29-30",
+            "Fri Sept 18th Felia Cellars 6-9",
+            "Irish New Years @ PJ's Dec 31st 4-7",
+        ], {
+            "artist_id": "artist-half-craicd-f083f6c2",
+            "canonical_name": "Half Craic'd",
+            "artist_type": "band",
+        })
+
+        self.assertEqual(len(events), 7)
+        self.assertIn("P.J. McIntyre's Irish Pub", {event.venue_name for event in events})
+        self.assertIn("Filia Cellars", {event.venue_name for event in events})
+        self.assertIn("Gandalf's Pub & Restaurant", {event.venue_name for event in events})
+        self.assertEqual(sum(1 for event in events if event.venue_name == "Kelleys Island Wine Co."), 2)
+        self.assertIn("2026-12-31", {event.event_date for event in events})
+
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
             "2026",
