@@ -210,16 +210,33 @@ NON_VENUE_NAMES = {
 KNOWN_VENUE_ALIASES = {
     "blue heron": "blue-heron-brewery-and-event-center-medina-oh-44256",
     "blue turtle": "blue-turtle-tavern-north-olmsted-oh-44070",
+    "bait house brewery": "bait-house-brewery-223-meigs-st-sandusky-oh-44870",
+    "ballentine": "ballantine-willoughby-oh-44094",
+    "caddyshack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
+    "caddy shack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
+    "esp brewing": "esp-brewing-united-states-oh",
     "divot": "divot-s-sports-bar-13393-york-rd-north-royalton-oh-44133",
     "fairview": "the-fairview-tavern-cleveland-oh-44126",
+    "galaxy": "galaxy-restaurant-wadsworth-oh-44281",
+    "gideon owen winery": "gideon-owen-port-clinton-oh-43452",
+    "grab n go": "grab-n-go-beverage-drivethru-and-pub-236-n-state-rd-medina-oh-44256",
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
+    "jimmy bukketts": "jimmy-bukkett-s-fremont-oh-43420",
+    "medina brewing company": "medina-brewing-company-320-s-court-st-g9-medina-oh-44256",
+    "olesia taverne": "olesias-tavern-3960-broadview-rd-richfield-oh-44286",
+    "on tap": "on-tap-medina-medina-oh-44256",
     "panini brunswick": "paninis-grill-3520-center-rd-brunswick-oh-44212",
     "pipe creek warf": "pipe-creek-wharf-sandusky-oh-44870",
     "pipe creek wharf": "pipe-creek-wharf-sandusky-oh-44870",
+    "runinmuck": "camp-runinmuck-lakeside-marblehead-oh-43440",
     "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
+    "secret at center": "secret-of-center-3511-center-road-oh-oh",
     "square 22": "square-22-restaurant-and-bar-strongsville-oh-44136",
     "local strongsville": "the-local-bar-strongsville-oh-44136",
+    "the keys": "the-keys-put-in-bay-put-in-bay-oh-43456",
+    "twin oast": "twin-oast-brewing-port-clinton-oh-43452",
+    "waters edge": "waters-edge-tiki-bar-and-grill-lakeside-marblehead-oh-43440",
     "wine room": "the-wine-room-avon-avon-oh-44011",
 }
 KNOWN_NEW_VENUE_DETAILS = {
@@ -1251,6 +1268,146 @@ def parse_jerry_popiel_schedule_lines(lines: list[str], artist: dict[str, str]) 
     return events
 
 
+ROB_ROCKS_KNOWN_VENUES = {
+    "bait house sandusky": {"venue": "Bait House Brewery", "city": "Sandusky", "zip_code": "44870"},
+    "ballentine": {"venue": "Ballantine", "city": "Willoughby", "zip_code": "44094"},
+    "caddyshack": {"venue": "Caddyshack", "city": "Kelleys Island"},
+    "canoe club": {"venue": "Canoe Club", "city": "Marblehead"},
+    "das weinhaus": {"venue": "Das Weinhaus", "city": "Litchfield", "zip_code": "44253"},
+    "edison pub": {"venue": "Edison's Pub", "city": "Cleveland"},
+    "esp brewing": {"venue": "ESP Brewing", "city": "Amherst"},
+    "galaxy": {"venue": "Galaxy Restaurant", "city": "Wadsworth", "zip_code": "44281"},
+    "gideon owen": {"venue": "Gideon Owen", "city": "Port Clinton", "zip_code": "43452"},
+    "gideon owen winery": {"venue": "Gideon Owen", "city": "Port Clinton", "zip_code": "43452"},
+    "grab n go": {"venue": "Grab N Go Beverage • Drivethru & Pub", "city": "Medina", "zip_code": "44256"},
+    "hidden beach bar": {"venue": "Hidden Beach Bar", "city": "Lakeside Marblehead", "zip_code": "43440"},
+    "jimmy bukketts": {"venue": "Jimmy Bukkett's", "city": "Fremont", "zip_code": "43420"},
+    "lorain brewing company": {"venue": "Lorain Brewing Company and Event Center", "city": "Lorain", "zip_code": "44052"},
+    "mad river harley davidson": {"venue": "Mad River Harley-Davidson", "city": "Sandusky", "zip_code": "44870"},
+    "medina brewing company": {"venue": "Medina Brewing Company", "city": "Medina", "zip_code": "44256"},
+    "olesia taverne": {"venue": "Olesias Tavern", "city": "Richfield", "zip_code": "44286"},
+    "on tap": {"venue": "On Tap Medina", "city": "Medina", "zip_code": "44256"},
+    "paninis": {"venue": "Paninis", "city": "Concord"},
+    "red wine brew": {"venue": "Red Wine & Brew", "city": "Mentor", "zip_code": "44060"},
+    "runinmuck": {"venue": "Camp Runinmuck", "city": "Lakeside Marblehead", "zip_code": "43440"},
+    "sandusky koa": {"venue": "Sandusky KOA", "city": "Sandusky", "zip_code": "44870"},
+    "sandusky rv resort": {"venue": "Sandusky RV Resort", "city": "Sandusky", "zip_code": "44870"},
+    "sandusky yacht club": {"venue": "Sandusky Yacht Club", "city": "Sandusky", "zip_code": "44870"},
+    "secret at center": {"venue": "Secret of Center", "city": "Brunswick"},
+    "the keys": {"venue": "The Keys Put-In-Bay", "city": "Put-In-Bay", "zip_code": "43456"},
+    "twin oast": {"venue": "Twin Oast Brewing", "city": "Port Clinton", "zip_code": "43452"},
+    "waters edge": {"venue": "Waters Edge Tiki Bar & Grill", "city": "Lakeside Marblehead", "zip_code": "43440"},
+}
+
+ROB_ROCKS_KNOWN_VENUE_LOOKUP = {canonical_venue_name(key): value for key, value in ROB_ROCKS_KNOWN_VENUES.items()}
+
+
+ROB_ROCKS_CITY_ALIASES = {
+    "catawba": "Port Clinton",
+    "concorde": "Concord",
+    "kellys island": "Kelleys Island",
+    "marblehead": "Lakeside Marblehead",
+    "pib": "Put-In-Bay",
+    "tremont": "Cleveland",
+    "west park": "Cleveland",
+}
+
+
+def parse_rob_rocks_times(detail: str) -> tuple[str, str, str]:
+    time_re = re.compile(
+        r"\b(\d{1,2}(?::\d{2})?)\s*(?:-\s*(\d{1,2}(?::\d{2})?)\s*)?([AP]M)\b",
+        re.I,
+    )
+    starts: list[str] = []
+    ends: list[str] = []
+    for match in time_re.finditer(detail):
+        start, end, suffix = match.groups()
+        starts.append(normalize_time_value(start, suffix))
+        if end:
+            ends.append(normalize_time_value(end, suffix))
+    cleaned = clean(time_re.sub(" ", detail).strip(" ,-"))
+    return " & ".join(starts), " & ".join(ends), cleaned
+
+
+def parse_rob_rocks_location(detail: str) -> tuple[str, str, str]:
+    if re.fullmatch(r"private event", clean(detail), re.I):
+        return "Private Event", "", ""
+
+    parts = [clean(part) for part in re.split(r"\s+-\s+", detail) if clean(part)]
+    venue = parts[0] if parts else clean(detail)
+    city = parts[1] if len(parts) > 1 else ""
+    city = ROB_ROCKS_CITY_ALIASES.get(canonical_venue_name(city), city)
+    known_key = canonical_venue_name(" ".join(part for part in [venue, city] if part))
+    known = ROB_ROCKS_KNOWN_VENUE_LOOKUP.get(known_key) or ROB_ROCKS_KNOWN_VENUE_LOOKUP.get(canonical_venue_name(venue))
+    if known:
+        return known["venue"], known.get("city", city), known.get("zip_code", "")
+    return venue, city, ""
+
+
+def parse_rob_rocks_schedule_lines(lines: list[str], artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    website = clean(artist.get("website"))
+    year = date.today().year
+    events: list[ScrapedArtistEvent] = []
+    seen: set[str] = set()
+    for line in lines:
+        if re.fullmatch(r"20\d{2}", line):
+            year = int(line)
+            continue
+        match = re.match(r"^(\d{1,2})/(\d{1,2})\s+(.+)$", line)
+        if not match:
+            continue
+        month, day, detail = match.groups()
+        try:
+            event_date = date(year, int(month), int(day)).isoformat()
+        except ValueError:
+            continue
+        start_time, end_time, location_detail = parse_rob_rocks_times(detail)
+        venue, city, zip_code = parse_rob_rocks_location(location_detail)
+        if not venue:
+            continue
+        title = f"{artist_name} @ {venue}" if venue != "Private Event" else f"{artist_name} private event"
+        dedupe = "|".join([event_date, start_time, norm(venue), norm(title)])
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=title,
+                venue_name=venue,
+                city=city,
+                state="OH",
+                zip_code=zip_code,
+                source=artist_site_source(website),
+                source_record_id=short_hash(event_date, start_time, venue, detail, length=12),
+                source_url=website,
+                description=detail,
+            )
+        )
+    return events
+
+
+def parse_rob_rocks_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or "https://robrockscle.com/home"
+    calendar_url = "https://robrockscle.com/home"
+    try:
+        html = fetch_url(calendar_url)
+    except Exception as exc:
+        logger.warning("Could not fetch Rob Rocks calendar %s: %s", calendar_url, exc)
+        return []
+    parser = VisibleTextParser()
+    parser.feed(html)
+    return parse_rob_rocks_schedule_lines(parser.lines(), {**artist, "website": website})
+
+
 def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website"))
     try:
@@ -1283,6 +1440,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif "jerrypopiel.com" in website.lower():
             scraped = parse_jerry_popiel_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "robrockscle.com" in website.lower():
+            scraped = parse_rob_rocks_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
@@ -1393,8 +1554,8 @@ def row_name_similarity(left: dict[str, str], right: dict[str, str]) -> float:
 
 
 def rows_have_place_overlap(left: dict[str, str], right: dict[str, str]) -> bool:
-    left_text = row_text(left, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip")
-    right_text = row_text(right, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip")
+    left_text = row_text(left, "address", "Address", "city", "City", "zip", "Zip")
+    right_text = row_text(right, "address", "Address", "city", "City", "zip", "Zip")
     return bool(venue_zip_tokens(left_text) & venue_zip_tokens(right_text)) or bool(
         venue_city_tokens(left.get("city"), left.get("City"), left_text) & venue_city_tokens(right.get("city"), right.get("City"), right_text)
     )

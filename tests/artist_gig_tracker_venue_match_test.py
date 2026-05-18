@@ -325,6 +325,86 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(cards[0]["city"], "North Olmsted")
         self.assertEqual(cards[0]["zip_code"], "44070")
 
+    def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
+        events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
+            "2026",
+            "6/15 The Keys - PIB 2-4pm, 6-9pm",
+        ], {
+            "artist_id": "artist-rob-rocks",
+            "canonical_name": "Rob Rocks",
+            "artist_type": "solo",
+            "website": "https://robrockscle.com/home",
+        })
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_date, "2026-06-15")
+        self.assertEqual(events[0].venue_name, "The Keys Put-In-Bay")
+        self.assertEqual(events[0].city, "Put-In-Bay")
+        self.assertEqual(events[0].start_time, "2PM & 6PM")
+        self.assertEqual(events[0].end_time, "4PM & 9PM")
+
+    def test_rob_rocks_parser_keeps_private_event_out_of_venues(self):
+        events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
+            "2026",
+            "6/13 Private Event",
+        ], {
+            "artist_id": "artist-rob-rocks",
+            "canonical_name": "Rob Rocks",
+            "artist_type": "solo",
+            "website": "https://robrockscle.com/home",
+        })
+
+        self.assertEqual(events[0].venue_name, "Private Event")
+        self.assertFalse(artist_gig_tracker.should_materialize_venue(events[0]))
+
+    def test_rob_rocks_bait_house_sandusky_uses_brewery_name(self):
+        events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
+            "2026",
+            "5/22 Bait House - Sandusky 6pm",
+        ], {
+            "artist_id": "artist-rob-rocks",
+            "canonical_name": "Rob Rocks",
+            "artist_type": "solo",
+            "website": "https://robrockscle.com/home",
+        })
+
+        self.assertEqual(events[0].venue_name, "Bait House Brewery")
+        self.assertEqual(events[0].city, "Sandusky")
+        self.assertEqual(events[0].start_time, "6PM")
+
+    def test_rob_rocks_no_dash_known_venue_still_gets_city(self):
+        events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
+            "2026",
+            "5/29 Mad River Harley Davidson 3:30pm",
+        ], {
+            "artist_id": "artist-rob-rocks",
+            "canonical_name": "Rob Rocks",
+            "artist_type": "solo",
+            "website": "https://robrockscle.com/home",
+        })
+
+        self.assertEqual(events[0].venue_name, "Mad River Harley-Davidson")
+        self.assertEqual(events[0].city, "Sandusky")
+
+    def test_scraper_venue_alias_does_not_match_on_generic_name_words_only(self):
+        scraper_row = {
+            "venue_id": "venue-edgewater-yacht-club-e65e4cf2",
+            "place_name": "Edgewater Yacht Club",
+            "city": "Cleveland",
+            "zip": "44102",
+            "source": "artist_site_sync",
+        }
+        master_row = {
+            "venue_id": "dusty-s-yacht-club-akron-oh-44319",
+            "place_name": "Dusty's Yacht Club",
+            "address": "4764 Dustys Rd",
+            "city": "Akron",
+            "zip": "44319",
+            "source": "master_sheet_sheet1",
+        }
+
+        self.assertEqual(artist_gig_tracker.find_master_venue_alias(scraper_row, {master_row["venue_id"]: master_row}), "")
+
 
 if __name__ == "__main__":
     unittest.main()
