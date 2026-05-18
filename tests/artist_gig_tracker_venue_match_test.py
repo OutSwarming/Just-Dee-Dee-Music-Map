@@ -108,6 +108,48 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(aliases["venue-blue-turtle-b9438a78"], "blue-turtle-tavern-north-olmsted-oh-44070")
         self.assertNotIn("venue-blue-turtle-b9438a78", deduped)
 
+    def test_directional_words_do_not_alias_distinct_venues(self):
+        venues_by_id = {
+            "venue-west-pavilion-f58a9c9a": {
+                "venue_id": "venue-west-pavilion-f58a9c9a",
+                "place_name": "West Pavilion",
+                "city": "Lakeside",
+                "source": "artist_site_sync",
+            },
+            "west-and-main-bar-and-grill-warren-oh-44481": {
+                "venue_id": "west-and-main-bar-and-grill-warren-oh-44481",
+                "place_name": "West & Main Bar & Grill",
+                "city": "Warren",
+                "zip": "44481",
+                "source": "master_sheet_sheet1",
+            },
+        }
+
+        deduped, aliases = artist_gig_tracker.dedupe_venues_by_identity(venues_by_id)
+
+        self.assertNotIn("venue-west-pavilion-f58a9c9a", aliases)
+        self.assertIn("venue-west-pavilion-f58a9c9a", deduped)
+
+    def test_known_alias_matches_event_without_creating_duplicate(self):
+        venues = [
+            {
+                "venue_id": "crocker-park-177-market-st-westlake-oh-44145",
+                "place_name": "Crocker Park 177 Market St. Westlake, OH 44145",
+                "city": "Westlake",
+                "source": "master_sheet_sheet1",
+            }
+        ]
+        event = self.make_event(
+            venue_name="Crocker Park - Music in The Park",
+            city="Westlake",
+            title="Victor Samalot @ Crocker Park - Music in The Park",
+        )
+
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, event),
+            "crocker-park-177-market-st-westlake-oh-44145",
+        )
+
     def test_non_venue_placeholders_do_not_become_venues(self):
         event = self.make_event(
             title="JDDM 2026 Scheduled Private Event",
@@ -135,6 +177,14 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
 
         self.assertEqual(row["address"], "11111 Euclid Ave")
         self.assertEqual(row["website"], "https://thejollyscholar.com/")
+
+    def test_mother_road_notes_do_not_parse_as_street_address(self):
+        self.assertEqual(
+            artist_gig_tracker.extract_display_street_address(
+                "Bristol Public Library, Bristolville, OH | 100 years of Americana with their live music tribute to The Mother Road"
+            ),
+            "",
+        )
 
     def test_new_venue_text_includes_artist_and_date(self):
         body = artist_gig_tracker.build_new_venue_text([
@@ -243,6 +293,37 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertFalse(artist_gig_tracker.should_materialize_venue(events[0]))
         self.assertEqual(events[1].venue_name, "Copper Top")
         self.assertEqual(events[1].city, "Medina")
+
+    def test_bandzoogle_card_parser_extracts_victor_event_details(self):
+        cards = artist_gig_tracker.parse_bandzoogle_event_cards("""
+            <div class="event-detail" data-event-id="6562628" data-occurrence-id="761908855">
+              <h2 class="event-info event-title heading-tertiary">
+                <a href="https://victorsamalot.com/event/6562628/761908855/victor-samalot-duo-at-aloft-hotel">
+                  Victor Samalot Duo At Aloft Hotel
+                </a>
+              </h2>
+              <p class="event-info event-datetime">
+                <span class="date-long"><span class="event-when with-end with-time">
+                  <time class="from"><span class="date">Friday, May 15</span> @ <span class="time">8:00PM</span></time>
+                  — <time class="to"><span class="time">10:00PM</span></time>
+                </span></span>
+              </p>
+              <p class="event-info event-location">
+                <a href="https://www.facebook.com/aloftclevelandairport/">
+                  Aloft Hotel Cleveland Airport, 5550 Great Northern Blvd, North Olmsted, OH 44070
+                </a>
+              </p>
+            </div><div class="event-clear"></div>
+        """, 2026, "https://www.victorsamalot.com/show-schedule")
+
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["event_date"], "2026-05-15")
+        self.assertEqual(cards[0]["start_time"], "8:00PM")
+        self.assertEqual(cards[0]["end_time"], "10:00PM")
+        self.assertEqual(cards[0]["venue"], "Aloft Hotel Cleveland Airport")
+        self.assertEqual(cards[0]["address"], "5550 Great Northern Blvd")
+        self.assertEqual(cards[0]["city"], "North Olmsted")
+        self.assertEqual(cards[0]["zip_code"], "44070")
 
 
 if __name__ == "__main__":

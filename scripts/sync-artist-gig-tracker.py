@@ -23,6 +23,7 @@ import argparse
 import csv
 import difflib
 import hashlib
+import html
 import io
 import json
 import logging
@@ -209,6 +210,7 @@ NON_VENUE_NAMES = {
 KNOWN_VENUE_ALIASES = {
     "blue heron": "blue-heron-brewery-and-event-center-medina-oh-44256",
     "blue turtle": "blue-turtle-tavern-north-olmsted-oh-44070",
+    "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
     "divot": "divot-s-sports-bar-13393-york-rd-north-royalton-oh-44133",
     "fairview": "the-fairview-tavern-cleveland-oh-44126",
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
@@ -341,13 +343,21 @@ def make_id(prefix: str, *parts: object) -> str:
 
 
 def extract_street_address(value: object) -> str:
-    match = STREET_ADDRESS_RE.search(clean(value))
-    return norm(match.group(0)) if match else ""
+    for match in STREET_ADDRESS_RE.finditer(clean(value)):
+        candidate = match.group(0)
+        if re.search(r"\b\d+\s+years?\b", candidate, re.I):
+            continue
+        return norm(candidate)
+    return ""
 
 
 def extract_display_street_address(value: object) -> str:
-    match = STREET_ADDRESS_RE.search(clean(value))
-    return clean(match.group(0)) if match else ""
+    for match in STREET_ADDRESS_RE.finditer(clean(value)):
+        candidate = clean(match.group(0))
+        if re.search(r"\b\d+\s+years?\b", candidate, re.I):
+            continue
+        return candidate
+    return ""
 
 
 def row_text(row: dict[str, str], *keys: str) -> str:
@@ -356,7 +366,8 @@ def row_text(row: dict[str, str], *keys: str) -> str:
 
 def venue_city_tokens(*parts: object) -> set[str]:
     tokens = set(norm(" ".join(clean(part) for part in parts)).split())
-    return {token for token in tokens if token and token not in {"oh", "ohio"} and not token.isdigit()}
+    stopwords = {"oh", "ohio", "north", "south", "east", "west", "main", "st", "street", "rd", "road", "ave", "avenue"}
+    return {token for token in tokens if token and token not in stopwords and not token.isdigit()}
 
 
 def venue_zip_tokens(*parts: object) -> set[str]:
@@ -634,6 +645,102 @@ def parse_bandzoogle_date(text: str, default_year: int) -> tuple[str, str, str] 
     return parsed.isoformat(), clean(start).replace(" ", ""), clean(end or "").replace(" ", "")
 
 
+def strip_html(value: str) -> str:
+    return clean(re.sub(r"<[^>]+>", " ", html.unescape(value)))
+
+
+def parse_bandzoogle_card_date(text: str, default_year: int, past_page: bool, last_month: int = 0) -> tuple[str, int] | None:
+    match = re.match(r"^(?:[A-Za-z]{3,9}),\s+([A-Za-z]+)\s+(\d{1,2})$", clean(text))
+    if not match:
+        return None
+    month_name, day = match.groups()
+    try:
+        month_number = datetime.strptime(month_name, "%B").month
+    except ValueError:
+        return None
+    if past_page and month_number > date.today().month:
+        year = default_year - 1
+    else:
+        year = default_year + (1 if last_month >= 11 and month_number < last_month else 0)
+    return date(year, month_number, int(day)).isoformat(), month_number
+
+
+def parse_bandzoogle_location(location_text: str) -> tuple[str, str, str, str]:
+    parts = [clean(part) for part in location_text.split(",") if clean(part)]
+    if not parts:
+        return "", "", "", ""
+    venue = parts[0]
+    address = ""
+    city = ""
+    zip_code = ""
+    if len(parts) >= 4 and extract_street_address(parts[1]):
+        address = parts[1]
+        city = parts[2]
+        state_zip = parts[3]
+    elif len(parts) >= 3:
+        city = parts[-2]
+        state_zip = parts[-1]
+    elif len(parts) == 2:
+        state_zip = parts[-1]
+    else:
+        state_zip = ""
+    zip_match = re.search(r"\b(\d{5})\b", state_zip)
+    zip_code = zip_match.group(1) if zip_match else ""
+    return venue, address, city, zip_code
+
+
+def parse_bandzoogle_event_cards(
+    html_text: str,
+    default_year: int,
+    source_base_url: str,
+    past_page: bool = False,
+) -> list[dict[str, str]]:
+    cards: list[dict[str, str]] = []
+    last_month = 0
+    for raw in re.split(r'<div class="event-detail"', html_text)[1:]:
+        chunk = '<div class="event-detail"' + raw.split('<div class="event-clear"></div>', 1)[0]
+        event_id = clean((re.search(r'data-event-id="([^"]+)"', chunk) or ["", ""])[1])
+        occurrence_id = clean((re.search(r'data-occurrence-id="([^"]+)"', chunk) or ["", ""])[1])
+        title_match = re.search(r'<h2[^>]*class="[^"]*event-title[^"]*"[^>]*>\s*<a href="([^"]+)">(.*?)</a>', chunk, re.S)
+        if not title_match:
+            continue
+        event_url, title_html = title_match.groups()
+        title = strip_html(title_html)
+        date_block = re.search(r'<span class="date-long">(.*?)</span>\s*</span>', chunk, re.S)
+        if not date_block:
+            continue
+        date_text_match = re.search(r'<span class="date">([^<]+)</span>', date_block.group(1))
+        time_matches = re.findall(r'<span class="time">([^<]+)</span>', date_block.group(1))
+        if not date_text_match:
+            continue
+        parsed_date = parse_bandzoogle_card_date(date_text_match.group(1), default_year, past_page, last_month)
+        if not parsed_date:
+            continue
+        event_date, last_month = parsed_date
+        location_match = re.search(r'<p class="event-info event-location">\s*(.*?)\s*</p>', chunk, re.S)
+        location_text = strip_html(location_match.group(1)) if location_match else ""
+        venue, address, city, zip_code = parse_bandzoogle_location(location_text)
+        notes_match = re.search(r'<div class="event-info event-notes">(.*?)</div>', chunk, re.S)
+        notes = strip_html(notes_match.group(1)) if notes_match else ""
+        source_record_id = occurrence_id or event_id or short_hash(event_date, title, location_text, length=12)
+        cards.append(
+            {
+                "event_date": event_date,
+                "start_time": clean(time_matches[0]).replace(" ", "") if time_matches else "",
+                "end_time": clean(time_matches[1]).replace(" ", "") if len(time_matches) > 1 else "",
+                "title": title,
+                "venue": venue,
+                "address": address,
+                "city": city,
+                "zip_code": zip_code,
+                "source_record_id": source_record_id,
+                "source_url": urllib.parse.urljoin(source_base_url, html.unescape(event_url)),
+                "description": clean(" | ".join(part for part in [title, location_text, address, notes] if clean(part))),
+            }
+        )
+    return cards
+
+
 def parse_bandzoogle_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website"))
     if not website:
@@ -655,6 +762,7 @@ def parse_bandzoogle_calendar(artist: dict[str, str], logger: logging.Logger) ->
     pages.extend(f"{base}{path_prefix}/features/load/calendar_feature_{feature_id}.turbo_stream?calendar_page={page}" for page in range(2, 13))
 
     rows: list[tuple[str, str, str]] = []
+    detail_rows: list[dict[str, str]] = []
     for page_url in pages:
         try:
             html = fetch_url(page_url)
@@ -664,9 +772,31 @@ def parse_bandzoogle_calendar(artist: dict[str, str], logger: logging.Logger) ->
         parser = CalendarTableParser()
         parser.feed(html)
         page_rows = [tuple(row) for row in parser.rows if row and not row[0].lower().startswith("date")]
-        if not page_rows and page_url != website:
-            break
         rows.extend(page_rows)
+        page_detail_rows: list[dict[str, str]] = []
+        if not page_rows:
+            page_detail_rows = parse_bandzoogle_event_cards(html, date.today().year, website)
+            detail_rows.extend(page_detail_rows)
+        if not page_rows and not page_detail_rows and page_url != website:
+            break
+
+    if detail_rows:
+        previous_pages = [
+            f"{base}{path_prefix}/features/load/calendar_feature_{feature_id}.turbo_stream?calendar_page_prev={page}"
+            for page in range(1, 7)
+        ]
+        for page, page_url in enumerate(previous_pages, start=1):
+            try:
+                html = fetch_url(page_url)
+            except Exception as exc:
+                logger.info("Stopping previous calendar pagination for %s at %s: %s", artist.get("canonical_name"), page_url, exc)
+                break
+            page_detail_rows = parse_bandzoogle_event_cards(html, date.today().year, website, past_page=True)
+            if not page_detail_rows:
+                break
+            detail_rows.extend(page_detail_rows)
+            if f"calendar_page_prev={page + 1}" not in html:
+                break
 
     seen: set[tuple[str, str, str]] = set()
     events: list[ScrapedArtistEvent] = []
@@ -708,6 +838,35 @@ def parse_bandzoogle_calendar(artist: dict[str, str], logger: logging.Logger) ->
                 source_record_id=short_hash(*key, length=12),
                 source_url=website,
                 description=f"{title_text} | {location_text}",
+            )
+        )
+    for item in detail_rows:
+        venue = clean(item.get("venue"))
+        title_text = clean(item.get("title"))
+        if not venue:
+            continue
+        key = (item["event_date"], item["start_time"], venue, title_text)
+        if key in seen:
+            continue
+        seen.add(key)
+        event_title = f"{artist_name} @ {venue}" if venue != "Private Event" else title_text or f"{artist_name} private event"
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=item["event_date"],
+                start_time=item["start_time"],
+                end_time=item["end_time"],
+                title=event_title,
+                venue_name=venue,
+                city=clean(item.get("city")),
+                state="OH",
+                zip_code=clean(item.get("zip_code")),
+                source=artist_site_source(website),
+                source_record_id=clean(item.get("source_record_id")) or short_hash(*key, length=12),
+                source_url=clean(item.get("source_url")) or website,
+                description=clean(item.get("description")),
             )
         )
     return events
@@ -1327,6 +1486,9 @@ def dedupe_venues_by_identity(venues_by_id: dict[str, dict[str, str]]) -> tuple[
 def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> str:
     if not should_materialize_venue(event):
         return ""
+    alias_id = KNOWN_VENUE_ALIASES.get(canonical_venue_name(event.venue_name))
+    if alias_id and any(clean(row.get("venue_id") or row.get("Place ID")) == alias_id for row in venues):
+        return alias_id
     by_name = {norm(row.get("place_name") or row.get("Place Name")): clean(row.get("venue_id") or row.get("Place ID")) for row in venues}
     candidates = [
         norm(event.venue_name),
