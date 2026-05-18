@@ -263,6 +263,66 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "216-368-0090",
         "website": "https://thejollyscholar.com/",
     },
+    "blossom center vip club": {
+        "place_name": "Blossom Music Center VIP Club",
+        "address": "1145 W Steels Corners Rd",
+        "city": "Cuyahoga Falls",
+        "zip": "44223",
+        "venue_type": "Live Music Venue",
+        "phone_number": "330-920-8040",
+        "website": "https://www.blossommusic.com/",
+    },
+    "copper top": {
+        "place_name": "Coppertop at Cherokee Hills",
+        "address": "5740 Center Rd",
+        "city": "Valley City",
+        "zip": "44280",
+        "venue_type": "Event Venue",
+        "phone_number": "330-225-6122",
+        "website": "https://www.coppertopgolf.com/",
+    },
+    "john s knight center": {
+        "place_name": "John S. Knight Center",
+        "address": "77 E Mill St",
+        "city": "Akron",
+        "zip": "44308",
+        "venue_type": "Event Venue",
+        "phone_number": "330-374-8900",
+    },
+    "julia 1902 house": {
+        "place_name": "Julia's 1902 House",
+        "address": "37819 Euclid Ave",
+        "city": "Willoughby",
+        "zip": "44094",
+        "venue_type": "Restaurant",
+        "phone_number": "440-306-8332",
+        "website": "https://www.julias1902.com/",
+    },
+    "ottawa county fairground": {
+        "place_name": "Ottawa County Fairgrounds",
+        "address": "7870 W State Route 163",
+        "city": "Oak Harbor",
+        "zip": "43449",
+        "venue_type": "Fairground",
+        "website": "https://www.ottawacountyfair.org/",
+    },
+    "st ladisla": {
+        "place_name": "St. Ladislas",
+        "address": "2345 Bassett Rd",
+        "city": "Westlake",
+        "zip": "44145",
+        "venue_type": "Church",
+        "website": "https://stladislas.org/",
+    },
+    "turkeyfoot island club": {
+        "place_name": "Turkeyfoot Island Club",
+        "address": "4528 Lahm Dr",
+        "city": "Akron",
+        "zip": "44319",
+        "venue_type": "Event Venue",
+        "phone_number": "330-644-7797",
+        "website": "https://www.turkeyfootislandclub.com/",
+    },
 }
 
 
@@ -453,6 +513,37 @@ class GspbTextParser(HTMLParser):
             self.current_text.append(data)
             if self.in_link:
                 self.link_text.append(data)
+
+
+class VisibleTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"script", "style"}:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            return
+        if tag in {"br", "p", "div", "li", "tr", "h1", "h2", "h3"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style"} and self.skip_depth:
+            self.skip_depth -= 1
+            return
+        if not self.skip_depth and tag in {"p", "div", "li", "tr", "h1", "h2", "h3"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self.skip_depth:
+            self.parts.append(data)
+
+    def lines(self) -> list[str]:
+        text = re.sub(r"\n\s*\n+", "\n", "".join(self.parts))
+        return [clean(line) for line in text.splitlines() if clean(line)]
 
 
 @dataclass
@@ -857,6 +948,162 @@ def parse_jim_gill_calendar(artist: dict[str, str], logger: logging.Logger) -> l
     return events
 
 
+def parse_jerry_popiel_date(text: str) -> tuple[str, str] | None:
+    match = re.match(r"^([A-Za-z]+)\s+(\d{1,2}),\s+(20\d{2})\s+(.+)$", clean(text))
+    if not match:
+        return None
+    month, day, year, detail = match.groups()
+    try:
+        event_day = datetime.strptime(f"{year} {month} {day}", "%Y %B %d").date()
+    except ValueError:
+        return None
+    return event_day.isoformat(), clean(detail)
+
+
+def normalize_time_value(value: str, suffix: str) -> str:
+    value = clean(value).upper()
+    if ":" in value:
+        hour, minute = value.split(":", 1)
+        return f"{int(hour)}:{minute}{suffix.upper()}"
+    return f"{int(value)}{suffix.upper()}"
+
+
+def parse_jerry_popiel_times(detail: str) -> tuple[str, str, str]:
+    match = re.search(
+        r"\b(?:from\s+)?(\d{1,2}(?::\d{2})?)\s*-\s*(\d{1,2}(?::\d{2})?)\s*([AP]M)\b",
+        detail,
+        re.I,
+    )
+    if not match:
+        return "", "", clean(detail)
+    start, end, suffix = match.groups()
+    clean_detail = clean((detail[: match.start()] + detail[match.end() :]).replace("from", " "))
+    return normalize_time_value(start, suffix), normalize_time_value(end, suffix), clean_detail
+
+
+JERRY_POPIEL_KNOWN_VENUES = {
+    "blossom music center vip club": {
+        "venue": "Blossom Music Center VIP Club",
+        "city": "Cuyahoga Falls",
+        "zip_code": "44223",
+    },
+    "angel art auction john s knight center": {
+        "venue": "John S. Knight Center",
+        "city": "Akron",
+    },
+    "salon series julia": {
+        "venue": "Julia's 1902 House",
+        "city": "Willoughby",
+    },
+    "mardi gras at collision bend": {
+        "venue": "Collision Bend",
+        "city": "Euclid",
+    },
+    "crocker park": {
+        "venue": "Crocker Park",
+        "city": "Westlake",
+    },
+    "food truck tuesday": {
+        "venue": "Public Square",
+        "city": "Cleveland",
+    },
+    "ormaco event": {
+        "venue": "ORMACO Event",
+        "city": "Medina",
+    },
+    "ottawa county fair": {
+        "venue": "Ottawa County Fairgrounds",
+        "city": "Oak Harbor",
+    },
+    "turkeyfoot island club": {
+        "venue": "Turkeyfoot Island Club",
+        "city": "Portage Lakes",
+    },
+    "made in ohio arts festival": {
+        "venue": "Made in Ohio Arts Festival",
+        "city": "Peninsula",
+    },
+    "west pavilion lakeside": {
+        "venue": "West Pavilion",
+        "city": "Lakeside",
+    },
+}
+
+
+def parse_jerry_popiel_location(detail: str) -> tuple[str, str, str]:
+    cleaned = clean(re.sub(r"\([^)]*private event[^)]*\)", "", detail, flags=re.I).strip(" ,"))
+    if re.match(r"^private event\b", cleaned, re.I):
+        parts = [clean(part) for part in cleaned.split(",")]
+        return "Private Event", parts[1] if len(parts) > 1 and norm(parts[1]) != "oh" else "", ""
+    if re.match(r"^corporate event\b", cleaned, re.I):
+        parts = [clean(part) for part in cleaned.split(",")]
+        if len(parts) >= 3 and parts[1] and norm(parts[1]) != "oh":
+            return parts[1], parts[2] if len(parts) > 2 and norm(parts[2]) != "oh" else "", ""
+        return "Private Event", parts[1] if len(parts) > 1 and norm(parts[1]) != "oh" else "", ""
+    for key, value in JERRY_POPIEL_KNOWN_VENUES.items():
+        if key in norm(cleaned):
+            return value["venue"], value.get("city", ""), value.get("zip_code", "")
+    match = re.search(r"^(.+?),\s*([^,]+),\s*OH\b", cleaned, re.I)
+    if match:
+        return clean(match.group(1)), clean(match.group(2)), ""
+    return cleaned, "", ""
+
+
+def parse_jerry_popiel_schedule_lines(lines: list[str], artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    website = clean(artist.get("website"))
+    events: list[ScrapedArtistEvent] = []
+    seen: set[str] = set()
+    for line in lines:
+        parsed = parse_jerry_popiel_date(line)
+        if not parsed:
+            continue
+        event_date, detail = parsed
+        start_time, end_time, detail_without_time = parse_jerry_popiel_times(detail)
+        venue, city, zip_code = parse_jerry_popiel_location(detail_without_time)
+        if not venue:
+            continue
+        title = f"{artist_name} @ {venue}" if venue != "Private Event" else f"{artist_name} private event"
+        dedupe = "|".join([event_date, start_time, norm(venue), norm(title)])
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=title,
+                venue_name=venue,
+                city=city,
+                state="OH",
+                zip_code=zip_code,
+                source=artist_site_source(website),
+                source_record_id=short_hash(event_date, start_time, venue, detail, length=12),
+                source_url=website,
+                description=detail,
+            )
+        )
+    return events
+
+
+def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website"))
+    try:
+        html = fetch_url(website)
+    except Exception as exc:
+        logger.warning("Could not fetch Jerry Popiel calendar %s: %s", website, exc)
+        return []
+    parser = VisibleTextParser()
+    parser.feed(html)
+    return parse_jerry_popiel_schedule_lines(parser.lines(), artist)
+
+
 def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging.Logger) -> ArtistSiteScrape:
     events: list[ScrapedArtistEvent] = []
     checked_artist_ids: set[str] = set()
@@ -873,6 +1120,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif "jimgillmusic.com" in website.lower():
             scraped = parse_jim_gill_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "jerrypopiel.com" in website.lower():
+            scraped = parse_jerry_popiel_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:

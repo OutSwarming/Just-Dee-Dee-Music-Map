@@ -207,6 +207,43 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("Jim Gill @ Filia Cellars Winery", titles)
         self.assertIn("Jim Gill @ Rocky Point Winery", titles)
 
+    def test_jerry_popiel_schedule_line_parser_handles_times_and_known_venues(self):
+        events = artist_gig_tracker.parse_jerry_popiel_schedule_lines([
+            "June 23, 2026 Blossom Music Center VIP Club before PAUL SIMON",
+            "June 23, 2026 Food Truck Tuesday, Public Square, Cleveland, OH",
+            "July 11, 2026 West Pavilion, Lakeside, OH from 2-4 PM (gate fee required)",
+        ], {
+            "artist_id": "artist-jerry-popiel",
+            "canonical_name": "Jerry Popiel",
+            "artist_type": "solo",
+            "website": "https://www.jerrypopiel.com/",
+        })
+
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[0].venue_name, "Blossom Music Center VIP Club")
+        self.assertEqual(events[0].city, "Cuyahoga Falls")
+        self.assertEqual(events[1].venue_name, "Public Square")
+        self.assertEqual(events[1].city, "Cleveland")
+        self.assertEqual(events[2].start_time, "2PM")
+        self.assertEqual(events[2].end_time, "4PM")
+
+    def test_jerry_popiel_private_only_line_does_not_become_venue(self):
+        events = artist_gig_tracker.parse_jerry_popiel_schedule_lines([
+            "May 29, 2026 Private event, Wadsworth, OH",
+            "January 10, 2026 Corporate event, Copper Top, Medina, OH",
+        ], {
+            "artist_id": "artist-jerry-popiel",
+            "canonical_name": "Jerry Popiel",
+            "artist_type": "solo",
+            "website": "https://www.jerrypopiel.com/",
+        })
+
+        self.assertEqual(events[0].venue_name, "Private Event")
+        self.assertEqual(events[0].city, "Wadsworth")
+        self.assertFalse(artist_gig_tracker.should_materialize_venue(events[0]))
+        self.assertEqual(events[1].venue_name, "Copper Top")
+        self.assertEqual(events[1].city, "Medina")
+
 
 if __name__ == "__main__":
     unittest.main()
