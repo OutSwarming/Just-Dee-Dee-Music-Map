@@ -821,6 +821,35 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual({event.venue_name for event in events}, {"Gandalf's Pub & Restaurant"})
         self.assertIn("6757 Center Rd", events[0].description)
 
+    def test_bandsintown_venue_normalization_strips_times_and_private_events(self):
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Maria Petti",
+                "Maria Petti live",
+                "Baci Winery [5-8PM]",
+                "",
+            ),
+            "Baci Winery",
+        )
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Maria Petti",
+                "Springer Wedding",
+                "Springer Wedding",
+                "",
+            ),
+            "Private Event",
+        )
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Maria Petti",
+                "**CANCELLED** Baci Winery [5-8PM]",
+                "**CANCELLED** Baci Winery [5-8PM]",
+                "",
+            ),
+            "",
+        )
+
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
             "2026",

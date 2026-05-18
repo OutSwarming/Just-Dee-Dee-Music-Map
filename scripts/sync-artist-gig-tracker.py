@@ -101,6 +101,12 @@ GANDALFS_PUB_VENUE = {
     "zip_code": "44280",
     "address": "6757 Center Rd, Valley City, OH 44280",
 }
+MARIA_PETTI_URL = "https://www.mariapetti.com/"
+MARIA_PETTI_CALENDAR_URL = "https://www.mariapetti.com/calendar"
+MARIA_PETTI_BANDSINTOWN_URL = (
+    "https://rest.bandsintown.com/artists/Maria%20Petti/events"
+    "?app_id=squarespace-maria-petti&date=all"
+)
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -1173,6 +1179,10 @@ def normalize_bandsintown_venue_name(
     venue_name: str,
     street_address: str,
 ) -> str:
+    if re.search(r"\b(cancelled|canceled)\b", title, re.I):
+        return ""
+    if re.search(r"\b(private|wedding|graduation party|steak roast|clam bake|pickleball tourney)\b", " ".join([title, venue_name]), re.I):
+        return "Private Event"
     if norm(street_address) == norm("2920 Detroit Ave") and "10x3" in norm(title):
         return "BOP STOP at The Music Settlement"
     if norm(street_address) == norm("706 Steel St"):
@@ -1190,7 +1200,43 @@ def normalize_bandsintown_venue_name(
         venue = clean(match.group(1))
     if " @ " in venue:
         venue = clean(venue.rsplit(" @ ", 1)[-1])
+    venue = re.sub(r"^\*[^*]+\*\s*", "", venue)
+    venue = re.sub(r"^\([^)]*\)\s*", "", venue)
+    venue = re.sub(r"^(?:rescheduled[^-]*|time change[^-]*)\s*-\s*", "", venue, flags=re.I)
+    venue = re.sub(r"\s*\[[^\]]*(?:\d|TBD)[^\]]*\]\s*", " ", venue, flags=re.I)
+    venue = re.sub(r"\s*\([^)]*(?:\d|am|pm|TBD)[^)]*\)\s*$", "", venue, flags=re.I)
+    venue = re.sub(r"\s+\d{1,2}:?\d{0,2}\s*(?:-|to|–)\s*\d{1,2}:?\d{0,2}\s*(?:am|pm)?\s*$", "", venue, flags=re.I)
+    venue = re.sub(r"\s+w/\s+.*$", "", venue, flags=re.I)
+    venue = clean(venue)
     venue = re.sub(r"'s\s+Sunday\s+Brunch$", "", venue, flags=re.IGNORECASE)
+    venue_key = canonical_venue_name(venue)
+    raw_venue_key = norm(venue)
+    if venue_key.startswith("sol "):
+        venue = "SOL"
+    elif raw_venue_key.startswith("baci winery"):
+        venue = "Baci Winery"
+    elif "joey s italian grille madison" in venue_key:
+        venue = "Joey's Italian Grille - Madison"
+    elif raw_venue_key.startswith("the hilton") or raw_venue_key.startswith("air show bar 32 hilton cle"):
+        venue = "Hilton Cleveland Downtown"
+    elif raw_venue_key.startswith("leroy vfw"):
+        venue = "Leroy VFW"
+    elif raw_venue_key.startswith("maria band saybrook township park"):
+        venue = "Saybrook Township Park"
+    elif raw_venue_key.startswith("mentor harbor yacht club"):
+        venue = "Mentor Harbor Yacht Club"
+    elif raw_venue_key.startswith("wildwood cultural center"):
+        venue = "Wildwood Cultural Center"
+    elif raw_venue_key.startswith("mr lee s"):
+        venue = "Mr. Lee's"
+    elif raw_venue_key.startswith("the hambone"):
+        venue = "The Hambone"
+    elif venue_key.startswith("crowley s dive bar painesville"):
+        venue = "Crowley's Dive Bar - Painesville"
+    elif raw_venue_key == "jim s pizza box vermillion":
+        venue = "Jim's Pizza Box Vermilion"
+    elif raw_venue_key.startswith("east end bar grill"):
+        venue = "East End Bar & Grill"
     venue_key = canonical_venue_name(venue)
     if venue_key == "filia":
         venue = "Filia Cellars"
@@ -1945,6 +1991,27 @@ def jay_wonkovich_recovered_events(artist: dict[str, str]) -> list[ScrapedArtist
 
 def parse_jay_wonkovich_calendar(artist: dict[str, str], _logger: logging.Logger) -> list[ScrapedArtistEvent]:
     return sorted(jay_wonkovich_recovered_events(artist), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
+def parse_maria_petti_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or MARIA_PETTI_URL
+    cutoff = date.today().replace(year=date.today().year - 1)
+    events = parse_bandsintown_events(
+        artist,
+        MARIA_PETTI_BANDSINTOWN_URL,
+        website,
+        logger,
+        enforce_northeast_ohio=True,
+    )
+    filtered: list[ScrapedArtistEvent] = []
+    for event in events:
+        event_day = parse_iso(event.event_date)
+        if not event_day or event_day < cutoff:
+            continue
+        if re.search(r"\b(cancelled|canceled)\b", " ".join([event.title, event.description]), re.I):
+            continue
+        filtered.append(event)
+    return sorted({event.event_id: event for event in filtered}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
@@ -3355,6 +3422,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif norm(artist.get("canonical_name")) == "jay wonkovich":
             scraped = parse_jay_wonkovich_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "mariapetti.com" in website.lower():
+            scraped = parse_maria_petti_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         elif "justdeedeemusic.com" in website.lower():
