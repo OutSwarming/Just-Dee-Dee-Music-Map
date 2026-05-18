@@ -71,6 +71,7 @@ assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
 assertCheck('Website booking service reads staged event files', /loadWebsiteBookings/.test(websiteBookingsService) && /getWebsiteBookingGroups/.test(websiteBookingsService));
 assertCheck('Apps Script calendar gig sync action exists', /syncCalendarGigEvents/.test(bridge) && /CalendarGigs/.test(bridge));
+assertCheck('Apps Script artist source audit sync action exists', /syncArtistSourceAudit/.test(bridge) && /Artist_Source_Audit/.test(bridge));
 
 const dashboardVersion = matchVersion(
     bookingDashboard,

@@ -17,6 +17,7 @@
     "music:artist-sync": "python3 scripts/sync-artist-gig-tracker.py",
     "music:artist-sync:write": "python3 scripts/sync-artist-gig-tracker.py --import-google-sheet",
     "music:artist-sync:install": "node scripts/install-artist-gig-tracker-sync.mjs",
+    "music:artist-source-audit:write": "python3 scripts/sync-artist-source-audit-to-sheet.py",
     "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
     "sheet:import-coordinates": "node scripts/import-sheet-coordinates.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",

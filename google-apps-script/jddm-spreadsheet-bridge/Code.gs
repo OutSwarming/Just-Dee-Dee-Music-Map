@@ -159,6 +159,7 @@ function routeRequest_(payload) {
     if (action === 'health') return jsonOutput_(getHealth_());
     if (action === 'schema') return jsonOutput_(getSchema_());
     if (action === 'csv') return csvOutput_(buildCsv_());
+    if (action === 'syncArtistSourceAudit') return jsonOutput_(syncArtistSourceAudit_(payload));
     if (action === 'setupComputerSection' || action === 'syncComputerSection') return jsonOutput_(setupComputerSection_(payload));
     if (action === 'purgeAndSetup' || action === 'purgeSheet') return jsonOutput_(purgeAndSetup_(payload));
     if (action === 'migrateCrmStatuses' || action === 'simplifyCrmStatuses') return jsonOutput_(migrateCrmStatuses_(payload));
@@ -615,6 +616,60 @@ function setupComputerSection_(options) {
 
 function purgeAndSetup_(options) {
   return rewriteStorageSheet_(options || {}, 'purgeAndSetup');
+}
+
+function syncArtistSourceAudit_(payload) {
+  payload = payload || {};
+  var csv = String(payload.csv || '');
+  var values = payload.values;
+  if (csv) values = Utilities.parseCsv(csv);
+  if (!values || !values.length || !values[0] || !values[0].length) {
+    return { ok: false, code: 'EMPTY_ARTIST_SOURCE_AUDIT', message: 'Artist source audit CSV or values are required.' };
+  }
+
+  var sheetName = clean_(payload.sheetName || 'Artist_Source_Audit');
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) sheet = ss.insertSheet(sheetName);
+
+  sheet.clear();
+  ensureSheetSize_(sheet, values.length, values[0].length);
+  sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+  formatArtistSourceAuditSheet_(sheet, values.length, values[0].length);
+
+  return {
+    ok: true,
+    action: 'syncArtistSourceAudit',
+    sheetName: sheetName,
+    rowCount: Math.max(values.length - 1, 0),
+    columnCount: values[0].length
+  };
+}
+
+function ensureSheetSize_(sheet, rows, columns) {
+  rows = Math.max(Number(rows) || 1, 1);
+  columns = Math.max(Number(columns) || 1, 1);
+  if (sheet.getMaxRows() < rows) sheet.insertRowsAfter(sheet.getMaxRows(), rows - sheet.getMaxRows());
+  if (sheet.getMaxColumns() < columns) sheet.insertColumnsAfter(sheet.getMaxColumns(), columns - sheet.getMaxColumns());
+}
+
+function formatArtistSourceAuditSheet_(sheet, rowCount, columnCount) {
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, columnCount)
+    .setFontWeight('bold')
+    .setBackground('#134f5c')
+    .setFontColor('#ffffff');
+  var filter = sheet.getFilter();
+  if (filter) filter.remove();
+  if (rowCount > 1) sheet.getRange(1, 1, rowCount, columnCount).createFilter();
+
+  var widths = [220, 110, 140, 90, 280, 150, 280, 150, 240, 130, 120, 120, 110, 150, 220, 520];
+  for (var i = 0; i < columnCount; i++) sheet.setColumnWidth(i + 1, widths[i] || 180);
+  if (rowCount > 1 && columnCount >= 8) {
+    sheet.getRange(2, 6, rowCount - 1, 1).setBackground('#fff2cc');
+    sheet.getRange(2, 8, rowCount - 1, 1).setBackground('#fff2cc');
+  }
+  sheet.autoResizeRows(1, Math.min(rowCount, 200));
 }
 
 function getSchema_() {

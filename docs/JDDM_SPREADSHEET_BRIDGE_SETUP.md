@@ -134,6 +134,24 @@ This reads the exported `.ics` files from `~/Downloads/Google Calendar Export.ic
 - `data/staged/jddm-calendar-gigs.json`
 - `data/staged/jddm-calendar-gigs.csv`
 
+## Artist Source Audit Tab
+
+The bridge can also create/update an `Artist_Source_Audit` tab from the repo's sheet-ready CSV. This tab is for tracking every artist's known website, Facebook page, and missing-source flags without changing the live venue rows.
+
+After pasting the latest `Code.gs` and deploying a new web app version, run:
+
+```bash
+npm run music:artist-source-audit:write
+```
+
+That command reads:
+
+```bash
+data/artist_sources/artist_source_audit_sheet_ready.csv
+```
+
+and writes it to the `Artist_Source_Audit` tab with the `missing_website_url` and `missing_facebook_url` columns marked with `X` where research is still needed.
+
 ## Coordinate Import
 
 For the initial migration from the checked-in map CSV, run a 5-row test from this repo after the new Apps Script deployment is live:
