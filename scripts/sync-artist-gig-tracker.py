@@ -52,6 +52,9 @@ DEFAULT_SPREADSHEET_ID = "1UBuHO1MSwYTuSobheGFyt-b05HTxHVbKrr_u7M8q2Sw"
 DEFAULT_OUT_DIR = REPO_ROOT / "data" / "scraped" / "artist_site_sync"
 LOG_PATH = Path.home() / "Library" / "Logs" / "jddm-artist-gig-tracker-sync.log"
 CHROME_DEBUG_URL = "http://127.0.0.1:9222"
+DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
+DEFAULT_TEXT_RECIPIENTS = ["+14403054062", "+12168499292"]
+SERVICE_PRIORITY = ["iMessage", "SMS"]
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -317,6 +320,21 @@ def parse_iso(value: object) -> date | None:
 
 def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def normalize_phone(value: object) -> str:
+    text = clean(value)
+    if not text:
+        return ""
+    if text.startswith("+"):
+        digits = re.sub(r"\D+", "", text[1:])
+        return f"+{digits}"
+    digits = re.sub(r"\D+", "", text)
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    return digits
 
 
 def read_sheet_csv(spreadsheet_id: str, sheet: str) -> list[dict[str, str]]:
@@ -837,6 +855,15 @@ def add_missing_venue(venues_by_id: dict[str, dict[str, str]], event: ScrapedArt
     return venue_id
 
 
+def get_or_create_missing_venue(venues_by_id: dict[str, dict[str, str]], event: ScrapedArtistEvent) -> tuple[str, bool]:
+    venue_id = make_id("venue", event.venue_name, event.city, event.state)
+    existed = venue_id in venues_by_id
+    created_id = add_missing_venue(venues_by_id, event)
+    if created_id and created_id in venues_by_id:
+        enrich_known_new_venue(venues_by_id[created_id])
+    return created_id, bool(created_id and not existed)
+
+
 def upsert_review(reviews_by_id: dict[str, dict[str, str]], event: ScrapedArtistEvent, reason: str) -> None:
     review_id = make_id("review", "venue_match", event.event_id)
     reviews_by_id[review_id] = {
@@ -895,12 +922,29 @@ def merge_tracker(
     updated = 0
     canceled = 0
     rescheduled = 0
+    new_venue_alerts: dict[str, dict[str, object]] = {}
 
     for item in scraped:
         venue_id = match_venue_id(list(venues_by_id.values()), item)
         if not venue_id and should_materialize_venue(item):
-            venue_id = add_missing_venue(venues_by_id, item)
+            venue_id, created_venue = get_or_create_missing_venue(venues_by_id, item)
             upsert_review(reviews_by_id, item, "Artist-site event venue needs master venue confirmation.")
+            if created_venue:
+                venue = venues_by_id.get(venue_id, {})
+                new_venue_alerts[venue_id] = {
+                    "venue_id": venue_id,
+                    "venue_name": clean(venue.get("place_name")) or item.venue_name,
+                    "city": clean(venue.get("city")) or item.city,
+                    "state": clean(venue.get("state")) or item.state,
+                    "address": clean(venue.get("address")),
+                    "artist_names": set(),
+                    "event_dates": set(),
+                    "source_url": item.source_url,
+                }
+
+        if venue_id in new_venue_alerts:
+            new_venue_alerts[venue_id]["artist_names"].add(item.artist_name)  # type: ignore[union-attr]
+            new_venue_alerts[venue_id]["event_dates"].add(item.event_date)  # type: ignore[union-attr]
 
         existing = events_by_id.get(item.event_id)
         status = clean(existing.get("status")) if existing else "needs_review"
@@ -1044,6 +1088,15 @@ def merge_tracker(
             "updated": updated,
             "canceled_or_removed": canceled,
             "rescheduled_or_date_changed": rescheduled,
+            "new_venue_count": len(new_venue_alerts),
+            "new_venues": [
+                {
+                    **alert,
+                    "artist_names": sorted(alert["artist_names"]),  # type: ignore[index]
+                    "event_dates": sorted(alert["event_dates"]),  # type: ignore[index]
+                }
+                for alert in sorted(new_venue_alerts.values(), key=lambda item: clean(item.get("venue_name")).lower())
+            ],
         },
     }
 
@@ -1103,12 +1156,112 @@ def import_outputs_to_google_sheet(spreadsheet_id: str, output_paths: dict[str, 
             import_csv_to_sheet(page, spreadsheet_id, sheet, output_paths[sheet])
 
 
+def apple_string(value: object) -> str:
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def send_message_via_service(body: str, recipient: str, service_type: str) -> str:
+    service_test = "SMS" if service_type == "SMS" else "iMessage"
+    script = f"""
+        set alertBody to {apple_string(body)}
+        set targetNumber to {apple_string(recipient)}
+
+        tell application "Messages"
+            set selectedService to missing value
+            repeat with svc in services
+                try
+                    if service type of svc is {service_test} then
+                        set selectedService to svc
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if selectedService is missing value then error "No {service_type} service is available."
+            send alertBody to buddy targetNumber of selectedService
+        end tell
+        return "{service_type}"
+    """
+    result = subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True, timeout=30)
+    return clean(result.stdout)
+
+
+def send_text_message(body: str, recipients: list[str], logger: logging.Logger) -> list[str]:
+    sent: list[str] = []
+    for recipient in recipients:
+        errors: list[str] = []
+        for service_type in SERVICE_PRIORITY:
+            try:
+                service = send_message_via_service(body, recipient, service_type)
+                sent.append(f"{recipient}:{service}")
+                break
+            except Exception as exc:
+                errors.append(f"{service_type} {exc}")
+        else:
+            logger.warning("Could not send new venue text to %s: %s", recipient, "; ".join(errors))
+    return sent
+
+
+def format_alert_date(value: object) -> str:
+    parsed = parse_iso(value)
+    if not parsed:
+        return clean(value)
+    return parsed.strftime("%a %b %-d") if sys.platform == "darwin" else parsed.strftime("%a %b %d")
+
+
+def build_new_venue_text(new_venues: list[dict[str, object]], app_url: str = DEFAULT_APP_URL) -> str:
+    if not new_venues:
+        return ""
+    intro = f"New venue lead{'s' if len(new_venues) != 1 else ''} found in the gig tracker:"
+    lines = [intro]
+    for venue in new_venues[:8]:
+        name = clean(venue.get("venue_name")) or "Unknown venue"
+        place = clean(", ".join(part for part in [clean(venue.get("city")), clean(venue.get("state"))] if part))
+        artists = ", ".join(clean(name) for name in venue.get("artist_names", []) if clean(name)) or "artist TBD"
+        dates = ", ".join(format_alert_date(value) for value in venue.get("event_dates", []) if clean(value)) or "date TBD"
+        address = clean(venue.get("address"))
+        location = f" ({place})" if place else ""
+        address_text = f" - {address}" if address else ""
+        lines.append(f"- {name}{location}{address_text}: {artists} on {dates}")
+    if len(new_venues) > 8:
+        lines.append(f"...and {len(new_venues) - 8} more.")
+    lines.append(app_url)
+    return "\n".join(lines)
+
+
+def get_text_recipients(args: argparse.Namespace) -> list[str]:
+    raw: list[str] = []
+    if args.text_recipient:
+        raw.extend(args.text_recipient)
+    env_value = os.environ.get("JDDM_NEW_VENUE_TEXT_RECIPIENTS")
+    if env_value:
+        raw.extend(re.split(r"[,\n;|]+", env_value))
+    if not raw:
+        raw = DEFAULT_TEXT_RECIPIENTS[:]
+    return list(dict.fromkeys(normalize_phone(value) for value in raw if normalize_phone(value)))
+
+
+def maybe_send_new_venue_alert(summary: dict[str, object], args: argparse.Namespace, logger: logging.Logger) -> None:
+    new_venues = summary.get("new_venues")
+    if args.no_new_venue_text or not isinstance(new_venues, list) or not new_venues:
+        return
+    body = build_new_venue_text(new_venues, app_url=args.app_url)
+    recipients = get_text_recipients(args)
+    if not recipients or not body:
+        return
+    sent = send_text_message(body, recipients, logger)
+    if sent:
+        logger.info("Sent new venue text alert to %s", ", ".join(sent))
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sync artist website calendars into the master gig tracker.")
     parser.add_argument("--spreadsheet-id", default=DEFAULT_SPREADSHEET_ID)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--import-google-sheet", action="store_true", help="Replace live tracker tabs with repaired CSVs via logged-in Chrome.")
     parser.add_argument("--dry-run", action="store_true", help="Build output files but do not import into Google Sheets.")
+    parser.add_argument("--no-new-venue-text", action="store_true", help="Do not text when new venues are created.")
+    parser.add_argument("--text-recipient", action="append", default=[], help="Phone number to text when new venues are found. Defaults to Carter and Dee Dee.")
+    parser.add_argument("--app-url", default=DEFAULT_APP_URL)
     parser.add_argument("--log-level", default="INFO")
     return parser.parse_args(argv)
 
@@ -1167,6 +1320,7 @@ def main(argv: list[str]) -> int:
     if args.import_google_sheet and not args.dry_run:
         import_outputs_to_google_sheet(args.spreadsheet_id, output_paths, logger)
         logger.info("Imported repaired tracker tabs into Google Sheets")
+        maybe_send_new_venue_alert(summary, args, logger)
     return 0
 
 

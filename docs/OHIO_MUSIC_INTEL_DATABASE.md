@@ -150,6 +150,8 @@ Data safety rules:
   event.
 - Unknown venues are added to `Venues` with `Needs Review` and mirrored in
   `Review_Queue` instead of being silently guessed.
+- When the sync creates a genuinely new venue, it texts Carter and Dee Dee with
+  the venue, artist, date, and app link after the Google Sheet import succeeds.
 
 To add more artists later, add one row to `Artists` with a stable `artist_id`,
 `canonical_name`, `artist_type`, and `website`. The next daily sync will check

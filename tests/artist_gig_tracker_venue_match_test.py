@@ -135,6 +135,23 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(row["address"], "11111 Euclid Ave")
         self.assertEqual(row["website"], "https://thejollyscholar.com/")
 
+    def test_new_venue_text_includes_artist_and_date(self):
+        body = artist_gig_tracker.build_new_venue_text([
+            {
+                "venue_name": "Solid Gold Lounge",
+                "city": "Brook Park",
+                "state": "OH",
+                "address": "15005 Snow Rd",
+                "artist_names": ["Furious George Hartwig"],
+                "event_dates": ["2026-05-14"],
+            }
+        ], app_url="https://example.test/app/")
+
+        self.assertIn("Solid Gold Lounge", body)
+        self.assertIn("Furious George Hartwig", body)
+        self.assertIn("May", body)
+        self.assertIn("https://example.test/app/", body)
+
 
 if __name__ == "__main__":
     unittest.main()
