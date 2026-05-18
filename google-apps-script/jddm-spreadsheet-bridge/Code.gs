@@ -15,7 +15,7 @@ var JDDM_CALENDAR_IDS = [
   'justdeedeemusic@gmail.com',
   '051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com'
 ];
-var JDDM_SHEET_NAME_HINTS = ['Venues', 'JustDeeDeeMusic Master Venue Spreadsheet', 'Master Venue'];
+var JDDM_SHEET_NAME_HINTS = ['Sheet1', 'JustDeeDeeMusic Master Venue Spreadsheet', 'Master Venue', 'Venues'];
 var JDDM_ARCHIVE_PREFIX = 'JDDM Archive ';
 
 var JDDM_CRM_STATUS_OPTIONS = [

@@ -79,3 +79,31 @@ outputs/ohio_music_intel/JustDeeDeeMusic_Ohio_Music_Intel_Database.xlsx
 ```
 
 It can be imported into Google Drive as a native Google Sheets spreadsheet.
+
+## Install Into The Cloud Master Sheet
+
+The app's live venue feed remains `Sheet1` in the master spreadsheet. The music
+intel database is installed beside it as separate tabs:
+
+- `Music_Intel_README`
+- `Venues` / `Venues_DB`
+- `Artists` / `Artists_DB`
+- `Events` / `Events_DB`
+- `Event_Artists` / `Event_Artists_DB`
+- `Venue_Artist_History` / `Venue_Artist_History_DB`
+- `Review_Queue` / `Review_Queue_DB`
+- `Raw_Scrape_Log` / `Raw_Scrape_Log_DB`
+- `Lookups` / `Lookups_DB`
+
+Generate the standalone Apps Script seeder:
+
+```bash
+npm run music:intel:apps-script
+```
+
+Then push/run the generated project with clasp. The seeder opens the master
+spreadsheet by ID and updates only the database tabs, leaving `Sheet1` intact
+for the app's local/cloud sync.
+
+The live app bridge should prefer `Sheet1` before any database-style `Venues`
+tab so importing these tables cannot accidentally change the app feed.
