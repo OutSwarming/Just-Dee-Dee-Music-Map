@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import difflib
 import hashlib
 import io
 import json
@@ -189,6 +190,74 @@ VENUE_GENERIC_WORDS_RE = re.compile(
     r"\b(?:the|of|richfield|cleveland|akron|oh|ohio|tavern|taverne|bar|pub|grill|grille|restaurant|brewery|brewing|winery|cafe|coffee|music|venue)\b",
     re.IGNORECASE,
 )
+SCRAPER_VENUE_SOURCES = {"artist_site_sync", "furious_george_website"}
+NON_VENUE_NAMES = {
+    "jddm holiday tour",
+    "jddm summer tour",
+    "private event",
+    "scheduled public event",
+    "jddm 2026 scheduled public event",
+    "north olmsted",
+    "olmsted falls",
+}
+KNOWN_VENUE_ALIASES = {
+    "blue heron": "blue-heron-brewery-and-event-center-medina-oh-44256",
+    "blue turtle": "blue-turtle-tavern-north-olmsted-oh-44070",
+    "divot": "divot-s-sports-bar-13393-york-rd-north-royalton-oh-44133",
+    "fairview": "the-fairview-tavern-cleveland-oh-44126",
+    "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
+    "panini brunswick": "paninis-grill-3520-center-rd-brunswick-oh-44212",
+    "pipe creek warf": "pipe-creek-wharf-sandusky-oh-44870",
+    "pipe creek wharf": "pipe-creek-wharf-sandusky-oh-44870",
+    "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
+    "square 22": "square-22-restaurant-and-bar-strongsville-oh-44136",
+    "local strongsville": "the-local-bar-strongsville-oh-44136",
+    "wine room": "the-wine-room-avon-avon-oh-44011",
+}
+KNOWN_NEW_VENUE_DETAILS = {
+    "berea fairground": {
+        "place_name": "Cuyahoga County Fairgrounds",
+        "address": "19201 E Bagley Rd",
+        "city": "Middleburg Heights",
+        "zip": "44130",
+        "venue_type": "Fairground",
+        "phone_number": "440-243-0090",
+        "website": "https://cuyfair.com/",
+    },
+    "solid gold lounge": {
+        "place_name": "Solid Gold Lounge",
+        "address": "15005 Snow Rd",
+        "city": "Brook Park",
+        "zip": "44142",
+        "venue_type": "Pub/Bar",
+        "phone_number": "216-267-3909",
+    },
+    "strike out lane": {
+        "place_name": "Strike Out Lanes",
+        "address": "48324 OH-18",
+        "city": "Wellington",
+        "zip": "44090",
+        "venue_type": "Bowling Alley",
+        "phone_number": "440-647-2268",
+        "website": "https://strikeoutlanes.com/",
+    },
+    "strossmayer croatian picnic ground": {
+        "place_name": "Strossmayer Croatian Picnic Grounds",
+        "address": "4202 Smith-Stewart Rd",
+        "city": "Vienna",
+        "zip": "44473",
+        "venue_type": "Event Venue",
+    },
+    "jolly scholar": {
+        "place_name": "The Jolly Scholar",
+        "address": "11111 Euclid Ave",
+        "city": "Cleveland",
+        "zip": "44106",
+        "venue_type": "Brewpub",
+        "phone_number": "216-368-0090",
+        "website": "https://thejollyscholar.com/",
+    },
+}
 
 
 def slug(value: object, fallback: str) -> str:
@@ -570,7 +639,7 @@ def venue_row_identity(row: dict[str, str]) -> tuple[str, str]:
 def venue_row_score(row: dict[str, str]) -> int:
     source = clean(row.get("source")).lower()
     score = 0
-    if source and source not in {"artist_site_sync", "furious_george_website"}:
+    if source and source not in SCRAPER_VENUE_SOURCES:
         score += 100
     if clean(row.get("source_place_id")):
         score += 40
@@ -582,6 +651,83 @@ def venue_row_score(row: dict[str, str]) -> int:
         if clean(row.get(key)):
             score += 5
     return score
+
+
+def is_scraper_venue(row: dict[str, str]) -> bool:
+    return clean(row.get("source")).lower() in SCRAPER_VENUE_SOURCES
+
+
+def is_non_venue_name(value: object) -> bool:
+    return norm(value) in NON_VENUE_NAMES
+
+
+def should_materialize_venue(event: ScrapedArtistEvent) -> bool:
+    return bool(clean(event.venue_name)) and not is_non_venue_name(event.venue_name)
+
+
+def scraper_row_is_non_venue(row: dict[str, str]) -> bool:
+    return is_scraper_venue(row) and is_non_venue_name(row.get("place_name"))
+
+
+def row_name_similarity(left: dict[str, str], right: dict[str, str]) -> float:
+    left_name = canonical_venue_name(left.get("place_name") or left.get("Place Name"))
+    right_name = canonical_venue_name(right.get("place_name") or right.get("Place Name"))
+    if not left_name or not right_name:
+        return 0
+    if left_name == right_name:
+        return 1
+    if left_name in right_name or right_name in left_name:
+        return 0.92
+    return difflib.SequenceMatcher(None, left_name, right_name).ratio()
+
+
+def rows_have_place_overlap(left: dict[str, str], right: dict[str, str]) -> bool:
+    left_text = row_text(left, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip")
+    right_text = row_text(right, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip")
+    return bool(venue_zip_tokens(left_text) & venue_zip_tokens(right_text)) or bool(
+        venue_city_tokens(left.get("city"), left.get("City"), left_text) & venue_city_tokens(right.get("city"), right.get("City"), right_text)
+    )
+
+
+def find_master_venue_alias(row: dict[str, str], masters_by_id: dict[str, dict[str, str]]) -> str:
+    alias_id = KNOWN_VENUE_ALIASES.get(canonical_venue_name(row.get("place_name")))
+    if alias_id and alias_id in masters_by_id:
+        return alias_id
+
+    row_address = venue_address_fingerprint(row)
+    if row_address:
+        for master in masters_by_id.values():
+            if venue_address_fingerprint(master) == row_address:
+                return clean(master.get("venue_id"))
+
+    best_id = ""
+    best_score = 0.0
+    for master in masters_by_id.values():
+        similarity = row_name_similarity(row, master)
+        if similarity < 0.72:
+            continue
+        place_overlap = rows_have_place_overlap(row, master)
+        if not place_overlap and similarity < 0.98:
+            continue
+        score = similarity + (0.25 if place_overlap else 0)
+        if score > best_score:
+            best_score = score
+            best_id = clean(master.get("venue_id"))
+    return best_id
+
+
+def enrich_known_new_venue(row: dict[str, str]) -> None:
+    details = KNOWN_NEW_VENUE_DETAILS.get(canonical_venue_name(row.get("place_name")))
+    if not details:
+        return
+    for key, value in details.items():
+        row[key] = value
+    row["state"] = row.get("state") or "OH"
+    row["active_live_music"] = row.get("active_live_music") or "yes"
+    row["crm_status"] = row.get("crm_status") or "Needs Review"
+    note = "Known new venue; address filled from public venue listing."
+    existing_notes = clean(row.get("notes"))
+    row["notes"] = existing_notes if note in existing_notes else clean(" | ".join(part for part in [existing_notes, note] if clean(part)))
 
 
 def dedupe_venues_by_identity(venues_by_id: dict[str, dict[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
@@ -603,12 +749,32 @@ def dedupe_venues_by_identity(venues_by_id: dict[str, dict[str, str]]) -> tuple[
             if venue_id and venue_id != primary_id:
                 aliases[venue_id] = primary_id
 
+    masters_by_id = {
+        venue_id: row
+        for venue_id, row in venues_by_id.items()
+        if clean(row.get("source")).lower() not in SCRAPER_VENUE_SOURCES
+    }
+    for venue_id, row in list(venues_by_id.items()):
+        if not is_scraper_venue(row):
+            continue
+        if scraper_row_is_non_venue(row):
+            aliases[venue_id] = ""
+            continue
+        master_id = find_master_venue_alias(row, masters_by_id)
+        if master_id:
+            aliases[venue_id] = master_id
+
     for alias_id in aliases:
         venues_by_id.pop(alias_id, None)
+    for row in venues_by_id.values():
+        if is_scraper_venue(row):
+            enrich_known_new_venue(row)
     return venues_by_id, aliases
 
 
 def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> str:
+    if not should_materialize_venue(event):
+        return ""
     by_name = {norm(row.get("place_name") or row.get("Place Name")): clean(row.get("venue_id") or row.get("Place ID")) for row in venues}
     candidates = [
         norm(event.venue_name),
@@ -635,6 +801,8 @@ def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> s
 
 
 def add_missing_venue(venues_by_id: dict[str, dict[str, str]], event: ScrapedArtistEvent) -> str:
+    if not should_materialize_venue(event):
+        return ""
     venue_id = make_id("venue", event.venue_name, event.city, event.state)
     if venue_id not in venues_by_id:
         venues_by_id[venue_id] = {
@@ -708,15 +876,17 @@ def merge_tracker(
         if venue_id in venue_aliases:
             row["venue_id"] = venue_aliases[venue_id]
     event_artists_by_id = row_by_key(event_artists, "event_artist_id")
-    history_by_key = {
-        f"{venue_aliases.get(clean(row.get('venue_id')), clean(row.get('venue_id')))}|{clean(row.get('artist_id'))}": {
+    history_by_key: dict[str, dict[str, str]] = {}
+    for row in history:
+        venue_id = venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id")))
+        artist_id = clean(row.get("artist_id"))
+        if not venue_id or not artist_id:
+            continue
+        history_by_key[f"{venue_id}|{artist_id}"] = {
             **row,
-            "venue_id": venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id"))),
-            "venue_name": clean(venues_by_id.get(venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id"))), {}).get("place_name")) or clean(row.get("venue_name")),
+            "venue_id": venue_id,
+            "venue_name": clean(venues_by_id.get(venue_id, {}).get("place_name")) or clean(row.get("venue_name")),
         }
-        for row in history
-        if clean(row.get("venue_id")) and clean(row.get("artist_id"))
-    }
     reviews_by_id = row_by_key(reviews, "review_id")
 
     scraped = scrape.events
@@ -728,7 +898,7 @@ def merge_tracker(
 
     for item in scraped:
         venue_id = match_venue_id(list(venues_by_id.values()), item)
-        if not venue_id:
+        if not venue_id and should_materialize_venue(item):
             venue_id = add_missing_venue(venues_by_id, item)
             upsert_review(reviews_by_id, item, "Artist-site event venue needs master venue confirmation.")
 
@@ -777,41 +947,42 @@ def merge_tracker(
             "source": item.source,
         }
 
-        hkey = f"{venue_id}|{item.artist_id}"
-        hrow = history_by_key.setdefault(
-            hkey,
-            {
-                "venue_id": venue_id,
-                "venue_name": item.venue_name,
-                "artist_id": item.artist_id,
-                "artist_name": item.artist_name,
-                "times_played": "0",
-                "first_seen": item.event_date,
-                "last_seen": item.event_date,
-                "last_event_id": item.event_id,
-                "last_source_url": item.source_url,
-            },
-        )
-        known_event_ids = {
-            clean(row.get("event_id"))
-            for row in events_by_id.values()
-            if clean(row.get("venue_id")) == venue_id
-            and clean(row.get("source", "")).startswith("artist_site:")
-            and clean(row.get("status")) not in {"canceled_or_removed", "duplicate", "ignore"}
-        }
-        dates = [
-            clean(row.get("event_date"))
-            for row in events_by_id.values()
-            if clean(row.get("event_id")) in known_event_ids
-            and any(clean(link.get("event_id")) == clean(row.get("event_id")) and clean(link.get("artist_id")) == item.artist_id for link in event_artists_by_id.values())
-        ]
-        if dates:
-            dates = sorted(set(dates))
-            hrow["times_played"] = str(len(dates))
-            hrow["first_seen"] = dates[0]
-            hrow["last_seen"] = dates[-1]
-            hrow["last_event_id"] = item.event_id
-            hrow["last_source_url"] = item.source_url
+        if venue_id:
+            hkey = f"{venue_id}|{item.artist_id}"
+            hrow = history_by_key.setdefault(
+                hkey,
+                {
+                    "venue_id": venue_id,
+                    "venue_name": clean(venues_by_id.get(venue_id, {}).get("place_name")) or item.venue_name,
+                    "artist_id": item.artist_id,
+                    "artist_name": item.artist_name,
+                    "times_played": "0",
+                    "first_seen": item.event_date,
+                    "last_seen": item.event_date,
+                    "last_event_id": item.event_id,
+                    "last_source_url": item.source_url,
+                },
+            )
+            known_event_ids = {
+                clean(row.get("event_id"))
+                for row in events_by_id.values()
+                if clean(row.get("venue_id")) == venue_id
+                and clean(row.get("source", "")).startswith("artist_site:")
+                and clean(row.get("status")) not in {"canceled_or_removed", "duplicate", "ignore"}
+            }
+            dates = [
+                clean(row.get("event_date"))
+                for row in events_by_id.values()
+                if clean(row.get("event_id")) in known_event_ids
+                and any(clean(link.get("event_id")) == clean(row.get("event_id")) and clean(link.get("artist_id")) == item.artist_id for link in event_artists_by_id.values())
+            ]
+            if dates:
+                dates = sorted(set(dates))
+                hrow["times_played"] = str(len(dates))
+                hrow["first_seen"] = dates[0]
+                hrow["last_seen"] = dates[-1]
+                hrow["last_event_id"] = item.event_id
+                hrow["last_source_url"] = item.source_url
 
     scraped_artist_sources = scrape.checked_sources
     scraped_artist_ids = scrape.checked_artist_ids

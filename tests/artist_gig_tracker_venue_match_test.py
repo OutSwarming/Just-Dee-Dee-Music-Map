@@ -81,6 +81,60 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertNotIn("venue-generated", deduped)
         self.assertEqual(artist_gig_tracker.match_venue_id(list(deduped.values()), event), "olesias-tavern-3960-broadview-rd-richfield-oh-44286")
 
+    def test_generated_name_variant_reuses_master_venue(self):
+        venues_by_id = {
+            "venue-blue-turtle-b9438a78": {
+                "venue_id": "venue-blue-turtle-b9438a78",
+                "place_name": "Blue Turtle",
+                "address": "",
+                "city": "North Olmsted",
+                "zip": "44070",
+                "source": "furious_george_website",
+            },
+            "blue-turtle-tavern-north-olmsted-oh-44070": {
+                "venue_id": "blue-turtle-tavern-north-olmsted-oh-44070",
+                "place_name": "Blue Turtle Tavern",
+                "address": "29352 Lorain Rd",
+                "city": "North Olmsted",
+                "zip": "44070",
+                "source": "master_sheet_sheet1",
+                "source_place_id": "blue-turtle-tavern-north-olmsted-oh-44070",
+            },
+        }
+
+        deduped, aliases = artist_gig_tracker.dedupe_venues_by_identity(venues_by_id)
+
+        self.assertEqual(aliases["venue-blue-turtle-b9438a78"], "blue-turtle-tavern-north-olmsted-oh-44070")
+        self.assertNotIn("venue-blue-turtle-b9438a78", deduped)
+
+    def test_non_venue_placeholders_do_not_become_venues(self):
+        event = self.make_event(
+            title="JDDM 2026 Scheduled Private Event",
+            venue_name="Private Event",
+            city="",
+            zip_code="",
+            source="artist_site:justdeedeemusic.com",
+        )
+
+        self.assertFalse(artist_gig_tracker.should_materialize_venue(event))
+        self.assertEqual(artist_gig_tracker.add_missing_venue({}, event), "")
+
+    def test_known_new_venue_gets_address_details(self):
+        row = {
+            "venue_id": "venue-the-jolly-scholar-b28de73d",
+            "place_name": "The Jolly Scholar",
+            "address": "",
+            "city": "Cleveland",
+            "zip": "44106",
+            "source": "artist_site_sync",
+            "notes": "",
+        }
+
+        artist_gig_tracker.enrich_known_new_venue(row)
+
+        self.assertEqual(row["address"], "11111 Euclid Ave")
+        self.assertEqual(row["website"], "https://thejollyscholar.com/")
+
 
 if __name__ == "__main__":
     unittest.main()
