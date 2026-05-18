@@ -237,6 +237,33 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
             "peninsula-coffee-house-and-market-peninsula-oh-44264",
         )
 
+    def test_known_alias_prevents_madison_backfill_duplicate_venues(self):
+        venues = [
+            {
+                "venue_id": "750ml-wine-akron-oh",
+                "place_name": "750ml Wine",
+                "address": "2287 W Market St",
+                "city": "Akron",
+                "zip": "44313",
+            },
+            {
+                "venue_id": "hundley-cellars-geneva-oh-44041",
+                "place_name": "Hundley Cellars",
+                "address": "6451 OH-307",
+                "city": "Geneva",
+                "zip": "44041",
+            },
+        ]
+
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, self.make_event(venue_name="750 ML Wine", city="Akron")),
+            "750ml-wine-akron-oh",
+        )
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, self.make_event(venue_name="Hundley Wine Cellars", city="Geneva")),
+            "hundley-cellars-geneva-oh-44041",
+        )
+
     def test_mother_road_notes_do_not_parse_as_street_address(self):
         self.assertEqual(
             artist_gig_tracker.extract_display_street_address(
@@ -393,6 +420,61 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
             artist_gig_tracker.parse_bandzoogle_location("Regency Wine Sellers, Fairlawn 44333"),
             ("Regency Wine Sellers", "", "Fairlawn", "44333"),
         )
+
+    def test_squarespace_tourdates_parser_extracts_bandsintown_events(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        page_html = """
+            <script>Static.SQUARESPACE_CONTEXT = {"website":{"identifier":"madison-cummins"}}</script>
+            <div class="sqs-block tourdates-block"
+              data-block-json="&#123;&quot;artistId&quot;:&quot;Madison Cummins&quot;,&quot;timeframe&quot;:&quot;upcoming&quot;&#125;"
+              data-block-type="59"></div>
+        """
+        api_json = """
+            [
+              {
+                "id": "107956379",
+                "title": "Madison Cummins at Rocky River Wine Bar's Sunday Brunch",
+                "starts_at": "2026-06-14T10:00:00",
+                "ends_at": "2026-06-14T13:00:00",
+                "url": "https://www.bandsintown.com/e/107956379",
+                "description": "Brunch show",
+                "venue": {
+                  "name": "Madison Cummins at Rocky River Wine Bar's Sunday Brunch",
+                  "street_address": "1313 Linda St",
+                  "city": "Rocky River",
+                  "region": "OH",
+                  "country": "United States",
+                  "postal_code": "44116"
+                }
+              },
+              {
+                "id": "out-of-state",
+                "title": "Madison Cummins at Somewhere",
+                "starts_at": "2026-06-15T19:00:00",
+                "venue": {"name": "Somewhere", "city": "Detroit", "region": "MI", "country": "United States"}
+              }
+            ]
+        """
+
+        def fake_fetch(url):
+            return api_json if "rest.bandsintown.com" in url else page_html
+
+        artist_gig_tracker.fetch_url = fake_fetch
+        try:
+            events = artist_gig_tracker.parse_squarespace_tourdates_calendar({
+                "artist_id": "artist-madison-cummins",
+                "canonical_name": "Madison Cummins",
+                "artist_type": "solo",
+                "website": "https://www.madisoncummins.com/showdates",
+            }, logging.getLogger("test"))
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_date, "2026-06-14")
+        self.assertEqual(events[0].start_time, "10:00AM")
+        self.assertEqual(events[0].end_time, "1:00PM")
+        self.assertEqual(events[0].venue_name, "Rocky River Wine Bar")
 
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([

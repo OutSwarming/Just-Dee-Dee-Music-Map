@@ -208,6 +208,7 @@ NON_VENUE_NAMES = {
     "olmsted falls",
 }
 KNOWN_VENUE_ALIASES = {
+    "750 ml wine": "750ml-wine-akron-oh",
     "blue heron": "blue-heron-brewery-and-event-center-medina-oh-44256",
     "blue turtle": "blue-turtle-tavern-north-olmsted-oh-44070",
     "bait house brewery": "bait-house-brewery-223-meigs-st-sandusky-oh-44870",
@@ -235,6 +236,7 @@ KNOWN_VENUE_ALIASES = {
     "grab n go": "grab-n-go-beverage-drivethru-and-pub-236-n-state-rd-medina-oh-44256",
     "glenwillow grille": "glenwillow-grille-29765-pettibone-rd-solon-oh-44139",
     "house of blues cleveland": "venue-house-of-blues-cleveland-ad9bdfdb",
+    "hundley wine cellar": "hundley-cellars-geneva-oh-44041",
     "jenks building": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
     "la las": "la-la-s-in-the-lakes-akron-oh-44319",
     "la la in lake": "lala-s-in-the-lakes-akron-oh",
@@ -787,6 +789,146 @@ def fetch_url(url: str) -> str:
         timeout=45,
     )
     return result.stdout
+
+
+def find_squarespace_tourdates_blocks(html_text: str) -> list[dict[str, object]]:
+    blocks: list[dict[str, object]] = []
+    for match in re.finditer(r'data-block-json="([^"]+)"[^>]*data-block-type="59"', html_text):
+        try:
+            blocks.append(json.loads(html.unescape(match.group(1))))
+        except json.JSONDecodeError:
+            continue
+    return blocks
+
+
+def squarespace_identifier(html_text: str, website: str) -> str:
+    match = re.search(r'"identifier"\s*:\s*"([^"]+)"', html_text)
+    if match:
+        return clean(match.group(1))
+    hostname = urllib.parse.urlparse(website).hostname or "artist"
+    return slug(hostname.removeprefix("www.").split(".")[0], "artist")
+
+
+def format_event_time(value: object) -> str:
+    text = clean(value)
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return ""
+    hour = parsed.strftime("%I").lstrip("0") or "12"
+    return f"{hour}:{parsed.strftime('%M')}{parsed.strftime('%p')}"
+
+
+def normalize_bandsintown_venue_name(
+    artist_name: str,
+    title: str,
+    venue_name: str,
+    street_address: str,
+) -> str:
+    if norm(street_address) == norm("2920 Detroit Ave") and "10x3" in norm(title):
+        return "BOP STOP at The Music Settlement"
+    venue = clean(venue_name) or clean(title)
+    artist_prefix = re.escape(clean(artist_name))
+    match = re.match(rf"^{artist_prefix}\s+at\s+(.+)$", venue, re.IGNORECASE)
+    if match:
+        venue = clean(match.group(1))
+    venue = re.sub(r"'s\s+Sunday\s+Brunch$", "", venue, flags=re.IGNORECASE)
+    if venue.lower().startswith("the "):
+        venue = "The " + venue[4:]
+    return venue
+
+
+def parse_bandsintown_event_datetime(value: object) -> tuple[str, str]:
+    text = clean(value)
+    if not text:
+        return "", ""
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return "", ""
+    return parsed.date().isoformat(), format_event_time(text)
+
+
+def parse_squarespace_tourdates_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website"))
+    if not website:
+        return []
+    try:
+        html_text = fetch_url(website)
+    except Exception as exc:
+        logger.warning("Could not fetch Squarespace tourdates page %s: %s", website, exc)
+        return []
+    blocks = find_squarespace_tourdates_blocks(html_text)
+    if not blocks:
+        return []
+    identifier = squarespace_identifier(html_text, website)
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "unknown"
+    events: list[ScrapedArtistEvent] = []
+    for block in blocks:
+        bit_artist = clean(block.get("artistId")) or artist_name
+        api_url = (
+            "https://rest.bandsintown.com/artists/"
+            f"{urllib.parse.quote(bit_artist)}/events?app_id=squarespace-{urllib.parse.quote(identifier)}&date=all"
+        )
+        try:
+            raw_events = json.loads(fetch_url(api_url))
+        except Exception as exc:
+            logger.warning("Could not fetch Bandsintown events for %s: %s", artist_name, exc)
+            continue
+        if not isinstance(raw_events, list):
+            continue
+        for raw_event in raw_events:
+            if not isinstance(raw_event, dict):
+                continue
+            venue_data = raw_event.get("venue") if isinstance(raw_event.get("venue"), dict) else {}
+            if clean(venue_data.get("region")).upper() != "OH" or clean(venue_data.get("country")) not in {"United States", "US"}:
+                continue
+            event_date, start_time = parse_bandsintown_event_datetime(raw_event.get("starts_at") or raw_event.get("datetime"))
+            if not event_date:
+                continue
+            end_time = format_event_time(raw_event.get("ends_at"))
+            title = clean(raw_event.get("title")) or f"{artist_name} live"
+            street_address = clean(venue_data.get("street_address"))
+            venue = normalize_bandsintown_venue_name(artist_name, title, clean(venue_data.get("name")), street_address)
+            city = clean(venue_data.get("city"))
+            zip_code = clean(venue_data.get("postal_code"))
+            source_url = clean(raw_event.get("url")) or website
+            description = clean(
+                " | ".join(
+                    part
+                    for part in [
+                        title,
+                        venue,
+                        street_address,
+                        clean(raw_event.get("description")),
+                    ]
+                    if clean(part)
+                )
+            )
+            events.append(
+                ScrapedArtistEvent(
+                    artist_id=artist_id,
+                    artist_name=artist_name,
+                    artist_type=artist_type,
+                    event_date=event_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    title=f"{artist_name} @ {venue}" if venue else title,
+                    venue_name=venue,
+                    city=city,
+                    state="OH",
+                    zip_code=zip_code,
+                    source=artist_site_source(website),
+                    source_record_id=clean(raw_event.get("id")) or short_hash(source_url, event_date, title, length=12),
+                    source_url=source_url,
+                    description=description,
+                )
+            )
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
@@ -2221,10 +2363,13 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             except Exception as exc:
                 logger.warning("Could not fetch artist site %s: %s", website, exc)
                 continue
-            if not find_bandzoogle_calendar_feature(home_html):
+            if find_squarespace_tourdates_blocks(home_html):
+                scraped = parse_squarespace_tourdates_calendar(artist, logger)
+            elif find_bandzoogle_calendar_feature(home_html):
+                scraped = parse_bandzoogle_calendar(artist, logger)
+            else:
                 logger.info("No supported calendar found for %s", artist.get("canonical_name"))
                 continue
-            scraped = parse_bandzoogle_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         logger.info("%s yielded %d artist-site events", artist.get("canonical_name"), len(scraped))
