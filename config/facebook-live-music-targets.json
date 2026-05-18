@@ -1,0 +1,46 @@
+{
+  "targets": [
+    {
+      "name": "Live Music CLE",
+      "url": "",
+      "kind": "group",
+      "search_query": "Live Music CLE"
+    },
+    {
+      "name": "Cleveland Gigs",
+      "url": "",
+      "kind": "group",
+      "search_query": "Cleveland Gigs"
+    },
+    {
+      "name": "Current Cleveland Musicians",
+      "url": "",
+      "kind": "group",
+      "search_query": "Current Cleveland Musicians"
+    },
+    {
+      "name": "The Cleveland Music Scene",
+      "url": "",
+      "kind": "group",
+      "search_query": "The Cleveland Music Scene"
+    },
+    {
+      "name": "Northern Ohio live entertainment",
+      "url": "",
+      "kind": "group",
+      "search_query": "Northern Ohio live entertainment"
+    },
+    {
+      "name": "Northeast Ohio Live Music",
+      "url": "",
+      "kind": "search",
+      "search_query": "Northeast Ohio live music gigs"
+    },
+    {
+      "name": "Cleveland Live Music Events",
+      "url": "",
+      "kind": "search",
+      "search_query": "Cleveland live music events"
+    }
+  ]
+}
