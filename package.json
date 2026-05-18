@@ -8,6 +8,7 @@
     "bookings:website:preview": "node scripts/pull-jddm-website-bookings.mjs",
     "bookings:website:history": "node scripts/stage-jddm-website-booking-history.mjs",
     "bookings:calendar:stage": "node scripts/stage-jddm-calendar-gigs.mjs",
+    "music:intel:workbook": "python3 scripts/build-ohio-music-intel-workbook.py",
     "firebase:config:local": "node scripts/write-firebase-config-from-env.mjs",
     "sheet:import-coordinates": "node scripts/import-sheet-coordinates.mjs",
     "e2e:auth:save": "node tests/playwright/save-storage-state.js",
