@@ -289,6 +289,30 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertNotIn("venue-american-legion-post-19-029705bd", aliases)
         self.assertIn("venue-american-legion-post-19-029705bd", deduped)
 
+    def test_russos_cuyahoga_falls_reuses_existing_malformed_master_row(self):
+        venues = [
+            {
+                "venue_id": "russo-s-4895-state-rd-peninsula-oh-44264",
+                "place_name": "Russo's",
+                "address": "4895 State Rd. Peninsula",
+                "city": "OH 44264",
+                "zip": "",
+            }
+        ]
+        event = self.make_event(
+            artist_id="artist-alex-bevan-8a06ef8b",
+            artist_name="Alex Bevan",
+            venue_name="Russo's",
+            city="Cuyahoga Falls",
+            zip_code="44221",
+            title="Alex Bevan @ Russo's",
+        )
+
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, event),
+            "russo-s-4895-state-rd-peninsula-oh-44264",
+        )
+
     def test_mother_road_notes_do_not_parse_as_street_address(self):
         self.assertEqual(
             artist_gig_tracker.extract_display_street_address(
@@ -620,6 +644,74 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(events[0].venue_name, "The Jenks Building")
         self.assertIn("Blue Macaroon Theater Company", {event.venue_name for event in events})
+
+    def test_alex_bevan_schedule_parser_extracts_2026_site_rows(self):
+        events = artist_gig_tracker.parse_alex_bevan_schedule_lines([
+            "2026 Gigs…….",
+            "June 6th - Alex Bevan and Friends at the Kent Stage 7:30 pm",
+            "June 8 to June 17th - Off to play in Alaska with Austin Walking Cane….",
+            "June 20th - Sarah's Vineyard Solstice Party 1-4pm",
+            "July 11th - Munson Park Evening Concert - 7-9pm https://example.test",
+            "October 24th - Jeykll Island Shrimp and Grits Festival - performance times TBA",
+            "Schedule of Gigs",
+        ], {
+            "artist_id": "artist-alex-bevan-8a06ef8b",
+            "canonical_name": "Alex Bevan",
+            "artist_type": "solo",
+            "website": "https://alexbevan.com",
+        })
+
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[0].event_date, "2026-06-06")
+        self.assertEqual(events[0].venue_name, "The Kent Stage")
+        self.assertEqual(events[0].start_time, "7:30PM")
+        self.assertEqual(events[1].venue_name, "Sarah's Vineyard")
+        self.assertEqual(events[1].end_time, "4PM")
+        self.assertEqual(events[2].venue_name, "Scenic River Retreat")
+
+    def test_alex_bevan_calendar_merges_site_bandsintown_and_facebook(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        schedule_html = """
+            <div>2026 Gigs…….</div>
+            <div>June 6th - Alex Bevan and Friends at the Kent Stage 7:30 pm</div>
+            <div>Schedule of Gigs</div>
+        """
+        api_json = """
+            [
+              {
+                "id": "alex-bit-1",
+                "datetime": "2026-06-06T19:30:00",
+                "venue": {
+                  "name": "The Kent Stage",
+                  "street_address": "175 E Main St",
+                  "city": "Kent",
+                  "region": "OH",
+                  "country": "United States",
+                  "postal_code": "44240",
+                  "latitude": "41.1537",
+                  "longitude": "-81.3579"
+                }
+              }
+            ]
+        """
+
+        def fake_fetch(url):
+            return api_json if "rest.bandsintown.com" in url else schedule_html
+
+        artist_gig_tracker.fetch_url = fake_fetch
+        try:
+            events = artist_gig_tracker.parse_alex_bevan_calendar({
+                "artist_id": "artist-alex-bevan-8a06ef8b",
+                "canonical_name": "Alex Bevan",
+                "artist_type": "solo",
+                "website": "https://alexbevan.com",
+            }, logging.getLogger("test"))
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+
+        self.assertIn("The Kent Stage", {event.venue_name for event in events})
+        self.assertIn("Suma Recording Studio", {event.venue_name for event in events})
+        self.assertEqual(sum(1 for event in events if event.venue_name == "The Kent Stage"), 1)
 
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([

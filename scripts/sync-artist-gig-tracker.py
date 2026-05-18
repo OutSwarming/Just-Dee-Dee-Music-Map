@@ -64,6 +64,11 @@ KATY_ROBINSON_BANDSINTOWN_URL = (
     "https://rest.bandsintown.com/artists/Katy%20Robinson/events"
     "?app_id=squarespace-katy-robinson-t8bz&date=all"
 )
+ALEX_BEVAN_SCHEDULE_URL = "https://alexbevan.com/schedule"
+ALEX_BEVAN_BANDSINTOWN_URL = (
+    "https://rest.bandsintown.com/artists/Alex%20Bevan/events"
+    "?app_id=squarespace-alex-bevan&date=all"
+)
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -233,6 +238,7 @@ KNOWN_VENUE_ALIASES = {
     "collision bend": "collision-bend-brewing-1261-babbitt-road-oh",
     "collision bend in east bank flat": "collision-bend-brewing-company-1250-old-river-road-cleveland-oh-44113",
     "crafted artisan meadery": "crafted-artisan-meadery-mogadore-oh-44260",
+    "beachland ballroom tavern": "venue-beachland-ballroom-tavern-a8018a7c",
     "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
     "dean martin lanning restaurant": "dean-martin-s-lanning-s-restaurant-akron-oh-44333",
     "esp brewing": "esp-brewing-united-states-oh",
@@ -260,6 +266,8 @@ KNOWN_VENUE_ALIASES = {
     "lannings": "dean-martin-s-lanning-s-restaurant-akron-oh-44333",
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
     "jimmy bukketts": "jimmy-bukkett-s-fremont-oh-43420",
+    "kosicek vineyard": "kosicek-vineyards-geneva-oh-44041",
+    "kosicek vineyards": "kosicek-vineyards-geneva-oh-44041",
     "medina brewing company": "medina-brewing-company-320-s-court-st-g9-medina-oh-44256",
     "mcarthurs": "mcarthur-s-brew-house-2721-front-st-cuyahoga-falls-oh-44221",
     "mcarthurs brew house": "mcarthur-s-brew-house-2721-front-st-cuyahoga-falls-oh-44221",
@@ -269,6 +277,8 @@ KNOWN_VENUE_ALIASES = {
     "pipe creek warf": "pipe-creek-wharf-sandusky-oh-44870",
     "pipe creek wharf": "pipe-creek-wharf-sandusky-oh-44870",
     "runinmuck": "camp-runinmuck-lakeside-marblehead-oh-43440",
+    "russo": "russo-s-4895-state-rd-peninsula-oh-44264",
+    "russos": "russo-s-4895-state-rd-peninsula-oh-44264",
     "sarah vineyard": "sarah-s-vineyard-cuyahoga-falls-oh-44223",
     "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
     "secret at center": "secret-of-center-3511-center-road-oh-oh",
@@ -304,6 +314,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "330-253-0022",
         "website": "https://www.americanlegionakron.org/",
+    },
+    "advanced rv fest": {
+        "place_name": "Advanced RV",
+        "address": "4590 Hamann Pkwy",
+        "city": "Willoughby",
+        "zip": "44094",
+        "venue_type": "Private Event Venue",
+        "phone_number": "440-283-0405",
+        "website": "https://advanced-rv.com/fest/",
     },
     "berea fairground": {
         "place_name": "Cuyahoga County Fairgrounds",
@@ -363,6 +382,24 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Theater",
         "website": "https://www.bluemacaroon.com/",
     },
+    "cain park": {
+        "place_name": "Cain Park",
+        "address": "14591 Superior Rd",
+        "city": "Cleveland Heights",
+        "zip": "44118",
+        "venue_type": "Park/Arts Venue",
+        "phone_number": "216-371-3000",
+        "website": "https://cainpark.com/",
+    },
+    "cain park arts festival": {
+        "place_name": "Cain Park",
+        "address": "14591 Superior Rd",
+        "city": "Cleveland Heights",
+        "zip": "44118",
+        "venue_type": "Park/Arts Venue",
+        "phone_number": "216-371-3000",
+        "website": "https://cainpark.com/",
+    },
     "cascade plaza": {
         "place_name": "Cascade Plaza",
         "address": "1 W Mill St",
@@ -389,6 +426,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "330-225-6122",
         "website": "https://www.coppertopgolf.com/",
     },
+    "crown point ecology center": {
+        "place_name": "Crown Point Ecology Center",
+        "address": "3220 Ira Rd",
+        "city": "Akron",
+        "zip": "44333",
+        "venue_type": "Farm/Event Venue",
+        "phone_number": "330-668-8992",
+        "website": "https://www.crownpointecology.org/",
+    },
     "cedars west end": {
         "place_name": "Cedars West End",
         "address": "706 Steel St",
@@ -397,6 +443,14 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Live Music Venue",
         "phone_number": "330-792-3333",
         "website": "https://www.clevescene.com/location/cedars-west-end-7644139",
+    },
+    "cleveland masonic auditorium": {
+        "place_name": "Cleveland Masonic Auditorium",
+        "address": "3615 Euclid Ave",
+        "city": "Cleveland",
+        "zip": "44115",
+        "venue_type": "Theater/Live Music Venue",
+        "phone_number": "216-881-6350",
     },
     "john s knight center": {
         "place_name": "John S. Knight Center",
@@ -492,6 +546,33 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "440-942-0299",
         "website": "https://www.clycohio.com/",
     },
+    "delaware": {
+        "place_name": "The Delaware",
+        "address": "112 Fair Ave NE",
+        "city": "New Philadelphia",
+        "zip": "44663",
+        "venue_type": "Restaurant/Live Music Venue",
+        "phone_number": "330-364-9221",
+        "website": "https://www.thedelawarepub.com/",
+    },
+    "edwin j thomas performing arts hall": {
+        "place_name": "E.J. Thomas Performing Arts Hall",
+        "address": "198 Hill St",
+        "city": "Akron",
+        "zip": "44325",
+        "venue_type": "Performing Arts Venue",
+        "phone_number": "330-972-7570",
+        "website": "https://www.ejthomashall.com/",
+    },
+    "the delaware": {
+        "place_name": "The Delaware",
+        "address": "112 Fair Ave NE",
+        "city": "New Philadelphia",
+        "zip": "44663",
+        "venue_type": "Restaurant/Live Music Venue",
+        "phone_number": "330-364-9221",
+        "website": "https://www.thedelawarepub.com/",
+    },
     "federated church family life center": {
         "place_name": "Federated Church Family Life Center",
         "address": "76 Bell St",
@@ -524,6 +605,14 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Park/Event Venue",
         "phone_number": "440-286-9516",
         "website": "https://www.geaugaparkdistrict.org/park/holbrook-hollows/",
+    },
+    "independence home days": {
+        "place_name": "Independence Home Days",
+        "address": "6363 Selig Dr",
+        "city": "Independence",
+        "zip": "44131",
+        "venue_type": "Festival",
+        "website": "https://www.independenceohio.org/home_days/",
     },
     "kent blues fest": {
         "place_name": "Kent Blues Fest",
@@ -583,6 +672,33 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "330-242-2661",
         "website": "https://peninsulacoffeehouse.com/wine-cellar/",
     },
+    "pickle bills": {
+        "place_name": "Pickle Bill's Lobster House",
+        "address": "101 River St",
+        "city": "Grand River",
+        "zip": "44045",
+        "venue_type": "Restaurant",
+        "phone_number": "440-352-6343",
+        "website": "https://www.picklebills.com/",
+    },
+    "pickle bill lobster house": {
+        "place_name": "Pickle Bill's Lobster House",
+        "address": "101 River St",
+        "city": "Grand River",
+        "zip": "44045",
+        "venue_type": "Restaurant",
+        "phone_number": "440-352-6343",
+        "website": "https://www.picklebills.com/",
+    },
+    "rabbit run theater": {
+        "place_name": "Rabbit Run Theater",
+        "address": "5648 W Chapel Rd",
+        "city": "Madison",
+        "zip": "44057",
+        "venue_type": "Theater",
+        "phone_number": "440-428-5913",
+        "website": "https://rabbitrun.org/",
+    },
     "regency wine seller": {
         "place_name": "Regency Wine Sellers",
         "address": "115 Ghent Rd",
@@ -592,6 +708,46 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "330-836-3447",
         "website": "https://www.regencywinesellers.com/",
     },
+    "riverdog retreat": {
+        "place_name": "Riverdog Retreat",
+        "address": "13818 Gore Orphanage Rd",
+        "city": "Wakeman",
+        "zip": "44889",
+        "venue_type": "Lodging/Live Music Venue",
+        "phone_number": "440-965-8309",
+        "website": "https://www.riverdogretreatbedandbreakfast.com/",
+    },
+    "scenic river retreat": {
+        "place_name": "Scenic River Retreat",
+        "city": "Munson",
+        "venue_type": "Park/Event Venue",
+    },
+    "russo": {
+        "place_name": "Russo's",
+        "address": "4895 State Rd",
+        "city": "Cuyahoga Falls",
+        "zip": "44221",
+        "venue_type": "Restaurant",
+        "phone_number": "330-923-2665",
+    },
+    "suma recording studio": {
+        "place_name": "Suma Recording Studio",
+        "address": "5706 Vrooman Rd",
+        "city": "Painesville",
+        "zip": "44077",
+        "venue_type": "Recording Studio/Live Music Venue",
+        "phone_number": "440-352-9802",
+        "website": "https://sumarecording.com/",
+    },
+    "st joseph church mantua": {
+        "place_name": "St. Joseph Church",
+        "address": "11045 St Joseph Blvd",
+        "city": "Mantua",
+        "zip": "44255",
+        "venue_type": "Church/Festival",
+        "phone_number": "330-274-2253",
+        "website": "https://stjosephmantua.com/",
+    },
     "visible voice books": {
         "place_name": "Visible Voice Books",
         "address": "4601 Lorain Ave",
@@ -599,6 +755,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "zip": "44102",
         "venue_type": "Bookstore",
         "website": "https://www.visiblevoicebooks.com/",
+    },
+    "vermilion boat club": {
+        "place_name": "Vermilion Boat Club",
+        "address": "5416 Liberty Ave",
+        "city": "Vermilion",
+        "zip": "44089",
+        "venue_type": "Yacht Club",
+        "phone_number": "440-967-6634",
+        "website": "https://vermilionboatclub.com/",
     },
 }
 
@@ -1133,6 +1298,178 @@ def parse_katy_robinson_calendar(artist: dict[str, str], logger: logging.Logger)
     website = clean(artist.get("website")) or "https://www.katyrobinson.net"
     events = parse_bandsintown_events(artist, KATY_ROBINSON_BANDSINTOWN_URL, website, logger, enforce_northeast_ohio=True)
     events.extend(katy_robinson_recovered_facebook_events(artist))
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
+ALEX_BEVAN_KNOWN_VENUES = {
+    "advanced rv": {"venue": "Advanced RV Fest", "city": "Willoughby", "zip_code": "44094"},
+    "beachland": {"venue": "Beachland Ballroom & Tavern", "city": "Cleveland", "zip_code": "44110"},
+    "bop stop": {"venue": "BOP STOP at The Music Settlement", "city": "Cleveland", "zip_code": "44113"},
+    "cain park": {"venue": "Cain Park Arts Festival", "city": "Cleveland Heights", "zip_code": "44118"},
+    "cleveland masonic auditorium": {"venue": "Cleveland Masonic Auditorium", "city": "Cleveland", "zip_code": "44115"},
+    "crown point ecology center": {"venue": "Crown Point Ecology Center", "city": "Akron", "zip_code": "44333"},
+    "driftwood point": {"venue": "Driftwood Point Beach Bar and Grill", "city": "Geneva", "zip_code": "44041"},
+    "edwin j thomas performing arts hall": {
+        "venue": "E.J. Thomas Performing Arts Hall",
+        "city": "Akron",
+        "zip_code": "44325",
+    },
+    "gar hall": {"venue": "G.A.R. Hall", "city": "Peninsula", "zip_code": "44264"},
+    "grog shop": {"venue": "Grog Shop", "city": "Cleveland", "zip_code": "44106"},
+    "independence home days": {"venue": "Independence Home Days", "city": "Independence", "zip_code": "44131"},
+    "kent stage": {"venue": "The Kent Stage", "city": "Kent", "zip_code": "44240"},
+    "kosicek": {"venue": "Kosicek Vineyards", "city": "Geneva", "zip_code": "44041"},
+    "munson park evening concert": {"venue": "Scenic River Retreat", "city": "Munson", "zip_code": ""},
+    "pickle bills": {"venue": "Pickle Bill's Lobster House", "city": "Grand River", "zip_code": "44045"},
+    "rabbit run": {"venue": "Rabbit Run Theater", "city": "Madison", "zip_code": "44057"},
+    "riverdog retreat": {"venue": "Riverdog Retreat", "city": "Wakeman", "zip_code": "44889"},
+    "russo": {"venue": "Russo's", "city": "Cuyahoga Falls", "zip_code": "44221"},
+    "sarah": {"venue": "Sarah's Vineyard", "city": "Cuyahoga Falls", "zip_code": "44223"},
+    "scenic river retreat": {"venue": "Scenic River Retreat", "city": "Munson", "zip_code": ""},
+    "sparky": {"venue": "Sparky's Place", "city": "Conneaut", "zip_code": "44030"},
+    "st joe": {"venue": "St. Joseph Church Mantua", "city": "Mantua", "zip_code": "44255"},
+    "st joseph": {"venue": "St. Joseph Church Mantua", "city": "Mantua", "zip_code": "44255"},
+    "suma recording studio": {"venue": "Suma Recording Studio", "city": "Painesville", "zip_code": "44077"},
+    "the delaware": {"venue": "The Delaware", "city": "New Philadelphia", "zip_code": "44663"},
+    "treelawn": {"venue": "The Treelawn", "city": "Cleveland", "zip_code": "44110"},
+    "vermilion boat club": {"venue": "Vermilion Boat Club", "city": "Vermilion", "zip_code": "44089"},
+    "vermillion boat club": {"venue": "Vermilion Boat Club", "city": "Vermilion", "zip_code": "44089"},
+    "visible voice": {"venue": "Visible Voice Books", "city": "Cleveland", "zip_code": "44102"},
+    "visible voices": {"venue": "Visible Voice Books", "city": "Cleveland", "zip_code": "44102"},
+}
+
+
+def alex_bevan_known_venue(detail: str) -> dict[str, str]:
+    lowered = canonical_venue_name(detail)
+    for key, value in ALEX_BEVAN_KNOWN_VENUES.items():
+        if canonical_venue_name(key) in lowered:
+            return value
+    return {}
+
+
+def parse_alex_bevan_schedule_date(line: str, year: int) -> tuple[str, str] | None:
+    match = re.match(r"^([A-Za-z]+)\s+(\d{1,3})(?:st|nd|rd|th)?\s*-\s*(.+)$", clean(line), re.I)
+    if not match:
+        return None
+    month, day_text, detail = match.groups()
+    day = int(day_text)
+    if day > 31 and day_text.startswith("22"):
+        day = 22
+    if day > 31:
+        return None
+    try:
+        event_day = datetime.strptime(f"{year} {month} {day}", "%Y %B %d").date()
+    except ValueError:
+        return None
+    return event_day.isoformat(), clean(detail)
+
+
+def parse_alex_bevan_schedule_lines(lines: list[str], artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name")) or "Alex Bevan"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    website = clean(artist.get("website")) or ALEX_BEVAN_SCHEDULE_URL
+    year = date.today().year
+    events: list[ScrapedArtistEvent] = []
+    in_schedule = False
+    for line in lines:
+        if re.search(r"\b20\d{2}\s+Gigs", line, re.I):
+            year_match = re.search(r"\b(20\d{2})\b", line)
+            year = int(year_match.group(1)) if year_match else year
+            in_schedule = True
+            continue
+        if not in_schedule:
+            continue
+        if line == "Schedule of Gigs":
+            break
+        if re.search(r"\b(?:Alaska|Soldotna|Jeykll|Jekyll)\b", line, re.I):
+            continue
+        parsed = parse_alex_bevan_schedule_date(line, year)
+        if not parsed:
+            continue
+        event_date, detail = parsed
+        detail = re.sub(r"https?://\S+", " ", detail)
+        detail = clean(re.sub(r"\b(\d{1,2})\s+(\d{1,2})\s*(am|pm)\b", r"\1-\2\3", detail, flags=re.I))
+        start_time, end_time, venue_detail = parse_little_steve_o_time(detail)
+        known = alex_bevan_known_venue(venue_detail or detail)
+        if not known:
+            continue
+        venue = known["venue"]
+        if "private" in norm(line):
+            venue = "Private Event"
+        title = f"{artist_name} @ {venue}" if venue != "Private Event" else f"{artist_name} private event"
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=title,
+                venue_name=venue,
+                city=known.get("city", ""),
+                state="OH",
+                zip_code=known.get("zip_code", ""),
+                source=artist_site_source(website),
+                source_record_id=short_hash(website, event_date, venue, line, length=12),
+                source_url=website,
+                description=line,
+            )
+        )
+    return events
+
+
+def alex_bevan_recovered_facebook_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name")) or "Alex Bevan"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    website = clean(artist.get("website")) or ALEX_BEVAN_SCHEDULE_URL
+    source_url = "https://www.facebook.com/alex.bevan.73/events"
+    recovered = [
+        ("2025-04-18", "Suma Sessions: Alex Bevan & Friends", "Suma Recording Studio", "Painesville", "44077", "5706 Vrooman Rd"),
+        ("2021-06-19", "Alex Bevan at Sparky's Place", "Sparky's Place", "Conneaut", "44030", "Lake Erie Beach Conneaut, OH 44030"),
+        ("2020-04-18", "Alex Bevan and Kristine Jackson Songwriters Special", "G.A.R. Hall", "Peninsula", "44264", "G.A.R. Hall, Peninsula, OH"),
+        ("2018-10-07", "A Parade of Guitars at The Bop Stop for the Music Settlement", "BOP STOP at The Music Settlement", "Cleveland", "44113", "BOP STOP at The Music Settlement, Cleveland, OH"),
+        ("2015-01-24", "Boomer CD release Concert - Alex Bevan and David J. Young", "Beachland Ballroom & Tavern", "Cleveland", "44110", "The Beachland Ballroom and Tavern, Cleveland, OH"),
+        ("2015-11-14", "Alex Bevan - Crazy Concert #1", "Pickle Bill's Lobster House", "Grand River", "44045", "Pickle Bills, Grand River, OH"),
+    ]
+    return [
+        ScrapedArtistEvent(
+            artist_id=artist_id,
+            artist_name=artist_name,
+            artist_type=artist_type,
+            event_date=event_date,
+            start_time="",
+            end_time="",
+            title=f"{artist_name} @ {venue}",
+            venue_name=venue,
+            city=city,
+            state="OH",
+            zip_code=zip_code,
+            source=artist_site_source(website),
+            source_record_id=short_hash(source_url, event_date, title, venue, length=12),
+            source_url=source_url,
+            description=f"{title} | {address}",
+        )
+        for event_date, title, venue, city, zip_code, address in recovered
+    ]
+
+
+def parse_alex_bevan_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or ALEX_BEVAN_SCHEDULE_URL
+    try:
+        html_text = fetch_url(ALEX_BEVAN_SCHEDULE_URL)
+    except Exception as exc:
+        logger.warning("Could not fetch Alex Bevan schedule %s: %s", ALEX_BEVAN_SCHEDULE_URL, exc)
+        html_text = ""
+    events: list[ScrapedArtistEvent] = []
+    if html_text:
+        parser = VisibleTextParser()
+        parser.feed(html_text)
+        events.extend(parse_alex_bevan_schedule_lines(parser.lines(), {**artist, "website": website}))
+    events.extend(parse_bandsintown_events(artist, ALEX_BEVAN_BANDSINTOWN_URL, website, logger, enforce_northeast_ohio=True))
+    events.extend(alex_bevan_recovered_facebook_events({**artist, "website": website}))
     return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
@@ -2563,6 +2900,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif "katyrobinson.net" in website.lower():
             scraped = parse_katy_robinson_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "alexbevan.com" in website.lower():
+            scraped = parse_alex_bevan_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
