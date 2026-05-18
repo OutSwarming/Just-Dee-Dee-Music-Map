@@ -713,6 +713,41 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("Suma Recording Studio", {event.venue_name for event in events})
         self.assertEqual(sum(1 for event in events if event.venue_name == "The Kent Stage"), 1)
 
+    def test_doug_ribley_filia_parser_extracts_public_schedule(self):
+        events = artist_gig_tracker.parse_doug_ribley_filia_events("""
+            <div>MUSIC SCHEDULE</div>
+            <div>23-May-26 Doug Ribley</div>
+            <div>12-Jun-26 Doug Ribley</div>
+        """, {
+            "artist_id": "artist-doug-ribley-7fbc0ffa",
+            "canonical_name": "Doug Ribley",
+            "artist_type": "solo",
+            "website": "https://filiacellars.com/",
+        })
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0].event_date, "2026-05-23")
+        self.assertEqual(events[0].venue_name, "Filia Cellars")
+        self.assertEqual(events[1].event_date, "2026-06-12")
+
+    def test_doug_ribley_calendar_merges_filia_and_recovered_rows(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        artist_gig_tracker.fetch_url = lambda _url: "<div>23-May-26 Doug Ribley</div>"
+        try:
+            events = artist_gig_tracker.parse_doug_ribley_calendar({
+                "artist_id": "artist-doug-ribley-7fbc0ffa",
+                "canonical_name": "Doug Ribley",
+                "artist_type": "solo",
+                "website": "https://filiacellars.com/",
+            }, logging.getLogger("test"))
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+
+        venues = {event.venue_name for event in events}
+        self.assertIn("Filia Cellars", venues)
+        self.assertIn("The Rialto Theatre", venues)
+        self.assertIn("Ridge & Rail", venues)
+
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
             "2026",

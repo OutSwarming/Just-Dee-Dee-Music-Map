@@ -69,6 +69,8 @@ ALEX_BEVAN_BANDSINTOWN_URL = (
     "https://rest.bandsintown.com/artists/Alex%20Bevan/events"
     "?app_id=squarespace-alex-bevan&date=all"
 )
+DOUG_RIBLEY_PUBLIC_SOURCE_URL = "https://filiacellars.com/"
+DOUG_RIBLEY_RIALTO_URL = "https://www.therialtotheatre.com/calendar/2024/4/27/doug-ribley-in-the-rialto-living-room"
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -1473,6 +1475,166 @@ def parse_alex_bevan_calendar(artist: dict[str, str], logger: logging.Logger) ->
     return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
+def make_doug_ribley_event(
+    artist: dict[str, str],
+    event_date: str,
+    start_time: str,
+    end_time: str,
+    venue_name: str,
+    city: str,
+    zip_code: str,
+    source_url: str,
+    description: str,
+) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name")) or "Doug Ribley"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    source_base = clean(artist.get("website")) or DOUG_RIBLEY_PUBLIC_SOURCE_URL
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time=start_time,
+        end_time=end_time,
+        title=f"{artist_name} @ {venue_name}",
+        venue_name=venue_name,
+        city=city,
+        state="OH",
+        zip_code=zip_code,
+        source=artist_site_source(source_base),
+        source_record_id=short_hash(source_url, event_date, start_time, venue_name, description, length=12),
+        source_url=source_url,
+        description=description,
+    )
+
+
+def parse_doug_ribley_filia_events(html_text: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    events: list[ScrapedArtistEvent] = []
+    for line in parser.lines():
+        match = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{2})\s+Doug\s+Ribley\b", clean(line), re.I)
+        if not match:
+            continue
+        day, month_text, year_text = match.groups()
+        try:
+            event_day = datetime.strptime(f"20{year_text} {month_text} {day}", "%Y %b %d").date()
+        except ValueError:
+            continue
+        events.append(
+            make_doug_ribley_event(
+                artist,
+                event_day.isoformat(),
+                "",
+                "",
+                "Filia Cellars",
+                "Wadsworth",
+                "44281",
+                DOUG_RIBLEY_PUBLIC_SOURCE_URL,
+                line,
+            )
+        )
+    return events
+
+
+def doug_ribley_recovered_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    rows = [
+        (
+            "2024-04-27",
+            "5:00PM",
+            "6:30PM",
+            "The Rialto Theatre",
+            "Akron",
+            "44314",
+            DOUG_RIBLEY_RIALTO_URL,
+            "Doug Ribley in The Rialto Living Room; acoustic contemporary, classic rock and country music.",
+        ),
+        (
+            "2025-04-10",
+            "6:30PM",
+            "",
+            "Filia Cellars",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/live-local-music-for-april-7-13/1027451",
+            "Medina County live music listing: Filia Cellars, 3059 Greenwich Road, Wadsworth, Doug Ribley.",
+        ),
+        (
+            "2025-08-30",
+            "6:30PM",
+            "",
+            "Filia Cellars",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/medinas-area-concerts-for-aug-28-through-sept-1/961845",
+            "Medina County live music listing: Filia Cellars, 3059 Greenwich Road, Wadsworth, Doug Ribley.",
+        ),
+        (
+            "2025-09-18",
+            "6:30PM",
+            "",
+            "Filia Cellars",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/live-music-lineup-set-for-sept-18-21-in-medina-county/969453",
+            "Medina County live music listing sourced from Dine Medina County Facebook page: Filia Cellars, Doug Ribley.",
+        ),
+        (
+            "2025-10-03",
+            "6:30PM",
+            "",
+            "Filia Cellars",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/live-music-lineup-set-for-oct-26-across-medina-county/972767",
+            "Medina County live music listing sourced from Dine Medina County Facebook page: Filia Cellars, Doug Ribley.",
+        ),
+        (
+            "2025-10-10",
+            "6:30PM",
+            "",
+            "Filia Cellars",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/live-music-and-events-across-medina-county-oct-913/974968",
+            "Medina County live music listing sourced from Dine Medina County Facebook page: Filia Cellars, Doug Ribley.",
+        ),
+        (
+            "2025-11-01",
+            "7:00PM",
+            "",
+            "Ridge & Rail",
+            "Wadsworth",
+            "44281",
+            "https://www.yourohionews.com/medina/live-music-lineup-for-medina-county-oct-30nov-3/981844",
+            "Medina County live music listing: Ridge & Rail, 6784 Ridge Road, Wadsworth, Doug Ribley.",
+        ),
+        (
+            "2025-12-06",
+            "6:00PM",
+            "",
+            "Ridge & Rail",
+            "Wadsworth",
+            "44281",
+            "https://fliphtml5.com/zjng/ytjs/Medina_Weekly_20251204/",
+            "Medina Weekly listing: Ridge & Rail, 6784 Ridge Road, Wadsworth, Doug Ribley.",
+        ),
+    ]
+    return [make_doug_ribley_event(artist, *row) for row in rows]
+
+
+def parse_doug_ribley_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    try:
+        filia_html = fetch_url(DOUG_RIBLEY_PUBLIC_SOURCE_URL)
+    except Exception as exc:
+        logger.warning("Could not fetch Doug Ribley public Filia schedule %s: %s", DOUG_RIBLEY_PUBLIC_SOURCE_URL, exc)
+        filia_html = ""
+    events = parse_doug_ribley_filia_events(filia_html, artist) if filia_html else []
+    events.extend(doug_ribley_recovered_events(artist))
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
     match = re.search(r"calendar_feature_(\d+)", html)
     return match.group(1) if match else None
@@ -2874,7 +3036,11 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             continue
         artist_id = clean(artist.get("artist_id")) or make_id("artist", artist.get("canonical_name"))
         scraped: list[ScrapedArtistEvent]
-        if "justdeedeemusic.com" in website.lower():
+        if norm(artist.get("canonical_name")) == "doug ribley":
+            scraped = parse_doug_ribley_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "justdeedeemusic.com" in website.lower():
             scraped = parse_jddm_website_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
