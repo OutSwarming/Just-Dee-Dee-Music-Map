@@ -92,6 +92,15 @@ HALF_CRAICD_VENUES = {
     "gandalf": ("Gandalf's Pub & Restaurant", "Valley City", "44280", "6757 Center Rd, Valley City, OH 44280"),
     "kelleys island wine": ("Kelleys Island Wine Co.", "Kelleys Island", "43438", "418 Woodford Rd, Kelleys Island, OH 43438"),
 }
+JAY_WONKOVICH_FACEBOOK_URL = "https://www.facebook.com/jaywonkovich"
+JAY_WONKOVICH_PROFILE_URL = "https://www.classcreator.com/North-Royalton-OH-1976/class_profile.cfm?member_id=928461"
+JAY_WONKOVICH_OUT_OF_EDEN_URL = "https://musicboxcle.com/event/eagles-tribute-aug1/"
+GANDALFS_PUB_VENUE = {
+    "venue_name": "Gandalf's Pub & Restaurant",
+    "city": "Valley City",
+    "zip_code": "44280",
+    "address": "6757 Center Rd, Valley City, OH 44280",
+}
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -1862,6 +1871,82 @@ def parse_half_craicd_calendar(artist: dict[str, str], logger: logging.Logger) -
     return parse_half_craicd_schedule_lines(parser.lines(), artist)
 
 
+def make_jay_wonkovich_event(
+    artist: dict[str, str],
+    event_date: str,
+    start_time: str,
+    source_url: str,
+    description: str,
+    title: str = "",
+) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name")) or "Jay Wonkovich"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    source_base = clean(artist.get("website")) or JAY_WONKOVICH_FACEBOOK_URL
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time=start_time,
+        end_time="",
+        title=clean(title) or f"{artist_name} @ {GANDALFS_PUB_VENUE['venue_name']}",
+        venue_name=GANDALFS_PUB_VENUE["venue_name"],
+        city=GANDALFS_PUB_VENUE["city"],
+        state="OH",
+        zip_code=GANDALFS_PUB_VENUE["zip_code"],
+        source=artist_site_source(source_base),
+        source_record_id=short_hash(source_url, event_date, start_time, description, length=12),
+        source_url=source_url,
+        description=f"{description} | {GANDALFS_PUB_VENUE['address']}",
+    )
+
+
+def jay_wonkovich_recovered_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    rows = [
+        (
+            "2024-10-26",
+            "7:31 PM",
+            "https://www.gandalfspub.com/events/live-music-with-jay-wonkovich-32",
+            "Gandalf's Pub event page: Live Music with Jay Wonkovich, described as classic rock.",
+            "",
+        ),
+        (
+            "2025-03-08",
+            "7:30 PM",
+            "https://iirish.us/2025/03/02/whats-the-craic-march-music-and-other-madness/",
+            "iIrish March 2025 Gandalf's listing: Katie Kay & Uncle Jay Wonkovich.",
+            "Katie Kay & Uncle Jay Wonkovich @ Gandalf's Pub & Restaurant",
+        ),
+        (
+            "2025-08-17",
+            "",
+            "https://iirish.us/2025/07/29/51054/",
+            "iIrish August 2025 Gandalf's listing: Jay Wonkovich.",
+            "",
+        ),
+        (
+            "2026-02-14",
+            "7:30 PM",
+            "https://www.yourohionews.com/medina/medina-county-live-music-lineup-feb-12-16/1011581",
+            "Dine Medina County / YourOhioNews listing: Gandalf's Pub & Restaurant, Jay Wonkovich.",
+            "",
+        ),
+        (
+            "2026-03-21",
+            "7:30 PM",
+            "https://www.yourohionews.com/medina/live-music-events-in-medina-county/1021238",
+            "Dine Medina County / YourOhioNews listing: Gandalf's Pub & Restaurant, Jay Wonkovich.",
+            "",
+        ),
+    ]
+    return [make_jay_wonkovich_event(artist, *row) for row in rows]
+
+
+def parse_jay_wonkovich_calendar(artist: dict[str, str], _logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    return sorted(jay_wonkovich_recovered_events(artist), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
     match = re.search(r"calendar_feature_(\d+)", html)
     return match.group(1) if match else None
@@ -3266,6 +3351,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
         scraped: list[ScrapedArtistEvent]
         if norm(artist.get("canonical_name")) == "doug ribley":
             scraped = parse_doug_ribley_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif norm(artist.get("canonical_name")) == "jay wonkovich":
+            scraped = parse_jay_wonkovich_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         elif "justdeedeemusic.com" in website.lower():

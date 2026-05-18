@@ -807,6 +807,20 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(sum(1 for event in events if event.venue_name == "Kelleys Island Wine Co."), 2)
         self.assertIn("2026-12-31", {event.event_date for event in events})
 
+    def test_jay_wonkovich_recovered_events_use_gandalfs_pub(self):
+        events = artist_gig_tracker.parse_jay_wonkovich_calendar({
+            "artist_id": "artist-jay-wonkovich-12345678",
+            "canonical_name": "Jay Wonkovich",
+            "artist_type": "solo",
+            "website": "https://www.facebook.com/jaywonkovich",
+        }, logging.getLogger("test"))
+
+        self.assertEqual(len(events), 5)
+        self.assertEqual(events[0].event_date, "2024-10-26")
+        self.assertEqual(events[-1].event_date, "2026-03-21")
+        self.assertEqual({event.venue_name for event in events}, {"Gandalf's Pub & Restaurant"})
+        self.assertIn("6757 Center Rd", events[0].description)
+
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([
             "2026",
