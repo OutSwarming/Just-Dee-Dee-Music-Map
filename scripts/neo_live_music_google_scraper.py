@@ -25,9 +25,11 @@ import math
 import os
 import random
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -124,6 +126,30 @@ VENUE_HINTS = [
     "Jilly's Music Room Akron",
     "The Kent Stage",
     "The Winchester Lakewood",
+]
+
+DIRECT_SOURCES = [
+    {
+        "name": "Grog Shop",
+        "url": "https://grogshop.gs/",
+        "venue": "Grog Shop",
+        "city": "Cleveland Heights",
+        "address": "2785 Euclid Heights Blvd, Cleveland Heights, OH 44106",
+    },
+    {
+        "name": "Jolene's",
+        "url": "https://www.jolenescleveland.com/live-music",
+        "venue": "Jolene's",
+        "city": "Cleveland",
+        "address": "2038 E 4th St, Cleveland, OH 44115",
+    },
+    {
+        "name": "Brothers Lounge",
+        "url": "https://brotherslounge.com/",
+        "venue": "The Brothers Lounge",
+        "city": "Cleveland",
+        "address": "11609 Detroit Ave, Cleveland, OH 44102",
+    },
 ]
 
 
@@ -328,6 +354,119 @@ def fetch_google_news_rss(query: str, logger: logging.Logger) -> list[SearchResu
     return parsed
 
 
+def today_markers() -> dict[str, str]:
+    today = date.today()
+    return {
+        "iso": today.isoformat(),
+        "day": str(today.day),
+        "abbr": today.strftime("%a, %b ") + str(today.day),
+        "long": today.strftime("%A, %B ") + str(today.day),
+        "month_year": today.strftime("%B %Y"),
+    }
+
+
+def event_url(source_url: str, title: str, event_date: str) -> str:
+    key = hashlib.sha256(f"{source_url}|{title}|{event_date}".encode("utf-8")).hexdigest()[:12]
+    return f"{source_url}#event-{key}"
+
+
+def make_direct_event(source: dict[str, str], title: str, event_time: str, description: str) -> EventRecord:
+    title = clean(title)
+    description = clean(description)
+    city = source["city"]
+    _, distance = find_location(city)
+    return EventRecord(
+        source=f"direct:{source['name']}",
+        query_used="direct venue calendar fallback",
+        title=title,
+        url=event_url(source["url"], title, date.today().isoformat()),
+        event_date=date.today().isoformat(),
+        event_time=event_time,
+        venue=source["venue"],
+        address=source["address"],
+        city=city,
+        bands=title,
+        ticket_info="",
+        description=description[:1200],
+        image_urls="",
+        scraped_at=datetime.now().isoformat(timespec="seconds"),
+        raw_snippet=description[:1200],
+        location_match=city,
+        distance_miles=round(distance, 1) if distance is not None else None,
+        relevance_score=max(8, relevance_score(" ".join([title, description, city, "live music"]))),
+    )
+
+
+def parse_grog_events(text: str, source: dict[str, str]) -> list[EventRecord]:
+    markers = today_markers()
+    pattern = re.compile(
+        rf"(?P<title>[A-Z0-9][A-Z0-9 '&/.,:+()\\-]+?)\n"
+        rf"(?:(?P<support>w/ [^\n]+)\n)?"
+        rf"{re.escape(source['venue'])}\n"
+        rf"SUN, MAY {markers['day']}\n"
+        rf"(?P<time>[^\n]*(?:Show|Doors)[^\n]*)",
+        re.I,
+    )
+    events = []
+    for match in pattern.finditer(text):
+        title = clean(match.group("title"))
+        support = clean(match.group("support"))
+        time_text = clean(match.group("time"))
+        _, event_time = parse_event_datetime(time_text)
+        events.append(make_direct_event(source, title, event_time, " ".join(x for x in [support, time_text] if x)))
+    return events
+
+
+def parse_jolenes_events(text: str, source: dict[str, str]) -> list[EventRecord]:
+    markers = today_markers()
+    all_lines = [clean(line) for line in text.splitlines() if clean(line)]
+    try:
+        start = all_lines.index(markers["day"]) + 1
+    except ValueError:
+        return []
+    lines = []
+    for line in all_lines[start:]:
+        if re.fullmatch(r"\d{1,2}", line) or line.lower().startswith("want to play"):
+            break
+        lines.append(line)
+    events = []
+    index = 0
+    while index < len(lines) - 1:
+        if re.match(r"^\d{1,2}:\d{2}\s*(?:AM|PM)$", lines[index], re.I):
+            event_time = lines[index].upper()
+            title = lines[index + 1]
+            if not re.match(r"^\d{1,2}:\d{2}\s*(?:AM|PM)$", title, re.I):
+                events.append(make_direct_event(source, title, event_time, f"{title} at {source['venue']} {event_time}"))
+            index += 2
+        else:
+            index += 1
+    return events
+
+
+def parse_brothers_events(text: str, source: dict[str, str]) -> list[EventRecord]:
+    markers = today_markers()
+    # Squarespace calendar text has day-number blocks. Capture today's block
+    # and look for time/title pairs inside it.
+    all_lines = [clean(line) for line in text.splitlines() if clean(line)]
+    try:
+        start = all_lines.index(markers["day"]) + 1
+    except ValueError:
+        return []
+    lines = []
+    for line in all_lines[start:]:
+        if re.fullmatch(r"\d{1,2}", line):
+            break
+        lines.append(line)
+    events = []
+    for index, line in enumerate(lines):
+        if re.search(r"\d{1,2}:\d{2}\s*(?:AM|PM)", line, re.I) and index > 0:
+            title = lines[index - 1]
+            if not re.search(r"https?://|doors|tickets?", title, re.I):
+                _, event_time = parse_event_datetime(line)
+                events.append(make_direct_event(source, title, event_time, f"{title} at {source['venue']} {line}"))
+    return events
+
+
 def init_db(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -513,6 +652,14 @@ class GoogleLiveMusicScraper:
                     self.logger.warning("Page scrape failed for %s: %s", result.url, exc)
                 self.sleep(1.5, 4.5)
 
+            direct_events = self.scrape_direct_sources(page)
+            for event in direct_events:
+                if len(events) >= self.args.max_events:
+                    break
+                if event.url not in seen_urls and self.accept_event(event):
+                    seen_urls.add(event.url)
+                    events.append(event)
+
             context.close()
             if browser is not None:
                 browser.close()
@@ -520,7 +667,7 @@ class GoogleLiveMusicScraper:
         return events
 
     def is_blocked(self, page: Any) -> bool:
-        text = clean(page.locator("body").inner_text(timeout=5000)).lower()
+        text = clean(page.evaluate("document.body ? document.body.innerText : ''")).lower()
         return "unusual traffic" in text or "our systems have detected" in text or "captcha" in text
 
     def extract_google_results(self, page: Any, query: str) -> list[SearchResult]:
@@ -572,7 +719,7 @@ class GoogleLiveMusicScraper:
         self.sleep(1.0, 2.4)
 
         title = clean(page.title()) or result.title
-        body_text = clean(page.locator("body").inner_text(timeout=10000))[:12000]
+        body_text = clean(page.evaluate("document.body ? document.body.innerText : ''"))[:12000]
         meta = self.extract_meta(page)
         jsonld = self.extract_jsonld(page)
         merged_text = " ".join([title, result.raw_snippet, meta.get("description", ""), body_text[:5000]])
@@ -606,6 +753,28 @@ class GoogleLiveMusicScraper:
             distance_miles=round(distance, 1) if distance is not None else None,
             relevance_score=relevance_score(merged_text),
         )
+
+    def scrape_direct_sources(self, page: Any) -> list[EventRecord]:
+        events: list[EventRecord] = []
+        parsers = {
+            "Grog Shop": parse_grog_events,
+            "Jolene's": parse_jolenes_events,
+            "Brothers Lounge": parse_brothers_events,
+        }
+        for source in DIRECT_SOURCES:
+            try:
+                self.logger.info("Direct source: %s", source["name"])
+                page.goto(source["url"], wait_until="domcontentloaded", timeout=35000)
+                self.sleep(2.0, 4.0)
+                text = page.evaluate("document.body ? document.body.innerText : ''") or ""
+                parser = parsers.get(source["name"])
+                if parser:
+                    source_events = parser(text, source)
+                    self.logger.info("Direct source %s yielded %d events", source["name"], len(source_events))
+                    events.extend(source_events)
+            except Exception as exc:
+                self.logger.warning("Direct source failed for %s: %s", source["name"], exc)
+        return events
 
     def extract_meta(self, page: Any) -> dict[str, str]:
         return page.evaluate(
@@ -738,7 +907,7 @@ class GoogleLiveMusicScraper:
         if location and not event.location_match:
             event.location_match = location
             event.distance_miles = round(distance, 1) if distance is not None else event.distance_miles
-        if not MUSIC_TERMS.search(text):
+        if not event.source.startswith("direct:") and not MUSIC_TERMS.search(text):
             return False
         if not is_same_day_candidate(event):
             return False
@@ -746,35 +915,41 @@ class GoogleLiveMusicScraper:
 
 
 def send_text_via_messages(phone: str, body: str) -> None:
-    script = f"""
-        set reminderBody to {json.dumps(body)}
-        set targetNumber to {json.dumps(phone)}
-        tell application "Messages"
-            set selectedService to missing value
-            repeat with svc in services
-                try
-                    if service type of svc is iMessage then
-                        set selectedService to svc
-                        exit repeat
-                    end if
-                end try
-            end repeat
-            if selectedService is missing value then
-                repeat with svc in services
-                    try
-                        if service type of svc is SMS then
-                            set selectedService to svc
-                            exit repeat
-                        end if
-                    end try
-                end repeat
-            end if
-            if selectedService is missing value then error "No Messages sending service is available."
-            send reminderBody to buddy targetNumber of selectedService
-        end tell
-        return "sent"
-    """
-    subprocess.run(["osascript", "-e", script], check=True, timeout=30)
+    helper = REPO_ROOT / "scripts" / "send-local-message.mjs"
+    node_bin = find_node_binary()
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix=".txt") as handle:
+        handle.write(body)
+        message_path = handle.name
+    try:
+        subprocess.run(
+            [node_bin, str(helper), "--phone", phone, "--message-file", message_path],
+            check=True,
+            timeout=120,
+        )
+    finally:
+        try:
+            os.unlink(message_path)
+        except OSError:
+            pass
+
+
+def find_node_binary() -> str:
+    configured = os.environ.get("JDDM_NODE_BIN")
+    if configured and Path(configured).exists():
+        return configured
+    path_node = shutil.which("node")
+    if path_node:
+        return path_node
+    candidates = [
+        Path.home() / ".nvm" / "versions" / "node" / "v20.20.2" / "bin" / "node",
+        Path("/opt/homebrew/bin/node"),
+        Path("/usr/local/bin/node"),
+    ]
+    candidates.extend(sorted((Path.home() / ".nvm" / "versions" / "node").glob("*/bin/node"), reverse=True))
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    raise RuntimeError("Node.js was not found. Set JDDM_NODE_BIN to the node executable path.")
 
 
 def build_text_summary(events: list[EventRecord], csv_path: Path) -> str:
@@ -812,13 +987,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def configure_logging(level: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    if sys.stdout.isatty():
+        handlers.append(logging.FileHandler(LOG_PATH, encoding="utf-8"))
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(LOG_PATH, encoding="utf-8"),
-        ],
+        handlers=handlers,
+        force=True,
     )
 
 

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pythonPath = process.env.PYTHON || execSync("command -v python3", { encoding: "utf8" }).trim();
+const nodePath = execSync("command -v node", { encoding: "utf8" }).trim();
 const scraperScript = path.join(repoRoot, "scripts", "neo_live_music_google_scraper.py");
 const userDataDir = path.join(homedir(), "Library", "Application Support", "Just Dee Dee Music Map", "neo-live-music-browser");
 const label = "com.justdeedeemusic.neo-live-music-scraper";
@@ -45,6 +46,11 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
     </array>
     <key>WorkingDirectory</key>
     <string>${xmlEscape(repoRoot)}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>JDDM_NODE_BIN</key>
+        <string>${xmlEscape(nodePath)}</string>
+    </dict>
     <key>StartCalendarInterval</key>
     <array>${intervals}
     </array>
