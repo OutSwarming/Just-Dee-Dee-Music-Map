@@ -95,6 +95,7 @@ HALF_CRAICD_VENUES = {
 JAY_WONKOVICH_FACEBOOK_URL = "https://www.facebook.com/jaywonkovich"
 JAY_WONKOVICH_PROFILE_URL = "https://www.classcreator.com/North-Royalton-OH-1976/class_profile.cfm?member_id=928461"
 JAY_WONKOVICH_OUT_OF_EDEN_URL = "https://musicboxcle.com/event/eagles-tribute-aug1/"
+JOHN_HARROW_THE_BASH_URL = "https://www.thebash.com/singer-guitarist/john-harrow-solo-acoustic-classics"
 GANDALFS_PUB_VENUE = {
     "venue_name": "Gandalf's Pub & Restaurant",
     "city": "Valley City",
@@ -1993,6 +1994,140 @@ def parse_jay_wonkovich_calendar(artist: dict[str, str], _logger: logging.Logger
     return sorted(jay_wonkovich_recovered_events(artist), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
+def make_john_harrow_event(
+    artist: dict[str, str],
+    event_date: str,
+    start_time: str,
+    end_time: str,
+    event_type: str,
+    city: str,
+    source_url: str = JOHN_HARROW_THE_BASH_URL,
+) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name")) or "John Harrow"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    source_base = clean(artist.get("website")) or JOHN_HARROW_THE_BASH_URL
+    event_type_text = clean(event_type) or "Event"
+    private_like = re.search(r"\b(private|birthday|family reunion|christmas|nursing home)\b", event_type_text, re.I)
+    venue = "Private Event" if private_like else "Scheduled Public Event"
+    title_place = "private event" if venue == "Private Event" else f"{event_type_text} in {city}"
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time=start_time,
+        end_time=end_time,
+        title=f"{artist_name} {title_place}",
+        venue_name=venue,
+        city=clean(city),
+        state="OH",
+        zip_code="",
+        source=artist_site_source(source_base),
+        source_record_id=short_hash(source_url, event_date, start_time, end_time, event_type_text, city, length=12),
+        source_url=source_url,
+        description=clean(f"The Bash verified booking: {event_type_text} | {start_time} - {end_time} | {city}, OH"),
+    )
+
+
+def parse_the_bash_time_range(value: str) -> tuple[str, str]:
+    match = re.search(r"(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)", clean(value), re.I)
+    if not match:
+        return "", ""
+    return normalize_display_time(match.group(1)), normalize_display_time(match.group(2))
+
+
+def normalize_display_time(value: object) -> str:
+    match = re.search(r"\b(\d{1,2}):(\d{2})\s*([AP]M)\b", clean(value), re.I)
+    if not match:
+        return ""
+    hour = str(int(match.group(1)))
+    return f"{hour}:{match.group(2)} {match.group(3).upper()}"
+
+
+def fetch_the_bash_profile_html(url: str) -> str:
+    if sync_playwright is None:
+        return fetch_url(url)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            locale="en-US",
+        )
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(1500)
+            return page.content()
+        finally:
+            browser.close()
+
+
+def parse_john_harrow_the_bash_lines(lines: list[str], artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    events: list[ScrapedArtistEvent] = []
+    month_names = "|".join(
+        [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
+    )
+    for index, line in enumerate(lines[:-1]):
+        date_match = re.match(rf"^({month_names})\s+(\d{{1,2}}),\s+(\d{{4}})\s+•\s+(.+)$", line)
+        if not date_match:
+            continue
+        detail = clean(lines[index + 1])
+        detail_match = re.match(r"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+•\s+(.+?)\s+•\s+(.+?),\s+OH$", detail)
+        if not detail_match:
+            continue
+        try:
+            event_day = datetime.strptime(" ".join(date_match.groups()[:3]), "%B %d %Y").date().isoformat()
+        except ValueError:
+            continue
+        start_time, end_time = parse_the_bash_time_range(detail_match.group(1))
+        city = clean(detail_match.group(2).replace(" ,", ","))
+        if not city:
+            continue
+        events.append(make_john_harrow_event(artist, event_day, start_time, end_time, date_match.group(4), city))
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.title))
+
+
+def john_harrow_recovered_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    rows = [
+        ("2023-09-02", "3:00 PM", "4:30 PM", "Family Reunion", "Wooster"),
+        ("2023-09-09", "7:30 PM", "10:00 PM", "Fundraiser", "Valley View"),
+        ("2023-09-30", "5:00 PM", "9:00 PM", "Private Party", "Gates Mills"),
+        ("2023-12-14", "12:30 PM", "1:00 PM", "Christmas Party", "North Canton"),
+        ("2024-02-12", "7:30 PM", "8:30 PM", "Coffee Shop Event", "Berlin"),
+        ("2024-05-30", "5:00 PM", "8:00 PM", "Restaurant Event", "Cuyahoga Falls"),
+        ("2024-08-03", "6:30 PM", "10:00 PM", "Birthday Party (Adult)", "Beachwood"),
+        ("2026-06-20", "9:00 PM", "12:00 AM", "Event", "Lorain"),
+    ]
+    return [make_john_harrow_event(artist, *row) for row in rows]
+
+
+def parse_john_harrow_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or JOHN_HARROW_THE_BASH_URL
+    try:
+        html_text = fetch_the_bash_profile_html(website)
+    except Exception as exc:
+        logger.warning("Could not fetch John Harrow The Bash profile %s: %s", website, exc)
+        return john_harrow_recovered_events(artist)
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    events = parse_john_harrow_the_bash_lines(parser.lines(), artist)
+    return events or john_harrow_recovered_events(artist)
+
+
 def parse_maria_petti_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website")) or MARIA_PETTI_URL
     cutoff = date.today().replace(year=date.today().year - 1)
@@ -3422,6 +3557,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif norm(artist.get("canonical_name")) == "jay wonkovich":
             scraped = parse_jay_wonkovich_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif norm(artist.get("canonical_name")) == "john harrow" or "thebash.com/singer-guitarist/john-harrow-solo-acoustic-classics" in website.lower():
+            scraped = parse_john_harrow_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         elif "mariapetti.com" in website.lower():

@@ -821,6 +821,31 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual({event.venue_name for event in events}, {"Gandalf's Pub & Restaurant"})
         self.assertIn("6757 Center Rd", events[0].description)
 
+    def test_john_harrow_the_bash_lines_create_non_venue_events(self):
+        events = artist_gig_tracker.parse_john_harrow_the_bash_lines([
+            "Upcoming Events",
+            "June 20, 2026 • Event",
+            "Sat • 9:00 PM - 12:00 AM • Lorain, OH",
+            "Past Events",
+            "August 3, 2024 • Birthday Party (Adult)",
+            "Sat • 6:30 PM - 10:00 PM • Beachwood, OH",
+        ], {
+            "artist_id": "artist-john-harrow-12345678",
+            "canonical_name": "John Harrow",
+            "artist_type": "solo",
+            "website": "https://www.thebash.com/singer-guitarist/john-harrow-solo-acoustic-classics",
+        })
+
+        self.assertEqual(len(events), 2)
+        future = events[-1]
+        self.assertEqual(future.event_date, "2026-06-20")
+        self.assertEqual(future.start_time, "9:00 PM")
+        self.assertEqual(future.end_time, "12:00 AM")
+        self.assertEqual(future.city, "Lorain")
+        self.assertEqual(future.venue_name, "Scheduled Public Event")
+        self.assertFalse(artist_gig_tracker.should_materialize_venue(future))
+        self.assertEqual(events[0].venue_name, "Private Event")
+
     def test_bandsintown_venue_normalization_strips_times_and_private_events(self):
         self.assertEqual(
             artist_gig_tracker.normalize_bandsintown_venue_name(
