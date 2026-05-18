@@ -40,6 +40,15 @@ Future events only:
 npm run music:facebook-events -- --input data/artists.csv --mode future_only
 ```
 
+Daily 6:44 AM future-event scan with Carter/Dee Dee text alerts:
+
+```bash
+npm run music:facebook-events:install
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.justdeedeemusic.facebook-events-scraper.plist
+```
+
+The scheduled job uses `data/artist_sources/artist_scraper_sources.csv`, skips rows that do not yet have a Facebook URL, scrapes future events only, and texts both default recipients when events are found. It also compares event venues against `Sheet1` and `Venues` in the master Google Sheet and labels unmatched places as `CRITICAL: possible new place not on the spreadsheet`.
+
 Visible debugging:
 
 ```bash

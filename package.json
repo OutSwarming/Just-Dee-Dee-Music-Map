@@ -14,6 +14,7 @@
     "music:facebook-scrape": "python3 scripts/neo_live_music_facebook_scraper.py",
     "music:facebook-events-login": "python3 scripts/facebook_events_scraper.py --login",
     "music:facebook-events": "python3 scripts/facebook_events_scraper.py",
+    "music:facebook-events:install": "node scripts/install-facebook-events-scraper.mjs",
     "music:artist-sync": "python3 scripts/sync-artist-gig-tracker.py",
     "music:artist-sync:write": "python3 scripts/sync-artist-gig-tracker.py --import-google-sheet",
     "music:artist-sync:install": "node scripts/install-artist-gig-tracker-sync.mjs",

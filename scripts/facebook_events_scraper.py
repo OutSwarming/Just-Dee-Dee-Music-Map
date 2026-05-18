@@ -26,10 +26,14 @@ import csv
 import hashlib
 import json
 import logging
+import os
 import random
 import re
 import sqlite3
+import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -74,6 +78,10 @@ DEFAULT_STORAGE_STATE = (
 )
 DEFAULT_OUTPUT_DIR = DEFAULT_EXPORT_DIR / "facebook_events"
 LOG_PATH = Path.home() / "Library" / "Logs" / "facebook-events-scraper.log"
+DEFAULT_SPREADSHEET_ID = "1UBuHO1MSwYTuSobheGFyt-b05HTxHVbKrr_u7M8q2Sw"
+DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
+DEFAULT_TEXT_RECIPIENTS = ["+14403054062", "+12168499292"]
+SERVICE_PRIORITY = ["iMessage", "SMS"]
 
 FACEBOOK_HOST_RE = re.compile(r"(^|\.)facebook\.com$", re.I)
 EVENT_URL_RE = re.compile(r"facebook\.com/(?:events|.+?/events)/(\d+)", re.I)
@@ -284,6 +292,241 @@ def parse_date_from_datetime(value: str) -> date | None:
         return date.fromisoformat(text[:10])
     except ValueError:
         return None
+
+
+def normalize_phone(value: object) -> str:
+    text = clean(value)
+    if not text:
+        return ""
+    if text.startswith("+"):
+        digits = re.sub(r"\D+", "", text[1:])
+        return f"+{digits}"
+    digits = re.sub(r"\D+", "", text)
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    return digits
+
+
+def row_value(row: dict[str, str], *names: str) -> str:
+    normalized = {normalize_key(key).replace(" ", "_"): value for key, value in row.items()}
+    for name in names:
+        value = normalized.get(normalize_key(name).replace(" ", "_"))
+        if clean(value):
+            return clean(value)
+    return ""
+
+
+def normalize_venue_name(value: object) -> str:
+    text = normalize_key(clean(value))
+    text = re.sub(r"\b(?:the|llc|inc|company|co|restaurant|resturant)\b", " ", text)
+    return clean(text)
+
+
+def normalize_address(value: object) -> str:
+    text = normalize_key(clean(value))
+    replacements = {
+        "street": "st",
+        "road": "rd",
+        "avenue": "ave",
+        "boulevard": "blvd",
+        "drive": "dr",
+        "lane": "ln",
+        "court": "ct",
+        "parkway": "pkwy",
+    }
+    words = [replacements.get(word, word) for word in text.split()]
+    return " ".join(words)
+
+
+def has_street_number(value: str) -> bool:
+    return bool(re.search(r"\b\d{1,6}\b", value))
+
+
+def read_public_sheet_csv(spreadsheet_id: str, sheet: str) -> list[dict[str, str]]:
+    query_sheet = urllib.parse.quote(sheet)
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/gviz/tq?tqx=out:csv&sheet={query_sheet}"
+    with urllib.request.urlopen(url, timeout=40) as response:
+        data = response.read().decode("utf-8")
+    return list(csv.DictReader(data.splitlines()))
+
+
+def load_known_venues(spreadsheet_id: str, sheets: list[str], logger: logging.Logger | None = None) -> list[dict[str, str]]:
+    venues: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for sheet in sheets:
+        try:
+            rows = read_public_sheet_csv(spreadsheet_id, sheet)
+        except Exception as exc:
+            if logger:
+                logger.warning("Could not read known venue sheet %s: %s", sheet, exc)
+            continue
+        for row in rows:
+            name = row_value(row, "place_name", "Place Name", "venue_name", "Venue Name", "name", "venue")
+            address = row_value(row, "address", "Address")
+            city = row_value(row, "city", "City", "location", "Location")
+            key = (normalize_venue_name(name), normalize_address(" ".join([address, city])))
+            if not key[0] and not key[1]:
+                continue
+            if key in seen:
+                continue
+            seen.add(key)
+            venues.append({"name": name, "address": address, "city": city})
+    return venues
+
+
+def is_known_venue(event: FacebookEvent, known_venues: list[dict[str, str]]) -> bool:
+    event_name = normalize_venue_name(event.venue or event.location)
+    event_address = normalize_address(event.address)
+    event_city = normalize_venue_name(event.location)
+    if not event_name and not event_address:
+        return True
+    for venue in known_venues:
+        known_name = normalize_venue_name(venue.get("name"))
+        known_address = normalize_address(venue.get("address"))
+        known_city = normalize_venue_name(venue.get("city"))
+        if (
+            event_address
+            and known_address
+            and has_street_number(event_address)
+            and has_street_number(known_address)
+            and (event_address in known_address or known_address in event_address)
+        ):
+            return True
+        if event_name and known_name and (event_name == known_name or event_name in known_name or known_name in event_name):
+            if not event_city or not known_city or event_city == known_city:
+                return True
+    return False
+
+
+def find_possible_new_venues(events: list[FacebookEvent], known_venues: list[dict[str, str]]) -> list[dict[str, object]]:
+    possible: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for event in events:
+        if event.event_type == "online":
+            continue
+        venue_name = clean(event.venue or event.location)
+        if not venue_name or re.search(r"\b(private|unknown|tba|tbd|facebook)\b", venue_name, re.I):
+            continue
+        if is_known_venue(event, known_venues):
+            continue
+        key = normalize_key(" ".join([venue_name, event.address, event.location]))
+        if key in seen:
+            continue
+        seen.add(key)
+        possible.append(
+            {
+                "venue": venue_name,
+                "address": clean(event.address),
+                "location": clean(event.location),
+                "artist": clean(event.organizer_name or event.page_name or event.source_name),
+                "date": clean(event.start_datetime[:10]),
+                "title": clean(event.event_title),
+                "url": clean(event.event_url),
+            }
+        )
+    return possible
+
+
+def apple_string(value: object) -> str:
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def send_message_via_service(body: str, recipient: str, service_type: str) -> str:
+    service_test = "SMS" if service_type == "SMS" else "iMessage"
+    script = f"""
+        set alertBody to {apple_string(body)}
+        set targetNumber to {apple_string(recipient)}
+
+        tell application "Messages"
+            set selectedService to missing value
+            repeat with svc in services
+                try
+                    if service type of svc is {service_test} then
+                        set selectedService to svc
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if selectedService is missing value then error "No {service_type} service is available."
+            send alertBody to buddy targetNumber of selectedService
+        end tell
+        return "{service_type}"
+    """
+    result = subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True, timeout=30)
+    return clean(result.stdout)
+
+
+def send_text_message(body: str, recipients: list[str], logger: logging.Logger) -> list[str]:
+    sent: list[str] = []
+    for recipient in recipients:
+        errors: list[str] = []
+        for service_type in SERVICE_PRIORITY:
+            try:
+                service = send_message_via_service(body, recipient, service_type)
+                sent.append(f"{recipient}:{service}")
+                break
+            except Exception as exc:
+                errors.append(f"{service_type} {exc}")
+        else:
+            logger.warning("Could not send Facebook scraper text to %s: %s", recipient, "; ".join(errors))
+    return sent
+
+
+def get_text_recipients(args: argparse.Namespace) -> list[str]:
+    raw: list[str] = []
+    if args.text_recipient:
+        raw.extend(args.text_recipient)
+    env_value = os.environ.get("JDDM_FACEBOOK_TEXT_RECIPIENTS")
+    if env_value:
+        raw.extend(re.split(r"[,\n;|]+", env_value))
+    if not raw:
+        raw = DEFAULT_TEXT_RECIPIENTS[:]
+    return list(dict.fromkeys(normalize_phone(value) for value in raw if normalize_phone(value)))
+
+
+def format_alert_datetime(value: object) -> str:
+    text = clean(value)
+    if not text:
+        return "date TBD"
+    try:
+        parsed = datetime.fromisoformat(text)
+        date_text = parsed.strftime("%a %b %-d") if sys.platform == "darwin" else parsed.strftime("%a %b %d")
+        time_text = parsed.strftime("%-I:%M %p") if sys.platform == "darwin" else parsed.strftime("%I:%M %p").lstrip("0")
+        return f"{date_text} {time_text}"
+    except ValueError:
+        parsed_date = parse_date_from_datetime(text)
+        if parsed_date:
+            return parsed_date.strftime("%a %b %-d") if sys.platform == "darwin" else parsed_date.strftime("%a %b %d")
+    return text
+
+
+def build_facebook_text_summary(events: list[FacebookEvent], possible_new_venues: list[dict[str, object]], app_url: str = DEFAULT_APP_URL) -> str:
+    if not events:
+        return ""
+    lines = [f"Facebook future gig scan found {len(events)} event{'s' if len(events) != 1 else ''}."]
+    for event in events[:8]:
+        when = format_alert_datetime(event.start_datetime)
+        venue = clean(event.venue or event.location) or "venue TBD"
+        artist = clean(event.organizer_name or event.page_name or event.source_name) or "artist TBD"
+        lines.append(f"- {when}: {artist} at {venue}")
+    if len(events) > 8:
+        lines.append(f"...and {len(events) - 8} more.")
+    if possible_new_venues:
+        lines.append("")
+        lines.append("CRITICAL: possible new place not on the spreadsheet:")
+        for venue in possible_new_venues[:6]:
+            name = clean(venue.get("venue")) or "Unknown venue"
+            place = clean(", ".join(part for part in [clean(venue.get("address")), clean(venue.get("location"))] if part))
+            artist = clean(venue.get("artist")) or "artist TBD"
+            when = clean(venue.get("date")) or "date TBD"
+            suffix = f" - {place}" if place else ""
+            lines.append(f"- {name}{suffix}: {artist} on {when}")
+        if len(possible_new_venues) > 6:
+            lines.append(f"...and {len(possible_new_venues) - 6} more possible new places.")
+    lines.append(app_url)
+    return "\n".join(lines)
 
 
 def load_spreadsheet(path: Path) -> list[InputEntity]:
@@ -688,6 +931,9 @@ class FacebookEventsScraper:
     async def process_entity(self, entity: InputEntity) -> list[FacebookEvent]:
         page_url = normalize_facebook_url(entity.facebook_url)
         if not page_url:
+            if self.args.skip_search:
+                self.logger.info("Skipping %s because no Facebook URL is set and --skip-search is on", entity.source_name)
+                return []
             self.logger.info("Searching Facebook for %s", entity.source_name)
             page_url = await self.search_page(entity.source_name, entity.entity_type)
         if not page_url:
@@ -1224,6 +1470,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--browser-channel", default="", help="Optional Playwright browser channel, e.g. chrome")
     parser.add_argument("--cdp-url", default="", help="Attach to an already-running Chrome/Chromium remote debugging URL.")
     parser.add_argument("--print-events", action="store_true", help="Print full event records to stdout. Default only prints the run summary.")
+    parser.add_argument("--skip-search", action="store_true", help="Only scrape rows that already have a facebook_url.")
+    parser.add_argument("--text", action="store_true", help="Text Carter and Dee Dee when future Facebook events are found.")
+    parser.add_argument("--text-recipient", action="append", default=[], help="Phone number to text. Defaults to Carter and Dee Dee.")
+    parser.add_argument("--app-url", default=DEFAULT_APP_URL)
+    parser.add_argument("--spreadsheet-id", default=DEFAULT_SPREADSHEET_ID)
+    parser.add_argument("--venue-sheet", action="append", default=[], help="Known venue sheet tab to compare against. Defaults to Sheet1 and Venues.")
+    parser.add_argument("--no-new-venue-check", action="store_true", help="Do not compare Facebook event venues against the Google spreadsheet.")
     parser.add_argument("--log-level", default="INFO")
     return parser.parse_args(argv)
 
@@ -1257,9 +1510,23 @@ async def async_main(argv: list[str]) -> int:
     events = dedupe_events(events)
     save_events(args.db_path, events)
     paths = export_outputs(events, args.output_dir)
+    possible_new_venues: list[dict[str, object]] = []
+    text_sent: list[str] = []
+    if args.text and events:
+        venue_sheets = args.venue_sheet or ["Sheet1", "Venues"]
+        known_venues = [] if args.no_new_venue_check else load_known_venues(args.spreadsheet_id, venue_sheets, logger)
+        possible_new_venues = [] if args.no_new_venue_check else find_possible_new_venues(events, known_venues)
+        body = build_facebook_text_summary(events, possible_new_venues, app_url=args.app_url)
+        recipients = get_text_recipients(args)
+        if body and recipients:
+            text_sent = send_text_message(body, recipients, logger)
+            if text_sent:
+                logger.info("Texted Facebook event summary to %s", ", ".join(text_sent))
     summary = {
         "entities": len(entities),
         "events": len(events),
+        "possible_new_venue_count": len(possible_new_venues),
+        "text_sent": text_sent,
         "db_path": str(args.db_path),
         "outputs": {key: str(value) for key, value in paths.items()},
     }

@@ -163,6 +163,86 @@ class FacebookEventsScraperTest(unittest.TestCase):
         self.assertEqual(shared_count, 1)
         self.assertEqual(detail_count, 1)
 
+    def test_possible_new_venue_detection_uses_name_and_address(self):
+        event = facebook_events.FacebookEvent(
+            event_url="https://www.facebook.com/events/10",
+            event_id="10",
+            event_title="Maria Petti at New Room",
+            organizer_name="Maria Petti",
+            page_name="Maria Petti",
+            start_datetime="2026-07-10T19:00:00",
+            end_datetime="",
+            venue="New Room",
+            location="Akron",
+            address="123 Main Street, Akron, OH",
+            description="",
+            interested_count=0,
+            going_count=0,
+            ticket_url="",
+            price_info="",
+            image_urls="",
+            event_type="in-person",
+            scraped_at="2026-05-18T12:00:00",
+            source_name="Maria Petti",
+            source_url="https://www.facebook.com/mariapettimusic",
+            raw_text="",
+        )
+
+        self.assertEqual(facebook_events.find_possible_new_venues([event], []), [
+            {
+                "venue": "New Room",
+                "address": "123 Main Street, Akron, OH",
+                "location": "Akron",
+                "artist": "Maria Petti",
+                "date": "2026-07-10",
+                "title": "Maria Petti at New Room",
+                "url": "https://www.facebook.com/events/10",
+            }
+        ])
+        self.assertEqual(
+            facebook_events.find_possible_new_venues(
+                [event],
+                [{"name": "Different Name", "address": "123 Main St", "city": "Akron"}],
+            ),
+            [],
+        )
+
+    def test_facebook_text_summary_includes_critical_new_place(self):
+        event = facebook_events.FacebookEvent(
+            event_url="https://www.facebook.com/events/11",
+            event_id="11",
+            event_title="Rob Rocks at Brand New Tavern",
+            organizer_name="Rob Rocks",
+            page_name="Rob Rocks",
+            start_datetime="2026-08-01T20:00:00",
+            end_datetime="",
+            venue="Brand New Tavern",
+            location="Cleveland",
+            address="",
+            description="",
+            interested_count=0,
+            going_count=0,
+            ticket_url="",
+            price_info="",
+            image_urls="",
+            event_type="in-person",
+            scraped_at="2026-05-18T12:00:00",
+            source_name="Rob Rocks",
+            source_url="https://www.facebook.com/robrockscle",
+            raw_text="",
+        )
+
+        body = facebook_events.build_facebook_text_summary(
+            [event],
+            [{"venue": "Brand New Tavern", "location": "Cleveland", "artist": "Rob Rocks", "date": "2026-08-01"}],
+            app_url="https://example.test/app",
+        )
+
+        self.assertIn("Facebook future gig scan found 1 event.", body)
+        self.assertIn("CRITICAL: possible new place not on the spreadsheet:", body)
+        self.assertIn("Brand New Tavern", body)
+        self.assertIn("https://example.test/app", body)
+
 
 if __name__ == "__main__":
     unittest.main()
