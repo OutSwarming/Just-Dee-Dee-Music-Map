@@ -188,7 +188,10 @@ def norm(value: object) -> str:
 
 
 STREET_SUFFIX_PATTERN = r"(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|pkwy|parkway|hwy|highway|way|pl|place)"
-STREET_ADDRESS_RE = re.compile(rf"\b\d{{1,6}}\s+[a-z0-9 .'-]+?\s+{STREET_SUFFIX_PATTERN}\b", re.IGNORECASE)
+STREET_ADDRESS_RE = re.compile(
+    rf"\b\d{{1,6}}\s+[a-z0-9 .'-]+?\s+{STREET_SUFFIX_PATTERN}\.?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?\b",
+    re.IGNORECASE,
+)
 VENUE_GENERIC_WORDS_RE = re.compile(
     r"\b(?:the|of|richfield|cleveland|akron|oh|ohio|tavern|taverne|bar|pub|grill|grille|restaurant|brewery|brewing|winery|cafe|coffee|music|venue)\b",
     re.IGNORECASE,
@@ -280,6 +283,11 @@ def make_id(prefix: str, *parts: object) -> str:
 def extract_street_address(value: object) -> str:
     match = STREET_ADDRESS_RE.search(clean(value))
     return norm(match.group(0)) if match else ""
+
+
+def extract_display_street_address(value: object) -> str:
+    match = STREET_ADDRESS_RE.search(clean(value))
+    return clean(match.group(0)) if match else ""
 
 
 def row_text(row: dict[str, str], *keys: str) -> str:
@@ -385,6 +393,68 @@ class CalendarTableParser(HTMLParser):
             self.current_text.append(data)
 
 
+class GspbTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.in_text = False
+        self.depth = 0
+        self.current_text: list[str] = []
+        self.current_first_link = ""
+        self.current_first_href = ""
+        self.in_link = False
+        self.link_text: list[str] = []
+        self.blocks: list[dict[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr = dict(attrs)
+        class_name = attr.get("class") or ""
+        if tag == "div" and "gspb_text" in class_name and not self.in_text:
+            self.in_text = True
+            self.depth = 1
+            self.current_text = []
+            self.current_first_link = ""
+            self.current_first_href = ""
+            return
+        if not self.in_text:
+            return
+        if tag == "div":
+            self.depth += 1
+        if tag == "a":
+            self.in_link = True
+            self.link_text = []
+            if not self.current_first_href:
+                self.current_first_href = attr.get("href") or ""
+        if tag in {"br", "p"}:
+            self.current_text.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if not self.in_text:
+            return
+        if tag == "a":
+            if not self.current_first_link:
+                self.current_first_link = clean("".join(self.link_text))
+            self.in_link = False
+        if tag == "div":
+            self.depth -= 1
+            if self.depth <= 0:
+                text = clean("".join(self.current_text))
+                if text:
+                    self.blocks.append(
+                        {
+                            "text": text,
+                            "first_link": self.current_first_link,
+                            "first_href": self.current_first_href,
+                        }
+                    )
+                self.in_text = False
+
+    def handle_data(self, data: str) -> None:
+        if self.in_text:
+            self.current_text.append(data)
+            if self.in_link:
+                self.link_text.append(data)
+
+
 @dataclass
 class ScrapedArtistEvent:
     artist_id: str
@@ -420,9 +490,37 @@ class ArtistSiteScrape:
 
 
 def fetch_url(url: str) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=40) as response:
-        return response.read().decode("utf-8", errors="ignore")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=40) as response:
+            return response.read().decode("utf-8", errors="ignore")
+    except urllib.error.HTTPError as exc:
+        if exc.code != 406:
+            raise
+    result = subprocess.run(
+        [
+            "curl",
+            "-L",
+            "-s",
+            "-A",
+            headers["User-Agent"],
+            "-H",
+            f"Accept: {headers['Accept']}",
+            "-H",
+            f"Accept-Language: {headers['Accept-Language']}",
+            url,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    return result.stdout
 
 
 def find_bandzoogle_calendar_feature(html: str) -> str | None:
@@ -578,6 +676,187 @@ def parse_jddm_website_calendar(artist: dict[str, str], logger: logging.Logger) 
     return events
 
 
+def parse_jim_gill_date(text: str, current_year: int, last_month: int) -> tuple[str, int, int] | None:
+    match = re.match(r"^(?:[A-Za-z]+),\s+([A-Za-z]+)\s+(\d{1,2})$", clean(text))
+    if not match:
+        return None
+    month_name, day = match.groups()
+    try:
+        month_number = datetime.strptime(month_name, "%B").month
+    except ValueError:
+        return None
+    year = current_year + (1 if last_month >= 11 and month_number < last_month else 0)
+    return date(year, month_number, int(day)).isoformat(), year, month_number
+
+
+JIM_GILL_RECOVERED_PAST_EVENTS = [
+    {
+        "event_date": "2026-05-16",
+        "start_time": "6:30pm",
+        "title": "Jim Gill @ Filia Cellars Winery",
+        "venue_name": "Filia Cellars Winery",
+        "address": "3059 Greenwich Road",
+        "city": "Wadsworth",
+        "zip_code": "44281",
+        "description": (
+            "Recovered from public Google search cache after the live calendar rolled forward. "
+            "Filia Cellars Winery 3059 Greenwich Road, Wadsworth, OH 44281. 6:30pm."
+        ),
+    },
+    {
+        "event_date": "2026-05-17",
+        "start_time": "3:30pm",
+        "title": "Jim Gill @ Rocky Point Winery",
+        "venue_name": "Rocky Point Winery",
+        "address": "111 West Main Street",
+        "city": "Marblehead",
+        "zip_code": "43440",
+        "description": (
+            "Recovered from public Google search cache after the live calendar rolled forward. "
+            "Rocky Point Winery 111 West Main Street, Marblehead, OH 43440. 3:30pm."
+        ),
+    },
+]
+
+
+def parse_jim_gill_location(detail: str) -> tuple[str, str, str, str]:
+    match = re.search(
+        r"^\s*(.+?)\s+(\d{1,6}\s+.*?),\s*([^,]+?),?\s+OH\s+(\d{5})\b",
+        detail,
+        re.I,
+    )
+    if match:
+        venue_prefix, address, city, zip_code = match.groups()
+        venue = clean(re.sub(r"\s+(?:at|in)$", "", venue_prefix))
+        return venue, clean(address), clean(city), clean(zip_code)
+    city_match = re.search(r"\b([^.,]+),\s*OH\s+(\d{5})\b", detail, re.I)
+    return (
+        "",
+        "",
+        clean(city_match.group(1)) if city_match else "",
+        clean(city_match.group(2)) if city_match else "",
+    )
+
+
+def parse_jim_gill_calendar_detail(block: dict[str, str]) -> tuple[str, str, str, str, str]:
+    text = clean(block.get("text"))
+    link_name = clean(block.get("first_link"))
+    venue_from_text, address, city, zip_code = parse_jim_gill_location(text)
+    venue = link_name or venue_from_text
+    if re.search(r"\b(private event|members only|vow renewal|anniversary party)\b", text, re.I) and not link_name:
+        venue = "Private Event"
+    if not venue:
+        venue = clean(text.split(".")[0])
+    times = re.findall(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b", text, flags=re.I)
+    start_time = " & ".join(clean(match).replace(" ", "") for match in times[-2:]) if times else ""
+    return venue, address, city, zip_code, start_time
+
+
+def parse_jim_gill_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name"))
+    website = clean(artist.get("website"))
+    calendar_url = urllib.parse.urljoin(website.rstrip("/") + "/", "calendar/")
+    try:
+        html = fetch_url(calendar_url)
+    except Exception as exc:
+        logger.warning("Could not fetch Jim Gill calendar %s: %s", calendar_url, exc)
+        return []
+
+    parser = GspbTextParser()
+    parser.feed(html)
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    events: list[ScrapedArtistEvent] = []
+    year = date.today().year
+    last_month = 0
+    index = 0
+    seen: set[str] = set()
+    while index < len(parser.blocks) - 1:
+        date_block = parser.blocks[index]
+        parsed_date = parse_jim_gill_date(date_block["text"], year, last_month)
+        if not parsed_date:
+            index += 1
+            continue
+        event_date, year, last_month = parsed_date
+        detail_block = parser.blocks[index + 1]
+        if parse_jim_gill_date(detail_block["text"], year, last_month):
+            index += 1
+            continue
+        venue, address, city, zip_code, start_time = parse_jim_gill_calendar_detail(detail_block)
+        venue = clean(venue)
+        if not venue:
+            index += 2
+            continue
+        act_name = "Jim Gill & The Locomotives" if "Jim Gill & The Locomotives" in detail_block["text"] else artist_name
+        title = (
+            f"{act_name} @ {venue}"
+            if venue != "Private Event"
+            else clean(detail_block["text"].split(".")[0]) or f"{artist_name} private event"
+        )
+        description = clean(" | ".join(part for part in [detail_block["text"], address] if part))
+        dedupe = "|".join([event_date, start_time, norm(venue), norm(title)])
+        if dedupe in seen:
+            index += 2
+            continue
+        seen.add(dedupe)
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=event_date,
+                start_time=start_time,
+                end_time="",
+                title=title,
+                venue_name=venue,
+                city=city,
+                state="OH",
+                zip_code=zip_code,
+                source=artist_site_source(website),
+                source_record_id=short_hash(event_date, start_time, venue, title, length=12),
+                source_url=calendar_url,
+                description=description,
+            )
+        )
+        index += 2
+    for recovered in JIM_GILL_RECOVERED_PAST_EVENTS:
+        dedupe = "|".join([
+            recovered["event_date"],
+            recovered["start_time"],
+            norm(recovered["venue_name"]),
+            norm(recovered["title"]),
+        ])
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=recovered["event_date"],
+                start_time=recovered["start_time"],
+                end_time="",
+                title=recovered["title"],
+                venue_name=recovered["venue_name"],
+                city=recovered["city"],
+                state="OH",
+                zip_code=recovered["zip_code"],
+                source=artist_site_source(website),
+                source_record_id=short_hash(
+                    recovered["event_date"],
+                    recovered["start_time"],
+                    recovered["venue_name"],
+                    recovered["title"],
+                    length=12,
+                ),
+                source_url=calendar_url,
+                description=recovered["description"],
+            )
+        )
+    return events
+
+
 def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging.Logger) -> ArtistSiteScrape:
     events: list[ScrapedArtistEvent] = []
     checked_artist_ids: set[str] = set()
@@ -590,6 +869,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
         scraped: list[ScrapedArtistEvent]
         if "justdeedeemusic.com" in website.lower():
             scraped = parse_jddm_website_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "jimgillmusic.com" in website.lower():
+            scraped = parse_jim_gill_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
@@ -826,7 +1109,7 @@ def add_missing_venue(venues_by_id: dict[str, dict[str, str]], event: ScrapedArt
         venues_by_id[venue_id] = {
             "venue_id": venue_id,
             "place_name": event.venue_name,
-            "address": "",
+            "address": extract_display_street_address(event.description),
             "city": event.city,
             "zip": event.zip_code,
             "state": event.state,

@@ -1,4 +1,5 @@
 import importlib.util
+import logging
 import sys
 import unittest
 from pathlib import Path
@@ -151,6 +152,60 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("Furious George Hartwig", body)
         self.assertIn("May", body)
         self.assertIn("https://example.test/app/", body)
+
+    def test_jim_gill_calendar_detail_parser_extracts_public_venue(self):
+        venue, address, city, zip_code, start_time = artist_gig_tracker.parse_jim_gill_calendar_detail({
+            "text": "Mastropietro Winery 14558 Ellsworth Road, Berlin Center OH 44401. Fine wines and a patio! 6pm.",
+            "first_link": "Mastropietro Winery",
+            "first_href": "https://mastropietrowinery.com/",
+        })
+
+        self.assertEqual(venue, "Mastropietro Winery")
+        self.assertEqual(address, "14558 Ellsworth Road")
+        self.assertEqual(city, "Berlin Center")
+        self.assertEqual(zip_code, "44401")
+        self.assertEqual(start_time, "6pm")
+
+    def test_jim_gill_calendar_detail_parser_handles_private_event_address(self):
+        venue, address, city, zip_code, start_time = artist_gig_tracker.parse_jim_gill_calendar_detail({
+            "text": "Piercefest 2026! 835 S. Munroe Rd., Tallmadge, OH 44278. Annual open mic. 6pm.",
+            "first_link": "",
+            "first_href": "",
+        })
+
+        self.assertEqual(venue, "Piercefest 2026!")
+        self.assertEqual(address, "835 S. Munroe Rd.")
+        self.assertEqual(city, "Tallmadge")
+        self.assertEqual(zip_code, "44278")
+        self.assertEqual(start_time, "6pm")
+
+    def test_jim_gill_date_parser_rolls_into_next_year(self):
+        event_date, year, month = artist_gig_tracker.parse_jim_gill_date("Friday, January 1", 2026, 12)
+
+        self.assertEqual(event_date, "2027-01-01")
+        self.assertEqual(year, 2027)
+        self.assertEqual(month, 1)
+
+    def test_jim_gill_recovered_past_events_are_included(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        fixture_html = (
+            "<div class='gspb_text'>Saturday, May 23</div>"
+            "<div class='gspb_text'>Mastropietro Winery 14558 Ellsworth Road, Berlin Center OH 44401. 6pm.</div>"
+        )
+        artist_gig_tracker.fetch_url = lambda _url: fixture_html
+        try:
+            events = artist_gig_tracker.parse_jim_gill_calendar({
+                "artist_id": "artist-jim-gill-584b9708",
+                "canonical_name": "Jim Gill",
+                "artist_type": "solo",
+                "website": "https://www.jimgillmusic.com/",
+            }, logging.getLogger("test"))
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+        titles = {event.title for event in events}
+
+        self.assertIn("Jim Gill @ Filia Cellars Winery", titles)
+        self.assertIn("Jim Gill @ Rocky Point Winery", titles)
 
 
 if __name__ == "__main__":
