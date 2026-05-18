@@ -178,6 +178,65 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(row["address"], "11111 Euclid Ave")
         self.assertEqual(row["website"], "https://thejollyscholar.com/")
 
+    def test_brent_kirby_known_new_venue_gets_bop_stop_details(self):
+        row = {
+            "venue_id": "venue-the-bop-stop-2f6fbf90",
+            "place_name": "The Bop Stop",
+            "address": "",
+            "city": "Cleveland",
+            "zip": "44113",
+            "source": "artist_site_sync",
+            "notes": "",
+        }
+
+        artist_gig_tracker.enrich_known_new_venue(row)
+
+        self.assertEqual(row["place_name"], "BOP STOP at The Music Settlement")
+        self.assertEqual(row["address"], "2920 Detroit Ave")
+        self.assertEqual(row["website"], "https://www.themusicsettlement.org/bop-stop/")
+
+    def test_city_specific_alias_prevents_leos_cuyahoga_duplicate(self):
+        venues = [
+            {
+                "venue_id": "leo-s-italian-social-burntwood-holdings-2251-front-st-cuyahoga-falls-oh-44221",
+                "place_name": "Leo's Italian Social (Burntwood Holdings) 2251 Front St",
+                "city": "OH 44221",
+                "zip": "",
+            }
+        ]
+        event = self.make_event(
+            venue_name="Leo's Italian Social",
+            city="Cuyahoga Falls",
+            zip_code="44221",
+            title="Brent Kirby @ Leo's Italian Social",
+        )
+
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, event),
+            "leo-s-italian-social-burntwood-holdings-2251-front-st-cuyahoga-falls-oh-44221",
+        )
+
+    def test_city_specific_alias_prevents_peninsula_wine_cellar_duplicate(self):
+        venues = [
+            {
+                "venue_id": "peninsula-coffee-house-and-market-peninsula-oh-44264",
+                "place_name": "Peninsula Coffee House and Market",
+                "address": "1653 Main St",
+                "city": "Peninsula",
+                "zip": "44264",
+            }
+        ]
+        event = self.make_event(
+            venue_name="Peninsula Wine Cellar",
+            city="Peninsula",
+            title="Brent Kirby @ Peninsula Wine Cellar",
+        )
+
+        self.assertEqual(
+            artist_gig_tracker.match_venue_id(venues, event),
+            "peninsula-coffee-house-and-market-peninsula-oh-44264",
+        )
+
     def test_mother_road_notes_do_not_parse_as_street_address(self):
         self.assertEqual(
             artist_gig_tracker.extract_display_street_address(
@@ -324,6 +383,16 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(cards[0]["address"], "5550 Great Northern Blvd")
         self.assertEqual(cards[0]["city"], "North Olmsted")
         self.assertEqual(cards[0]["zip_code"], "44070")
+
+    def test_bandzoogle_table_location_parser_accepts_ohio_and_city_zip(self):
+        self.assertEqual(
+            artist_gig_tracker.parse_bandzoogle_location("GAR Hall, Peninsula, Ohio"),
+            ("GAR Hall", "", "Peninsula", ""),
+        )
+        self.assertEqual(
+            artist_gig_tracker.parse_bandzoogle_location("Regency Wine Sellers, Fairlawn 44333"),
+            ("Regency Wine Sellers", "", "Fairlawn", "44333"),
+        )
 
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([

@@ -222,6 +222,7 @@ KNOWN_VENUE_ALIASES = {
     "caddyshack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "caddy shack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "collision bend": "collision-bend-brewing-1261-babbitt-road-oh",
+    "collision bend in east bank flat": "collision-bend-brewing-company-1250-old-river-road-cleveland-oh-44113",
     "crafted artisan meadery": "crafted-artisan-meadery-mogadore-oh-44260",
     "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
     "dean martin lanning restaurant": "dean-martin-s-lanning-s-restaurant-akron-oh-44333",
@@ -266,6 +267,12 @@ KNOWN_VENUE_ALIASES = {
     "wolf creek tavern": "wolf-creek-tavern-norton-oh-44203",
     "wolfcreek tavern": "wolf-creek-tavern-norton-oh-44203",
     "wine room": "the-wine-room-avon-avon-oh-44011",
+}
+KNOWN_VENUE_CITY_ALIASES = {
+    ("leo italian social", "cuyahoga falls"): "leo-s-italian-social-burntwood-holdings-2251-front-st-cuyahoga-falls-oh-44221",
+    ("leo italian social", "westlake"): "leo-s-italian-social-burntwood-holdings-200-crocker-park-blvd-westlake-oh-44145",
+    ("peninsula wine cellar", "peninsula"): "peninsula-coffee-house-and-market-peninsula-oh-44264",
+    ("visible voice", "cleveland"): "venue-visible-voice-books-23046200",
 }
 KNOWN_NEW_VENUE_DETAILS = {
     "berea fairground": {
@@ -397,6 +404,24 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "216-383-1124",
         "website": "https://www.beachlandballroom.com/",
     },
+    "bop stop": {
+        "place_name": "BOP STOP at The Music Settlement",
+        "address": "2920 Detroit Ave",
+        "city": "Cleveland",
+        "zip": "44113",
+        "venue_type": "Live Music Venue",
+        "phone_number": "216-771-6551",
+        "website": "https://www.themusicsettlement.org/bop-stop/",
+    },
+    "chagrin lagoons yacht club": {
+        "place_name": "Chagrin Lagoons Yacht Club",
+        "address": "35111 Halsey Dr",
+        "city": "Eastlake",
+        "zip": "44095",
+        "venue_type": "Yacht Club",
+        "phone_number": "440-942-0299",
+        "website": "https://www.clycohio.com/",
+    },
     "federated church family life center": {
         "place_name": "Federated Church Family Life Center",
         "address": "76 Bell St",
@@ -405,6 +430,22 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "440-247-6490",
         "website": "https://fedchurch.org/pas/",
+    },
+    "gar hall": {
+        "place_name": "G.A.R. Hall",
+        "address": "1785 Main St",
+        "city": "Peninsula",
+        "zip": "44264",
+        "venue_type": "Event Venue",
+    },
+    "hester holbrook hollows": {
+        "place_name": "Hester Holbrook Hollows",
+        "address": "7250 Country Ln",
+        "city": "Chagrin Falls",
+        "zip": "44023",
+        "venue_type": "Park/Event Venue",
+        "phone_number": "440-286-9516",
+        "website": "https://www.geaugaparkdistrict.org/park/holbrook-hollows/",
     },
     "kent blues fest": {
         "place_name": "Kent Blues Fest",
@@ -421,6 +462,24 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Live Music Venue",
         "phone_number": "216-242-1250",
         "website": "https://musicboxcle.com/",
+    },
+    "peninsula wine cellar": {
+        "place_name": "Peninsula Wine Cellar",
+        "address": "1653 Main St",
+        "city": "Peninsula",
+        "zip": "44264",
+        "venue_type": "Wine Bar",
+        "phone_number": "330-242-2661",
+        "website": "https://peninsulacoffeehouse.com/wine-cellar/",
+    },
+    "regency wine seller": {
+        "place_name": "Regency Wine Sellers",
+        "address": "115 Ghent Rd",
+        "city": "Fairlawn",
+        "zip": "44333",
+        "venue_type": "Wine Bar",
+        "phone_number": "330-836-3447",
+        "website": "https://www.regencywinesellers.com/",
     },
     "visible voice books": {
         "place_name": "Visible Voice Books",
@@ -770,6 +829,15 @@ def parse_bandzoogle_card_date(text: str, default_year: int, past_page: bool, la
     return date(year, month_number, int(day)).isoformat(), month_number
 
 
+def parse_bandzoogle_city_zip(value: str) -> tuple[str, str]:
+    text = clean(value)
+    zip_match = re.search(r"\b(\d{5})\b", text)
+    zip_code = zip_match.group(1) if zip_match else ""
+    city = re.sub(r"\b(?:OH|Ohio)\b", " ", text, flags=re.IGNORECASE)
+    city = re.sub(r"\b\d{5}\b", " ", city)
+    return clean(city.strip(" ,")), zip_code
+
+
 def parse_bandzoogle_location(location_text: str) -> tuple[str, str, str, str]:
     parts = [clean(part) for part in location_text.split(",") if clean(part)]
     if not parts:
@@ -787,10 +855,11 @@ def parse_bandzoogle_location(location_text: str) -> tuple[str, str, str, str]:
         state_zip = parts[-1]
     elif len(parts) == 2:
         state_zip = parts[-1]
+        city, zip_code = parse_bandzoogle_city_zip(state_zip)
     else:
         state_zip = ""
-    zip_match = re.search(r"\b(\d{5})\b", state_zip)
-    zip_code = zip_match.group(1) if zip_match else ""
+    if not zip_code:
+        _, zip_code = parse_bandzoogle_city_zip(state_zip)
     return venue, address, city, zip_code
 
 
@@ -918,13 +987,7 @@ def parse_bandzoogle_calendar(artist: dict[str, str], logger: logging.Logger) ->
         if not parsed:
             continue
         event_date, start_time, end_time = parsed
-        venue = clean(location_text.split(",")[0])
-        city = ""
-        zip_code = ""
-        city_match = re.search(r",\s*([^,]+),\s*OH\s*(\d{5})?", location_text)
-        if city_match:
-            city = clean(city_match.group(1))
-            zip_code = clean(city_match.group(2))
+        venue, _address, city, zip_code = parse_bandzoogle_location(location_text)
         title = f"{artist_name} @ {venue}" if venue else clean(title_text)
         events.append(
             ScrapedArtistEvent(
@@ -2273,6 +2336,12 @@ def rows_have_place_overlap(left: dict[str, str], right: dict[str, str]) -> bool
 
 
 def find_master_venue_alias(row: dict[str, str], masters_by_id: dict[str, dict[str, str]]) -> str:
+    city_alias_id = KNOWN_VENUE_CITY_ALIASES.get(
+        (canonical_venue_name(row.get("place_name")), norm(row.get("city") or row.get("City")))
+    )
+    if city_alias_id and city_alias_id in masters_by_id:
+        return city_alias_id
+
     alias_id = KNOWN_VENUE_ALIASES.get(canonical_venue_name(row.get("place_name")))
     if alias_id and alias_id in masters_by_id:
         return alias_id
@@ -2375,6 +2444,9 @@ def dedupe_venues_by_identity(venues_by_id: dict[str, dict[str, str]]) -> tuple[
 def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> str:
     if not should_materialize_venue(event):
         return ""
+    city_alias_id = KNOWN_VENUE_CITY_ALIASES.get((canonical_venue_name(event.venue_name), norm(event.city)))
+    if city_alias_id and any(clean(row.get("venue_id") or row.get("Place ID")) == city_alias_id for row in venues):
+        return city_alias_id
     alias_id = KNOWN_VENUE_ALIASES.get(canonical_venue_name(event.venue_name))
     if alias_id and any(clean(row.get("venue_id") or row.get("Place ID")) == alias_id for row in venues):
         return alias_id
