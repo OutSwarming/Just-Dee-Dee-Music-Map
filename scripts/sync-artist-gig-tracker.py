@@ -183,6 +183,14 @@ def norm(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", " ", clean(value).lower()).strip()
 
 
+STREET_SUFFIX_PATTERN = r"(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|pkwy|parkway|hwy|highway|way|pl|place)"
+STREET_ADDRESS_RE = re.compile(rf"\b\d{{1,6}}\s+[a-z0-9 .'-]+?\s+{STREET_SUFFIX_PATTERN}\b", re.IGNORECASE)
+VENUE_GENERIC_WORDS_RE = re.compile(
+    r"\b(?:the|of|richfield|cleveland|akron|oh|ohio|tavern|taverne|bar|pub|grill|grille|restaurant|brewery|brewing|winery|cafe|coffee|music|venue)\b",
+    re.IGNORECASE,
+)
+
+
 def slug(value: object, fallback: str) -> str:
     result = re.sub(r"[^a-z0-9]+", "-", clean(value).lower()).strip("-")
     return result or fallback
@@ -195,6 +203,37 @@ def short_hash(*parts: object, length: int = 8) -> str:
 def make_id(prefix: str, *parts: object) -> str:
     readable = slug(parts[0] if parts else "", prefix)[:44].rstrip("-") or prefix
     return f"{prefix}-{readable}-{short_hash(*parts)}"
+
+
+def extract_street_address(value: object) -> str:
+    match = STREET_ADDRESS_RE.search(clean(value))
+    return norm(match.group(0)) if match else ""
+
+
+def row_text(row: dict[str, str], *keys: str) -> str:
+    return " ".join(clean(row.get(key)) for key in keys if clean(row.get(key)))
+
+
+def venue_city_tokens(*parts: object) -> set[str]:
+    tokens = set(norm(" ".join(clean(part) for part in parts)).split())
+    return {token for token in tokens if token and token not in {"oh", "ohio"} and not token.isdigit()}
+
+
+def venue_zip_tokens(*parts: object) -> set[str]:
+    return set(re.findall(r"\b\d{5}\b", " ".join(clean(part) for part in parts)))
+
+
+def canonical_venue_name(value: object) -> str:
+    text = clean(value).replace("’", "'").lower()
+    text = re.sub(r"\b(\w+)'s\b", r"\1", text)
+    text = STREET_ADDRESS_RE.sub(" ", text)
+    text = VENUE_GENERIC_WORDS_RE.sub(" ", text)
+    tokens = []
+    for token in norm(text).split():
+        if len(token) > 4 and token.endswith("s"):
+            token = token[:-1]
+        tokens.append(token)
+    return " ".join(tokens)
 
 
 def parse_iso(value: object) -> date | None:
@@ -488,6 +527,87 @@ def row_by_key(rows: Iterable[dict[str, str]], key: str) -> dict[str, dict[str, 
     return {clean(row.get(key)): row for row in rows if clean(row.get(key))}
 
 
+def venue_address_fingerprint(row: dict[str, str] | ScrapedArtistEvent) -> str:
+    if isinstance(row, ScrapedArtistEvent):
+        street = extract_street_address(row.description)
+        zips = venue_zip_tokens(row.zip_code, row.description)
+        city_tokens = venue_city_tokens(row.city, row.description)
+    else:
+        combined = row_text(row, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip", "notes")
+        street = extract_street_address(combined)
+        zips = venue_zip_tokens(combined)
+        city_tokens = venue_city_tokens(row.get("city"), row.get("City"), combined)
+    if not street:
+        return ""
+    place = next(iter(sorted(zips or city_tokens)), "")
+    return f"{street}|{place}"
+
+
+def likely_same_venue(row: dict[str, str], event: ScrapedArtistEvent) -> bool:
+    row_name = clean(row.get("place_name") or row.get("Place Name"))
+    row_city_values = [row.get("city"), row.get("City"), row.get("address"), row.get("Address"), row.get("zip"), row.get("Zip")]
+    row_canonical = canonical_venue_name(row_name)
+    event_canonical = canonical_venue_name(event.venue_name)
+    if not row_canonical or not event_canonical:
+        return False
+    name_match = row_canonical == event_canonical or row_canonical in event_canonical or event_canonical in row_canonical
+    if not name_match:
+        return False
+    city_overlap = bool(venue_city_tokens(event.city, event.description) & venue_city_tokens(*row_city_values, row_name))
+    zip_overlap = bool(venue_zip_tokens(event.zip_code, event.description) & venue_zip_tokens(*row_city_values, row_name))
+    return city_overlap or zip_overlap
+
+
+def venue_row_identity(row: dict[str, str]) -> tuple[str, str]:
+    name = canonical_venue_name(row.get("place_name") or row.get("Place Name"))
+    combined = row_text(row, "place_name", "Place Name", "address", "Address", "city", "City", "zip", "Zip")
+    zips = sorted(venue_zip_tokens(combined))
+    cities = sorted(venue_city_tokens(row.get("city"), row.get("City"), row.get("address"), row.get("Address")))
+    place = zips[0] if zips else (cities[0] if cities else "")
+    return name, place
+
+
+def venue_row_score(row: dict[str, str]) -> int:
+    source = clean(row.get("source")).lower()
+    score = 0
+    if source and source not in {"artist_site_sync", "furious_george_website"}:
+        score += 100
+    if clean(row.get("source_place_id")):
+        score += 40
+    if extract_street_address(row_text(row, "place_name", "address", "notes")):
+        score += 20
+    if clean(row.get("longitude")) and clean(row.get("latitude")):
+        score += 20
+    for key in ["email_contact", "phone_number", "contact_name", "website"]:
+        if clean(row.get(key)):
+            score += 5
+    return score
+
+
+def dedupe_venues_by_identity(venues_by_id: dict[str, dict[str, str]]) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
+    groups: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in venues_by_id.values():
+        identity = venue_row_identity(row)
+        if len(identity[0]) < 3 or not identity[1]:
+            continue
+        groups.setdefault(identity, []).append(row)
+
+    aliases: dict[str, str] = {}
+    for rows in groups.values():
+        if len(rows) < 2:
+            continue
+        primary = max(rows, key=venue_row_score)
+        primary_id = clean(primary.get("venue_id"))
+        for row in rows:
+            venue_id = clean(row.get("venue_id"))
+            if venue_id and venue_id != primary_id:
+                aliases[venue_id] = primary_id
+
+    for alias_id in aliases:
+        venues_by_id.pop(alias_id, None)
+    return venues_by_id, aliases
+
+
 def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> str:
     by_name = {norm(row.get("place_name") or row.get("Place Name")): clean(row.get("venue_id") or row.get("Place ID")) for row in venues}
     candidates = [
@@ -498,10 +618,18 @@ def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> s
     for candidate in candidates:
         if candidate in by_name:
             return by_name[candidate]
+    event_address = venue_address_fingerprint(event)
+    if event_address:
+        for row in venues:
+            if venue_address_fingerprint(row) == event_address:
+                return clean(row.get("venue_id") or row.get("Place ID"))
     for row in venues:
         name = norm(row.get("place_name") or row.get("Place Name"))
         city = norm(row.get("city") or row.get("City"))
         if name and (name in norm(event.venue_name) or norm(event.venue_name) in name) and (not city or city == norm(event.city)):
+            return clean(row.get("venue_id") or row.get("Place ID"))
+    for row in venues:
+        if likely_same_venue(row, event):
             return clean(row.get("venue_id") or row.get("Place ID"))
     return ""
 
@@ -572,11 +700,20 @@ def merge_tracker(
 ) -> dict[str, list[dict[str, str]] | dict[str, int]]:
     today = date.today()
     venues_by_id = row_by_key(venues, "venue_id")
+    venues_by_id, venue_aliases = dedupe_venues_by_identity(venues_by_id)
     artists_by_id = row_by_key(artists, "artist_id")
     events_by_id = row_by_key(events, "event_id")
+    for row in events_by_id.values():
+        venue_id = clean(row.get("venue_id"))
+        if venue_id in venue_aliases:
+            row["venue_id"] = venue_aliases[venue_id]
     event_artists_by_id = row_by_key(event_artists, "event_artist_id")
     history_by_key = {
-        f"{clean(row.get('venue_id'))}|{clean(row.get('artist_id'))}": row
+        f"{venue_aliases.get(clean(row.get('venue_id')), clean(row.get('venue_id')))}|{clean(row.get('artist_id'))}": {
+            **row,
+            "venue_id": venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id"))),
+            "venue_name": clean(venues_by_id.get(venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id"))), {}).get("place_name")) or clean(row.get("venue_name")),
+        }
         for row in history
         if clean(row.get("venue_id")) and clean(row.get("artist_id"))
     }
@@ -709,6 +846,19 @@ def merge_tracker(
                 canceled += 1
             row["notes"] = clean(" | ".join(x for x in [row.get("notes"), note] if clean(x)))
             row["scraped_at"] = now_iso()
+
+    for review_id, review in list(reviews_by_id.items()):
+        if clean(review.get("review_type")) != "venue_match":
+            continue
+        event = events_by_id.get(clean(review.get("related_id")))
+        if not event:
+            continue
+        venue = venues_by_id.get(clean(event.get("venue_id")))
+        if not venue:
+            continue
+        venue_source = clean(venue.get("source")).lower()
+        if venue_source not in {"artist_site_sync", "furious_george_website"}:
+            del reviews_by_id[review_id]
 
     return {
         "Venues": sorted(venues_by_id.values(), key=lambda row: clean(row.get("place_name")).lower()),
