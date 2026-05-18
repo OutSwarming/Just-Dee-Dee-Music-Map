@@ -76,7 +76,7 @@ DEFAULT_OUTPUT_DIR = DEFAULT_EXPORT_DIR / "facebook_events"
 LOG_PATH = Path.home() / "Library" / "Logs" / "facebook-events-scraper.log"
 
 FACEBOOK_HOST_RE = re.compile(r"(^|\.)facebook\.com$", re.I)
-EVENT_URL_RE = re.compile(r"facebook\.com/(?:events|.+?/events)/([^/?#]+)", re.I)
+EVENT_URL_RE = re.compile(r"facebook\.com/(?:events|.+?/events)/(\d+)", re.I)
 ADDRESS_RE = re.compile(
     r"\b\d{1,6}\s+[A-Z][A-Za-z0-9 .'-]+?\s+"
     r"(?:St|Street|Rd|Road|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Way|Pkwy|Parkway)\b[^,\n]*",
@@ -230,8 +230,10 @@ def event_id_from_url(url: str, fallback: str = "") -> str:
     query = parse_qs(urlparse(url).query)
     for key in ("id", "event_id"):
         if query.get(key):
-            return clean(query[key][0])
-    return stable_hash(url, fallback, length=18)
+            value = clean(query[key][0])
+            if re.fullmatch(r"\d{5,}", value):
+                return value
+    return ""
 
 
 def normalize_facebook_url(url: str) -> str:
@@ -565,7 +567,7 @@ async def click_text_if_visible(page_or_locator: Page | Locator, patterns: list[
     for pattern in patterns:
         try:
             locator = page_or_locator.get_by_text(re.compile(pattern, re.I)).first
-            if await locator.count():
+            if await asyncio.wait_for(locator.count(), timeout=max(1.0, timeout_ms / 1000)):
                 await locator.click(timeout=timeout_ms)
                 await random_delay(0.4, 1.2)
                 return True
@@ -598,6 +600,7 @@ async def click_load_more(page: Page) -> bool:
 async def robust_goto(page: Page, url: str, timeout_ms: int, logger: logging.Logger, retries: int = 2) -> bool:
     for attempt in range(retries + 1):
         try:
+            logger.debug("Navigating to %s", url)
             await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             await random_delay(1.0, 2.6)
             return True
@@ -617,12 +620,33 @@ class FacebookEventsScraper:
         if async_playwright is None:
             raise RuntimeError("Playwright is not installed. Run: python3 -m pip install -r requirements-scraper.txt && python3 -m playwright install chromium")
         all_events: list[FacebookEvent] = []
+        self.logger.info("Starting Facebook Events browser session for %d entities", len(entities))
         async with async_playwright() as playwright:
+            if self.args.cdp_url:
+                self.logger.info("Connecting to existing browser over CDP: %s", self.args.cdp_url)
+                browser = await playwright.chromium.connect_over_cdp(self.args.cdp_url)
+                context = browser.contexts[0] if browser.contexts else await browser.new_context()
+                self.page = await context.new_page()
+                for entity in entities:
+                    self.logger.info("Processing %s", entity.source_name)
+                    try:
+                        entity_events = await self.process_entity(entity)
+                        self.logger.info("Processing %s - %d events found", entity.source_name, len(entity_events))
+                        self.save_incremental(entity_events)
+                        all_events.extend(entity_events)
+                    except Exception as exc:
+                        self.logger.exception("Skipping failed entity %s row %s: %s", entity.source_name, entity.row_number, exc)
+                    await random_delay(2.0, 6.0)
+                await self.page.close()
+                await browser.close()
+                return all_events
+
             launch_options: dict[str, Any] = {"headless": self.args.headless, "slow_mo": self.args.slow_mo}
             if self.args.browser_channel:
                 launch_options["channel"] = self.args.browser_channel
             if self.args.proxy_server:
                 launch_options["proxy"] = {"server": self.args.proxy_server}
+            self.logger.info("Launching Playwright browser headless=%s", self.args.headless)
             browser = await playwright.chromium.launch(**launch_options)
             context_options: dict[str, Any] = {
                 "locale": "en-US",
@@ -639,9 +663,11 @@ class FacebookEventsScraper:
             context = await browser.new_context(**context_options)
             self.page = await context.new_page()
             for entity in entities:
+                self.logger.info("Processing %s", entity.source_name)
                 try:
                     entity_events = await self.process_entity(entity)
                     self.logger.info("Processing %s - %d events found", entity.source_name, len(entity_events))
+                    self.save_incremental(entity_events)
                     all_events.extend(entity_events)
                 except Exception as exc:
                     self.logger.exception("Skipping failed entity %s row %s: %s", entity.source_name, entity.row_number, exc)
@@ -650,13 +676,24 @@ class FacebookEventsScraper:
             await browser.close()
         return all_events
 
+    def save_incremental(self, events: list[FacebookEvent]) -> None:
+        if not events:
+            return
+        try:
+            save_events(Path(self.args.db_path), events)
+            self.logger.info("Incrementally saved %d events to %s", len(events), self.args.db_path)
+        except Exception as exc:
+            self.logger.warning("Could not incrementally save Facebook events: %s", exc)
+
     async def process_entity(self, entity: InputEntity) -> list[FacebookEvent]:
         page_url = normalize_facebook_url(entity.facebook_url)
         if not page_url:
+            self.logger.info("Searching Facebook for %s", entity.source_name)
             page_url = await self.search_page(entity.source_name, entity.entity_type)
         if not page_url:
             self.logger.warning("No Facebook page/profile found for %s", entity.source_name)
             return []
+        self.logger.info("Using Facebook source for %s: %s", entity.source_name, page_url)
         events = await self.scrape_events_for_page(page_url, entity.source_name)
         return [event for event in events if is_event_in_mode(event, self.args.mode)]
 
@@ -691,20 +728,36 @@ class FacebookEventsScraper:
                 name,
             )
             for item in links:
-                href = normalize_facebook_url(clean(item.get("href")).split("?")[0])
-                if href and FACEBOOK_HOST_RE.search(urlparse(href).netloc):
+                href = normalize_facebook_url(clean(item.get("href"))).split("#")[0]
+                if urlparse(href).path != "/profile.php":
+                    href = href.split("?")[0]
+                parsed = urlparse(href)
+                path = parsed.path.strip("/")
+                score = int(item.get("score") or 0)
+                is_valid_profile = path != "profile.php" or bool(parse_qs(parsed.query).get("id"))
+                if (
+                    href
+                    and FACEBOOK_HOST_RE.search(parsed.netloc)
+                    and path
+                    and path not in {"events", "friends", "groups", "pages", "watch", "marketplace"}
+                    and is_valid_profile
+                    and score > 0
+                ):
                     return href
         return ""
 
     async def scrape_events_for_page(self, page_url: str, source_name: str) -> list[FacebookEvent]:
         if self.page is None:
             return []
+        self.logger.info("Opening Events for %s", source_name)
         if EVENT_URL_RE.search(page_url):
+            self.logger.debug("Source is already an event URL: %s", page_url)
             event = await self.scrape_event_detail(page_url, source_name, page_url)
             return [event] if event else []
         candidate_urls = self.events_tab_urls(page_url)
         event_links: dict[str, str] = {}
-        for url in candidate_urls:
+        for index, url in enumerate(candidate_urls, start=1):
+            self.logger.info("Checking events tab %d/%d for %s: %s", index, len(candidate_urls), source_name, url)
             ok = await robust_goto(self.page, url, self.args.timeout_ms, self.logger)
             if not ok:
                 continue
@@ -713,20 +766,33 @@ class FacebookEventsScraper:
                 continue
             await self.try_events_tabs()
             mode_scrolls = self.args.max_scrolls if self.args.mode == "all" else max(3, self.args.max_scrolls // 2)
-            for _ in range(mode_scrolls):
+            for scroll_index in range(mode_scrolls):
                 await expand_visible_text(self.page)
                 await slow_mouse_wiggle(self.page)
                 links = await self.collect_event_links(source_name)
+                before_count = len(event_links)
                 event_links.update(links)
+                self.logger.debug(
+                    "%s scroll %d/%d found %d visible event links (%d total)",
+                    source_name,
+                    scroll_index + 1,
+                    mode_scrolls,
+                    len(links),
+                    len(event_links),
+                )
                 clicked = await click_load_more(self.page)
                 await self.page.mouse.wheel(0, random.randint(1000, 1800))
                 await random_delay(1.0, 3.2)
-                if not clicked and len(event_links) >= self.args.max_events_per_entity:
+                if not clicked and len(event_links) == before_count:
+                    break
+                if len(event_links) >= self.args.max_events_per_entity:
                     break
             if len(event_links) >= self.args.max_events_per_entity:
                 break
+        self.logger.info("Collected %d event links for %s", len(event_links), source_name)
         events: list[FacebookEvent] = []
-        for event_url in list(event_links.keys())[: self.args.max_events_per_entity]:
+        for event_index, event_url in enumerate(list(event_links.keys())[: self.args.max_events_per_entity], start=1):
+            self.logger.info("Scraping event %d/%d for %s: %s", event_index, min(len(event_links), self.args.max_events_per_entity), source_name, event_url)
             event = await self.scrape_event_detail(event_url, source_name, page_url)
             if event and is_event_in_mode(event, self.args.mode):
                 events.append(event)
@@ -759,7 +825,7 @@ class FacebookEventsScraper:
         for label in labels:
             try:
                 locator = self.page.get_by_role("tab", name=re.compile(label, re.I)).first
-                if await locator.count():
+                if await asyncio.wait_for(locator.count(), timeout=1.5):
                     await locator.click(timeout=1200)
                     await random_delay(1.0, 2.0)
             except Exception:
@@ -811,7 +877,7 @@ class FacebookEventsScraper:
     async def extract_event_page_data(self) -> dict[str, Any]:
         if self.page is None:
             return {}
-        return await self.page.evaluate(
+        return await asyncio.wait_for(self.page.evaluate(
             """
             () => {
                 const clean = value => (value || '').replace(/\\s+/g, ' ').trim();
@@ -833,7 +899,7 @@ class FacebookEventsScraper:
                 const images = Array.from(document.querySelectorAll('img'))
                     .map(img => img.currentSrc || img.src || '')
                     .filter(src => /^https?:/.test(src));
-                const bodyText = document.body ? (document.body.innerText || '') : '';
+                const bodyText = document.body ? (document.body.innerText || '').slice(0, 50000) : '';
                 const jsonld = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
                     .map(script => script.textContent || '');
                 return {
@@ -850,29 +916,47 @@ class FacebookEventsScraper:
                 };
             }
             """
-        )
+        ), timeout=max(10, self.args.timeout_ms / 1000))
 
     async def is_login_wall(self) -> bool:
         if self.page is None:
             return False
-        text = clean(await self.page.evaluate("document.body ? document.body.innerText : ''")).lower()
+        try:
+            text = clean(
+                await asyncio.wait_for(
+                    self.page.evaluate(
+                        """
+                        () => {
+                            const body = document.body;
+                            if (!body) return '';
+                            return (body.innerText || body.textContent || '').slice(0, 12000);
+                        }
+                        """
+                    ),
+                    timeout=8,
+                )
+            ).lower()
+        except Exception:
+            return False
         return "log into facebook" in text or "you must log in" in text or "create new account" in text
 
 
 def build_event_from_page_data(raw: dict[str, Any], event_url: str, source_name: str, source_url: str) -> FacebookEvent:
     jsonld = parse_jsonld(raw.get("jsonld") or [])
-    title = clean(raw.get("title")) or clean(raw.get("metaTitle")) or "Facebook Event"
-    title = re.sub(r"\s*\|\s*Facebook\s*$", "", title, flags=re.I)
     body_text = clean(raw.get("bodyText"))
+    header_text = isolate_event_header_text(body_text)
+    detail_text = isolate_event_detail_text(body_text)
     meta_description = clean(raw.get("metaDescription"))
-    description = choose_description(body_text, meta_description)
-    start_datetime, end_datetime = pick_datetimes(jsonld, body_text, meta_description)
-    venue, location, address = pick_location(jsonld, body_text)
-    organizer = pick_organizer(jsonld, raw.get("pageLinks") or [], source_name)
-    interested_count, going_count = extract_counts(body_text)
-    ticket_url, price_info = pick_ticket(raw.get("ticketLinks") or [], body_text, jsonld)
+    title = pick_event_title(clean(raw.get("title")) or clean(raw.get("metaTitle")), header_text, source_name)
+    description = choose_description(detail_text or header_text or body_text, meta_description)
+    focused_text = clean(" ".join(part for part in [header_text, detail_text] if part)) or body_text
+    start_datetime, end_datetime = pick_datetimes(jsonld, header_text or focused_text, meta_description)
+    venue, location, address = pick_location(jsonld, focused_text)
+    organizer = pick_organizer(jsonld, raw.get("pageLinks") or [], source_name, focused_text)
+    interested_count, going_count = extract_counts(focused_text)
+    ticket_url, price_info = pick_ticket(raw.get("ticketLinks") or [], focused_text, jsonld)
     image_urls = " | ".join(list(dict.fromkeys(clean(url) for url in raw.get("imageUrls") or [] if clean(url).startswith("http")))[:12])
-    event_type = "online" if re.search(r"\bonline event\b|facebook live|virtual", body_text, re.I) else "in-person"
+    event_type = "online" if re.search(r"\bonline event\b|facebook live|virtual", focused_text, re.I) else "in-person"
     return FacebookEvent(
         event_url=normalize_facebook_url(event_url),
         event_id=event_id_from_url(event_url, title),
@@ -896,6 +980,55 @@ def build_event_from_page_data(raw: dict[str, Any], event_url: str, source_name:
         source_url=source_url,
         raw_text=body_text,
     )
+
+
+def isolate_event_header_text(body_text: str) -> str:
+    text = clean(body_text)
+    if not text:
+        return ""
+    if "Visual Arts " in text:
+        text = text.split("Visual Arts ", 1)[1]
+    cut_points = [
+        " Guests See all ",
+        " Popular with friends ",
+        " Privacy ",
+        " More Details ",
+    ]
+    for marker in cut_points:
+        if marker in text:
+            text = text.split(marker, 1)[0]
+    return clean(text)
+
+
+def isolate_event_detail_text(body_text: str) -> str:
+    text = clean(body_text)
+    if " More Details " in text:
+        text = text.split(" More Details ", 1)[1]
+    for marker in [" Meet your host", " Meet your hosts", " Suggested events", " Privacy "]:
+        if marker in text:
+            text = text.split(marker, 1)[0]
+    return clean(text)
+
+
+def pick_event_title(page_title: str, header_text: str, source_name: str) -> str:
+    page_title = re.sub(r"\s*\|\s*Facebook\s*$", "", clean(page_title), flags=re.I)
+    header_text = clean(header_text)
+    if page_title and page_title.lower() not in {"events", "facebook"}:
+        return page_title
+    if header_text:
+        repeat_match = re.search(r"(?:\d{1,2}\s+)?(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+[A-Z][a-z]+\s+\d{1,2},?\s*\d{4}?\s+at\s+.+?\s+(?P<title>.{5,160}?)\s+.{2,180}?\s+(?P=title)(?:\s|$)", header_text, re.I)
+        if repeat_match:
+            return clean(repeat_match.group("title"))
+        after_date = re.sub(
+            r"^(?:\d{1,2}\s+)?(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+[A-Z][a-z]+\s+\d{1,2},?\s*\d{4}?\s+at\s+.+?\s+",
+            "",
+            header_text,
+            flags=re.I,
+        )
+        after_date = re.split(r"\s+\d{1,6}\s+[A-Z][A-Za-z0-9 .'-]+?\s+(?:St|Street|Rd|Road|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Ln|Lane)\b", after_date, maxsplit=1, flags=re.I)[0]
+        if 5 <= len(after_date) <= 180:
+            return clean(after_date)
+    return clean(source_name) or "Facebook Event"
 
 
 def parse_jsonld(raw_items: list[str]) -> list[dict[str, Any]]:
@@ -966,7 +1099,7 @@ def pick_location(jsonld: list[dict[str, Any]], body_text: str) -> tuple[str, st
     return venue, city, address
 
 
-def pick_organizer(jsonld: list[dict[str, Any]], page_links: list[dict[str, str]], source_name: str) -> str:
+def pick_organizer(jsonld: list[dict[str, Any]], page_links: list[dict[str, str]], source_name: str, body_text: str = "") -> str:
     for record in jsonld:
         organizer = record.get("organizer") or record.get("performer")
         if isinstance(organizer, dict) and clean(organizer.get("name")):
@@ -975,6 +1108,17 @@ def pick_organizer(jsonld: list[dict[str, Any]], page_links: list[dict[str, str]
             names = [clean(item.get("name")) for item in organizer if isinstance(item, dict) and clean(item.get("name"))]
             if names:
                 return names[0]
+    event_by = re.search(
+        r"\bEvent by\s+(.{2,180}?)(?:\s+Duration:|\s+Public\b|\s+Private\b|\s+Friends\b|\s+\d{1,6}\s+[A-Z]|$)",
+        clean(body_text),
+        re.I,
+    )
+    if event_by:
+        organizer = clean(event_by.group(1))
+        if normalize_key(source_name) and normalize_key(source_name) in normalize_key(organizer):
+            return source_name
+        if organizer:
+            return organizer
     for item in page_links:
         text = clean(item.get("text") or item.get("aria"))
         if text and not re.search(r"facebook|home|events|photos|videos|about|more", text, re.I):
@@ -1078,6 +1222,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--proxy-server", default="", help="Optional Playwright proxy, e.g. http://host:port")
     parser.add_argument("--browser-channel", default="", help="Optional Playwright browser channel, e.g. chrome")
+    parser.add_argument("--cdp-url", default="", help="Attach to an already-running Chrome/Chromium remote debugging URL.")
+    parser.add_argument("--print-events", action="store_true", help="Print full event records to stdout. Default only prints the run summary.")
     parser.add_argument("--log-level", default="INFO")
     return parser.parse_args(argv)
 
@@ -1118,7 +1264,10 @@ async def async_main(argv: list[str]) -> int:
         "outputs": {key: str(value) for key, value in paths.items()},
     }
     logger.info("Saved %d Facebook Events to %s", len(events), args.db_path)
-    print(json.dumps({"summary": summary, "events": [asdict(event) for event in events]}, indent=2, ensure_ascii=False))
+    payload: dict[str, Any] = {"summary": summary}
+    if args.print_events:
+        payload["events"] = [asdict(event) for event in events]
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
     return 0
 
 
