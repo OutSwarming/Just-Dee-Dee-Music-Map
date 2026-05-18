@@ -107,3 +107,50 @@ for the app's local/cloud sync.
 
 The live app bridge should prefer `Sheet1` before any database-style `Venues`
 tab so importing these tables cannot accidentally change the app feed.
+
+## Daily Artist Website Sync
+
+Artist website calendars are synced into the live Google Sheet with:
+
+```bash
+npm run music:artist-sync:write
+```
+
+Install the once-daily macOS job with:
+
+```bash
+npm run music:artist-sync:install
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.justdeedeemusic.artist-gig-tracker-sync.plist
+```
+
+The job runs every day at 8:30 AM and updates these tracker tabs from the
+artists listed in `Artists.website`:
+
+- `Venues`
+- `Artists`
+- `Events`
+- `Event_Artists`
+- `Venue_Artist_History`
+- `Review_Queue`
+
+Current supported sources:
+
+- Bandzoogle/Zoogle artist calendars, including `furiousgeorgehartwig.com`.
+- Just Dee Dee Music website calendar via the existing website booking parser.
+
+Data safety rules:
+
+- Past events are never deleted or overwritten as canceled.
+- Existing future events stay in the sheet unless their supported source was
+  checked successfully.
+- If a future event disappears from a checked artist site, it becomes
+  `canceled_or_removed`.
+- If a similar artist/title/venue appears on a different future date, the old
+  row becomes `rescheduled_or_date_changed` and the new date is kept as a new
+  event.
+- Unknown venues are added to `Venues` with `Needs Review` and mirrored in
+  `Review_Queue` instead of being silently guessed.
+
+To add more artists later, add one row to `Artists` with a stable `artist_id`,
+`canonical_name`, `artist_type`, and `website`. The next daily sync will check
+any supported public calendar automatically.
