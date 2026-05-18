@@ -264,6 +264,31 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
             "hundley-cellars-geneva-oh-44041",
         )
 
+    def test_same_street_direction_does_not_alias_distinct_legion_posts(self):
+        venues_by_id = {
+            "venue-american-legion-post-19-029705bd": {
+                "venue_id": "venue-american-legion-post-19-029705bd",
+                "place_name": "American Legion Post 19",
+                "address": "783 W Market St",
+                "city": "Akron",
+                "zip": "44303",
+                "source": "artist_site_sync",
+            },
+            "norwalk-american-legion-post-41-norwalk-oh-44857": {
+                "venue_id": "norwalk-american-legion-post-41-norwalk-oh-44857",
+                "place_name": "Norwalk American Legion Post 41",
+                "address": "406 W Main St",
+                "city": "Norwalk",
+                "zip": "44857",
+                "source": "master_sheet_sheet1",
+            },
+        }
+
+        deduped, aliases = artist_gig_tracker.dedupe_venues_by_identity(venues_by_id)
+
+        self.assertNotIn("venue-american-legion-post-19-029705bd", aliases)
+        self.assertIn("venue-american-legion-post-19-029705bd", deduped)
+
     def test_mother_road_notes_do_not_parse_as_street_address(self):
         self.assertEqual(
             artist_gig_tracker.extract_display_street_address(
@@ -475,6 +500,126 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(events[0].start_time, "10:00AM")
         self.assertEqual(events[0].end_time, "1:00PM")
         self.assertEqual(events[0].venue_name, "Rocky River Wine Bar")
+
+    def test_bandsintown_venue_name_strips_at_prefixes(self):
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Katy Robinson",
+                "Katy Robinson @ The Jenks Building",
+                "Katy Robinson @ The Jenks Building",
+                "1884 Front St",
+            ),
+            "The Jenks Building",
+        )
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Katy Robinson",
+                "Katy @ Filia",
+                "Katy @ Filia",
+                "3059 Greenwich Rd",
+            ),
+            "Filia Cellars",
+        )
+        self.assertEqual(
+            artist_gig_tracker.normalize_bandsintown_venue_name(
+                "Katy Robinson",
+                "Katy Robinson & The Wanderers w/ Candace Campana",
+                "Katy Robinson & The Wanderers w/ Candace Campana",
+                "706 Steel St",
+            ),
+            "Cedars West End",
+        )
+
+    def test_bandsintown_parser_filters_outside_northeast_ohio(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        api_json = """
+            [
+              {
+                "id": "nearby",
+                "title": "Katy Robinson @ Musica",
+                "datetime": "2026-04-26T18:00:00",
+                "venue": {
+                  "name": "Musica",
+                  "street_address": "51 E Market St",
+                  "city": "Akron",
+                  "region": "OH",
+                  "country": "United States",
+                  "postal_code": "44308",
+                  "latitude": "41.0805",
+                  "longitude": "-81.5178"
+                }
+              },
+              {
+                "id": "too-far",
+                "title": "Katy Robinson @ Eclipse Company Store",
+                "datetime": "2023-12-02T18:00:00",
+                "venue": {
+                  "name": "Katy Robinson @ Eclipse Company Store",
+                  "street_address": "11309 Jackson Dr",
+                  "city": "The Plains",
+                  "region": "OH",
+                  "country": "United States",
+                  "postal_code": "45780",
+                  "latitude": "39.3640432",
+                  "longitude": "-82.1175668"
+                }
+              }
+            ]
+        """
+        artist_gig_tracker.fetch_url = lambda _url: api_json
+        try:
+            events = artist_gig_tracker.parse_bandsintown_events({
+                "artist_id": "artist-katy-robinson-85e5c143",
+                "canonical_name": "Katy Robinson",
+                "artist_type": "solo",
+                "website": "https://www.katyrobinson.net",
+            }, "https://example.test/api", "https://www.katyrobinson.net", logging.getLogger("test"), enforce_northeast_ohio=True)
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].venue_name, "Musica")
+
+    def test_katy_robinson_calendar_merges_bandsintown_and_public_facebook(self):
+        original_fetch = artist_gig_tracker.fetch_url
+        api_json = """
+            [
+              {
+                "id": "katy-bit-1",
+                "title": "Katy Robinson @ The Jenks Building",
+                "datetime": "2023-09-16T13:00:00",
+                "url": "https://www.bandsintown.com/e/katy-bit-1",
+                "venue": {
+                  "name": "Katy Robinson @ The Jenks Building",
+                  "street_address": "1884 Front St",
+                  "city": "Cuyahoga Falls",
+                  "region": "OH",
+                  "country": "United States",
+                  "postal_code": "44221"
+                }
+              },
+              {
+                "id": "katy-out-of-state",
+                "title": "Katy Robinson @ Somewhere",
+                "datetime": "2023-09-17T13:00:00",
+                "venue": {"name": "Somewhere", "city": "Detroit", "region": "MI", "country": "United States"}
+              }
+            ]
+        """
+        artist_gig_tracker.fetch_url = lambda _url: api_json
+        try:
+            events = artist_gig_tracker.parse_katy_robinson_calendar({
+                "artist_id": "artist-katy-robinson-85e5c143",
+                "canonical_name": "Katy Robinson",
+                "artist_type": "solo",
+                "website": "https://www.katyrobinson.net",
+            }, logging.getLogger("test"))
+        finally:
+            artist_gig_tracker.fetch_url = original_fetch
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0].venue_name, "The Jenks Building")
+        self.assertIn("Blue Macaroon Theater Company", {event.venue_name for event in events})
 
     def test_rob_rocks_parser_handles_multi_time_and_pib_alias(self):
         events = artist_gig_tracker.parse_rob_rocks_schedule_lines([

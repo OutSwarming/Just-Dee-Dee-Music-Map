@@ -27,6 +27,7 @@ import html
 import io
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -56,6 +57,13 @@ CHROME_DEBUG_URL = "http://127.0.0.1:9222"
 DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
 DEFAULT_TEXT_RECIPIENTS = ["+14403054062", "+12168499292"]
 SERVICE_PRIORITY = ["iMessage", "SMS"]
+CLEVELAND_LAT = 41.4993
+CLEVELAND_LON = -81.6944
+NORTHEAST_OHIO_RADIUS_MILES = 90
+KATY_ROBINSON_BANDSINTOWN_URL = (
+    "https://rest.bandsintown.com/artists/Katy%20Robinson/events"
+    "?app_id=squarespace-katy-robinson-t8bz&date=all"
+)
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -238,6 +246,14 @@ KNOWN_VENUE_ALIASES = {
     "house of blues cleveland": "venue-house-of-blues-cleveland-ad9bdfdb",
     "hundley wine cellar": "hundley-cellars-geneva-oh-44041",
     "jenks building": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
+    "the jenks": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
+    "the jenks building": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
+    "filia": "filia-cellars-3059-greenwich-rd-wadsworth-oh-44281",
+    "filia cellars": "filia-cellars-3059-greenwich-rd-wadsworth-oh-44281",
+    "filia cellars winery": "filia-cellars-3059-greenwich-rd-wadsworth-oh-44281",
+    "georges": "george-s-lounge-canton-oh-44702",
+    "george": "george-s-lounge-canton-oh-44702",
+    "georges lounge": "george-s-lounge-canton-oh-44702",
     "la las": "la-la-s-in-the-lakes-akron-oh-44319",
     "la la in lake": "lala-s-in-the-lakes-akron-oh",
     "lala in lake": "lala-s-in-the-lakes-akron-oh",
@@ -245,6 +261,8 @@ KNOWN_VENUE_ALIASES = {
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
     "jimmy bukketts": "jimmy-bukkett-s-fremont-oh-43420",
     "medina brewing company": "medina-brewing-company-320-s-court-st-g9-medina-oh-44256",
+    "mcarthurs": "mcarthur-s-brew-house-2721-front-st-cuyahoga-falls-oh-44221",
+    "mcarthurs brew house": "mcarthur-s-brew-house-2721-front-st-cuyahoga-falls-oh-44221",
     "olesia taverne": "olesias-tavern-3960-broadview-rd-richfield-oh-44286",
     "on tap": "on-tap-medina-medina-oh-44256",
     "panini brunswick": "paninis-grill-3520-center-rd-brunswick-oh-44212",
@@ -255,6 +273,7 @@ KNOWN_VENUE_ALIASES = {
     "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
     "secret at center": "secret-of-center-3511-center-road-oh-oh",
     "sharon james cellars": "sharon-james-cellars-11303-kinsman-rd-newbury-oh-44065",
+    "sense by the falls": "sense-by-the-falls-cuyahoga-falls-oh-44221",
     "speak of the devil": "speak-of-the-devil-cocktail-bar-lorain-oh-44052",
     "square 22": "square-22-restaurant-and-bar-strongsville-oh-44136",
     "local strongsville": "the-local-bar-strongsville-oh-44136",
@@ -277,6 +296,15 @@ KNOWN_VENUE_CITY_ALIASES = {
     ("visible voice", "cleveland"): "venue-visible-voice-books-23046200",
 }
 KNOWN_NEW_VENUE_DETAILS = {
+    "american legion post 19": {
+        "place_name": "American Legion Post 19",
+        "address": "783 W Market St",
+        "city": "Akron",
+        "zip": "44303",
+        "venue_type": "Event Venue",
+        "phone_number": "330-253-0022",
+        "website": "https://www.americanlegionakron.org/",
+    },
     "berea fairground": {
         "place_name": "Cuyahoga County Fairgrounds",
         "address": "19201 E Bagley Rd",
@@ -319,6 +347,30 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "216-368-0090",
         "website": "https://thejollyscholar.com/",
     },
+    "art in the park": {
+        "place_name": "Art in the Park",
+        "address": "497 Middlebury Rd",
+        "city": "Kent",
+        "zip": "44240",
+        "venue_type": "Festival",
+        "website": "https://www.standingrock.net/art-in-the-park/",
+    },
+    "blue macaroon theater company": {
+        "place_name": "Blue Macaroon Theater Company",
+        "address": "84 1/2 N Portage St",
+        "city": "Doylestown",
+        "zip": "44230",
+        "venue_type": "Theater",
+        "website": "https://www.bluemacaroon.com/",
+    },
+    "cascade plaza": {
+        "place_name": "Cascade Plaza",
+        "address": "1 W Mill St",
+        "city": "Akron",
+        "zip": "44308",
+        "venue_type": "Public Plaza/Event Venue",
+        "website": "https://www.downtownakron.com/go/cascade-plaza",
+    },
     "blossom center vip club": {
         "place_name": "Blossom Music Center VIP Club",
         "address": "1145 W Steels Corners Rd",
@@ -336,6 +388,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "330-225-6122",
         "website": "https://www.coppertopgolf.com/",
+    },
+    "cedars west end": {
+        "place_name": "Cedars West End",
+        "address": "706 Steel St",
+        "city": "Youngstown",
+        "zip": "44509",
+        "venue_type": "Live Music Venue",
+        "phone_number": "330-792-3333",
+        "website": "https://www.clevescene.com/location/cedars-west-end-7644139",
     },
     "john s knight center": {
         "place_name": "John S. Knight Center",
@@ -415,6 +476,13 @@ KNOWN_NEW_VENUE_DETAILS = {
         "phone_number": "216-771-6551",
         "website": "https://www.themusicsettlement.org/bop-stop/",
     },
+    "celestia theater": {
+        "place_name": "The Celestia Theater",
+        "address": "151 Main St",
+        "city": "Wadsworth",
+        "zip": "44281",
+        "venue_type": "Theater",
+    },
     "chagrin lagoons yacht club": {
         "place_name": "Chagrin Lagoons Yacht Club",
         "address": "35111 Halsey Dr",
@@ -432,6 +500,14 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "440-247-6490",
         "website": "https://fedchurch.org/pas/",
+    },
+    "musica": {
+        "place_name": "Musica",
+        "address": "51 E Market St",
+        "city": "Akron",
+        "zip": "44308",
+        "venue_type": "Live Music Venue",
+        "website": "https://www.akronmusica.com/",
     },
     "gar hall": {
         "place_name": "G.A.R. Hall",
@@ -456,6 +532,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Festival",
         "website": "https://www.kentbluesfest.com/",
     },
+    "kent stage": {
+        "place_name": "The Kent Stage",
+        "address": "175 E Main St",
+        "city": "Kent",
+        "zip": "44240",
+        "venue_type": "Live Music Venue",
+        "phone_number": "330-677-5005",
+        "website": "https://kentstage.org/",
+    },
     "music box supper club": {
         "place_name": "Music Box Supper Club",
         "address": "1148 Main Ave",
@@ -464,6 +549,30 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Live Music Venue",
         "phone_number": "216-242-1250",
         "website": "https://musicboxcle.com/",
+    },
+    "the rialto": {
+        "place_name": "The Rialto Theatre",
+        "address": "1000 Kenmore Blvd",
+        "city": "Akron",
+        "zip": "44314",
+        "venue_type": "Live Music Venue",
+        "website": "https://www.therialtotheatre.com/",
+    },
+    "the rialto theatre": {
+        "place_name": "The Rialto Theatre",
+        "address": "1000 Kenmore Blvd",
+        "city": "Akron",
+        "zip": "44314",
+        "venue_type": "Live Music Venue",
+        "website": "https://www.therialtotheatre.com/",
+    },
+    "westside bowl": {
+        "place_name": "Westside Bowl",
+        "address": "2617 Mahoning Ave",
+        "city": "Youngstown",
+        "zip": "44509",
+        "venue_type": "Bowling Alley/Live Music Venue",
+        "website": "https://westsidebowl.com/",
     },
     "peninsula wine cellar": {
         "place_name": "Peninsula Wine Cellar",
@@ -532,7 +641,7 @@ def row_text(row: dict[str, str], *keys: str) -> str:
 
 def venue_city_tokens(*parts: object) -> set[str]:
     tokens = set(norm(" ".join(clean(part) for part in parts)).split())
-    stopwords = {"oh", "ohio", "north", "south", "east", "west", "main", "st", "street", "rd", "road", "ave", "avenue"}
+    stopwords = {"oh", "ohio", "n", "s", "e", "w", "north", "south", "east", "west", "main", "st", "street", "rd", "road", "ave", "avenue"}
     return {token for token in tokens if token and token not in stopwords and not token.isdigit()}
 
 
@@ -821,6 +930,28 @@ def format_event_time(value: object) -> str:
     return f"{hour}:{parsed.strftime('%M')}{parsed.strftime('%p')}"
 
 
+def miles_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 3958.8
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def is_northeast_ohio_venue(venue_data: dict[str, object]) -> bool:
+    latitude = clean(venue_data.get("latitude"))
+    longitude = clean(venue_data.get("longitude"))
+    if latitude and longitude:
+        try:
+            distance = miles_between(CLEVELAND_LAT, CLEVELAND_LON, float(latitude), float(longitude))
+        except ValueError:
+            return True
+        return distance <= NORTHEAST_OHIO_RADIUS_MILES
+    return True
+
+
 def normalize_bandsintown_venue_name(
     artist_name: str,
     title: str,
@@ -829,12 +960,35 @@ def normalize_bandsintown_venue_name(
 ) -> str:
     if norm(street_address) == norm("2920 Detroit Ave") and "10x3" in norm(title):
         return "BOP STOP at The Music Settlement"
+    if norm(street_address) == norm("706 Steel St"):
+        return "Cedars West End"
+    if norm(street_address) == norm("175 E Main St"):
+        return "The Kent Stage"
+    if norm(street_address) == norm("783 W Market St"):
+        return "American Legion Post 19"
+    if norm(street_address) == norm("1 W Mill St"):
+        return "Cascade Plaza"
     venue = clean(venue_name) or clean(title)
     artist_prefix = re.escape(clean(artist_name))
     match = re.match(rf"^{artist_prefix}\s+at\s+(.+)$", venue, re.IGNORECASE)
     if match:
         venue = clean(match.group(1))
+    if " @ " in venue:
+        venue = clean(venue.rsplit(" @ ", 1)[-1])
     venue = re.sub(r"'s\s+Sunday\s+Brunch$", "", venue, flags=re.IGNORECASE)
+    venue_key = canonical_venue_name(venue)
+    if venue_key == "filia":
+        venue = "Filia Cellars"
+    elif venue_key == "f ilia cellar":
+        venue = "Filia Cellars"
+    elif venue_key in {"jenks building", "the jenks"}:
+        venue = "The Jenks Building"
+    elif venue_key == "the rialto":
+        venue = "The Rialto Theatre"
+    elif venue_key == "mcarthurs":
+        venue = "McArthur's Brew House"
+    elif venue_key == "kent art in park":
+        venue = "Art in the Park"
     if venue.lower().startswith("the "):
         venue = "The " + venue[4:]
     return venue
@@ -851,6 +1005,77 @@ def parse_bandsintown_event_datetime(value: object) -> tuple[str, str]:
     return parsed.date().isoformat(), format_event_time(text)
 
 
+def parse_bandsintown_events(
+    artist: dict[str, str],
+    api_url: str,
+    website: str,
+    logger: logging.Logger,
+    enforce_northeast_ohio: bool = False,
+) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "unknown"
+    try:
+        raw_events = json.loads(fetch_url(api_url))
+    except Exception as exc:
+        logger.warning("Could not fetch Bandsintown events for %s: %s", artist_name, exc)
+        return []
+    if not isinstance(raw_events, list):
+        return []
+
+    events: list[ScrapedArtistEvent] = []
+    for raw_event in raw_events:
+        if not isinstance(raw_event, dict):
+            continue
+        venue_data = raw_event.get("venue") if isinstance(raw_event.get("venue"), dict) else {}
+        if clean(venue_data.get("region")).upper() != "OH" or clean(venue_data.get("country")) not in {"United States", "US"}:
+            continue
+        if enforce_northeast_ohio and not is_northeast_ohio_venue(venue_data):
+            continue
+        event_date, start_time = parse_bandsintown_event_datetime(raw_event.get("starts_at") or raw_event.get("datetime"))
+        if not event_date:
+            continue
+        end_time = format_event_time(raw_event.get("ends_at"))
+        title = clean(raw_event.get("title")) or f"{artist_name} live"
+        street_address = clean(venue_data.get("street_address"))
+        venue = normalize_bandsintown_venue_name(artist_name, title, clean(venue_data.get("name")), street_address)
+        city = clean(venue_data.get("city"))
+        zip_code = clean(venue_data.get("postal_code"))
+        source_url = clean(raw_event.get("url")) or website
+        description = clean(
+            " | ".join(
+                part
+                for part in [
+                    title,
+                    venue,
+                    street_address,
+                    clean(raw_event.get("description")),
+                ]
+                if clean(part)
+            )
+        )
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=artist_id,
+                artist_name=artist_name,
+                artist_type=artist_type,
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=f"{artist_name} @ {venue}" if venue else title,
+                venue_name=venue,
+                city=city,
+                state="OH",
+                zip_code=zip_code,
+                source=artist_site_source(website),
+                source_record_id=clean(raw_event.get("id")) or short_hash(source_url, event_date, title, length=12),
+                source_url=source_url,
+                description=description,
+            )
+        )
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
 def parse_squarespace_tourdates_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website"))
     if not website:
@@ -865,8 +1090,6 @@ def parse_squarespace_tourdates_calendar(artist: dict[str, str], logger: logging
         return []
     identifier = squarespace_identifier(html_text, website)
     artist_name = clean(artist.get("canonical_name"))
-    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
-    artist_type = clean(artist.get("artist_type")) or "unknown"
     events: list[ScrapedArtistEvent] = []
     for block in blocks:
         bit_artist = clean(block.get("artistId")) or artist_name
@@ -874,60 +1097,42 @@ def parse_squarespace_tourdates_calendar(artist: dict[str, str], logger: logging
             "https://rest.bandsintown.com/artists/"
             f"{urllib.parse.quote(bit_artist)}/events?app_id=squarespace-{urllib.parse.quote(identifier)}&date=all"
         )
-        try:
-            raw_events = json.loads(fetch_url(api_url))
-        except Exception as exc:
-            logger.warning("Could not fetch Bandsintown events for %s: %s", artist_name, exc)
-            continue
-        if not isinstance(raw_events, list):
-            continue
-        for raw_event in raw_events:
-            if not isinstance(raw_event, dict):
-                continue
-            venue_data = raw_event.get("venue") if isinstance(raw_event.get("venue"), dict) else {}
-            if clean(venue_data.get("region")).upper() != "OH" or clean(venue_data.get("country")) not in {"United States", "US"}:
-                continue
-            event_date, start_time = parse_bandsintown_event_datetime(raw_event.get("starts_at") or raw_event.get("datetime"))
-            if not event_date:
-                continue
-            end_time = format_event_time(raw_event.get("ends_at"))
-            title = clean(raw_event.get("title")) or f"{artist_name} live"
-            street_address = clean(venue_data.get("street_address"))
-            venue = normalize_bandsintown_venue_name(artist_name, title, clean(venue_data.get("name")), street_address)
-            city = clean(venue_data.get("city"))
-            zip_code = clean(venue_data.get("postal_code"))
-            source_url = clean(raw_event.get("url")) or website
-            description = clean(
-                " | ".join(
-                    part
-                    for part in [
-                        title,
-                        venue,
-                        street_address,
-                        clean(raw_event.get("description")),
-                    ]
-                    if clean(part)
-                )
-            )
-            events.append(
-                ScrapedArtistEvent(
-                    artist_id=artist_id,
-                    artist_name=artist_name,
-                    artist_type=artist_type,
-                    event_date=event_date,
-                    start_time=start_time,
-                    end_time=end_time,
-                    title=f"{artist_name} @ {venue}" if venue else title,
-                    venue_name=venue,
-                    city=city,
-                    state="OH",
-                    zip_code=zip_code,
-                    source=artist_site_source(website),
-                    source_record_id=clean(raw_event.get("id")) or short_hash(source_url, event_date, title, length=12),
-                    source_url=source_url,
-                    description=description,
-                )
-            )
+        events.extend(parse_bandsintown_events(artist, api_url, website, logger))
+    return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
+def katy_robinson_recovered_facebook_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name")) or "Katy Robinson"
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    website = clean(artist.get("website")) or "https://www.katyrobinson.net"
+    title = "KATY ROBINSON W/THOMPSON & WHITE"
+    source_url = "https://www.facebook.com/katyrobinsonmusicoh/events"
+    return [
+        ScrapedArtistEvent(
+            artist_id=artist_id,
+            artist_name=artist_name,
+            artist_type=artist_type,
+            event_date="2025-03-15",
+            start_time="",
+            end_time="",
+            title=f"{artist_name} @ Blue Macaroon Theater Company",
+            venue_name="Blue Macaroon Theater Company",
+            city="Doylestown",
+            state="OH",
+            zip_code="44230",
+            source=artist_site_source(website),
+            source_record_id=short_hash(source_url, "2025-03-15", title, length=12),
+            source_url=source_url,
+            description=f"{title} | Blue Macaroon Theater Company | 84 1/2 N Portage St, Doylestown, OH 44230",
+        )
+    ]
+
+
+def parse_katy_robinson_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or "https://www.katyrobinson.net"
+    events = parse_bandsintown_events(artist, KATY_ROBINSON_BANDSINTOWN_URL, website, logger, enforce_northeast_ohio=True)
+    events.extend(katy_robinson_recovered_facebook_events(artist))
     return sorted({event.event_id: event for event in events}.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
@@ -2354,6 +2559,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif "littlesteveo.com" in website.lower():
             scraped = parse_little_steve_o_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "katyrobinson.net" in website.lower():
+            scraped = parse_katy_robinson_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
