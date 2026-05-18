@@ -214,17 +214,31 @@ KNOWN_VENUE_ALIASES = {
     "ballentine": "ballantine-willoughby-oh-44094",
     "beachland ballroom": "beachland-ballroom-cleveland-oh-44110",
     "beachland tavern": "beachland-ballroom-cleveland-oh-44110",
+    "beau grille": "beau-s-grille-akron-oh-44333",
+    "beaus grille": "beau-s-grille-akron-oh-44333",
+    "blu tique hotel": "blu-tique-hotel-akron-oh-44308",
+    "brighten brewing": "brighten-brewing-company-copley-oh-44321",
+    "brewster": "brewsters-cafe-bistro-pub-twinsburg-oh-44087",
     "caddyshack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "caddy shack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "collision bend": "collision-bend-brewing-1261-babbitt-road-oh",
+    "crafted artisan meadery": "crafted-artisan-meadery-mogadore-oh-44260",
     "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
+    "dean martin lanning restaurant": "dean-martin-s-lanning-s-restaurant-akron-oh-44333",
     "esp brewing": "esp-brewing-united-states-oh",
     "divot": "divot-s-sports-bar-13393-york-rd-north-royalton-oh-44133",
     "fairview": "the-fairview-tavern-cleveland-oh-44126",
     "galaxy": "galaxy-restaurant-wadsworth-oh-44281",
+    "gervasi vineyard": "gervasi-vineyard-1700-55th-st-ne-canton-oh-44721",
     "gideon owen winery": "gideon-owen-port-clinton-oh-43452",
     "grab n go": "grab-n-go-beverage-drivethru-and-pub-236-n-state-rd-medina-oh-44256",
+    "glenwillow grille": "glenwillow-grille-29765-pettibone-rd-solon-oh-44139",
+    "house of blues cleveland": "venue-house-of-blues-cleveland-ad9bdfdb",
     "jenks building": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
+    "la las": "la-la-s-in-the-lakes-akron-oh-44319",
+    "la la in lake": "lala-s-in-the-lakes-akron-oh",
+    "lala in lake": "lala-s-in-the-lakes-akron-oh",
+    "lannings": "dean-martin-s-lanning-s-restaurant-akron-oh-44333",
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
     "jimmy bukketts": "jimmy-bukkett-s-fremont-oh-43420",
     "medina brewing company": "medina-brewing-company-320-s-court-st-g9-medina-oh-44256",
@@ -234,16 +248,23 @@ KNOWN_VENUE_ALIASES = {
     "pipe creek warf": "pipe-creek-wharf-sandusky-oh-44870",
     "pipe creek wharf": "pipe-creek-wharf-sandusky-oh-44870",
     "runinmuck": "camp-runinmuck-lakeside-marblehead-oh-43440",
+    "sarah vineyard": "sarah-s-vineyard-cuyahoga-falls-oh-44223",
     "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
     "secret at center": "secret-of-center-3511-center-road-oh-oh",
+    "sharon james cellars": "sharon-james-cellars-11303-kinsman-rd-newbury-oh-44065",
     "speak of the devil": "speak-of-the-devil-cocktail-bar-lorain-oh-44052",
     "square 22": "square-22-restaurant-and-bar-strongsville-oh-44136",
     "local strongsville": "the-local-bar-strongsville-oh-44136",
+    "the basement": "the-basement-sports-bar-and-grill-cuyahoga-falls-oh-44221",
     "the keys": "the-keys-put-in-bay-put-in-bay-oh-43456",
     "the pint pie work": "the-pint-and-pie-works-bath-oh",
     "pint pie work": "the-pint-and-pie-works-bath-oh",
     "twin oast": "twin-oast-brewing-port-clinton-oh-43452",
+    "trivs": "trivs-strongsville-oh-44136",
     "waters edge": "waters-edge-tiki-bar-and-grill-lakeside-marblehead-oh-43440",
+    "west main st winery": "west-main-st-winery-and-brewery-ravenna-oh-44266",
+    "wolf creek tavern": "wolf-creek-tavern-norton-oh-44203",
+    "wolfcreek tavern": "wolf-creek-tavern-norton-oh-44203",
     "wine room": "the-wine-room-avon-avon-oh-44011",
 }
 KNOWN_NEW_VENUE_DETAILS = {
@@ -348,6 +369,15 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "330-644-7797",
         "website": "https://www.turkeyfootislandclub.com/",
+    },
+    "beau bar bistro": {
+        "place_name": "Beau's Bar & Bistro",
+        "address": "1275 S Cleveland Massillon Rd",
+        "city": "Copley",
+        "zip": "44321",
+        "venue_type": "Restaurant",
+        "phone_number": "234-466-7720",
+        "website": "https://beausbarandbistro.com/",
     },
     "beachland ballroom": {
         "place_name": "Beachland Ballroom & Tavern",
@@ -1841,6 +1871,240 @@ def parse_austin_walkin_cane_calendar(artist: dict[str, str], logger: logging.Lo
     return sorted(deduped.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
 
 
+LITTLE_STEVE_O_FEED_URL = "https://www.littlesteveo.com/feeds/posts/default/-/Events?alt=json&max-results=500"
+
+LITTLE_STEVE_O_RECOVERED_FUTURE_EVENTS = [
+    {
+        "event_date": "2026-06-05",
+        "start_time": "7PM",
+        "end_time": "10PM",
+        "venue_name": "Beau's Bar & Bistro",
+        "city": "Copley",
+        "zip_code": "44321",
+        "source_url": "https://beausbarandbistro.com/events",
+        "description": "Recovered from Beau's Bar & Bistro public event listing: Steve'O, June 5, 2026, 7:00 pm - 10:00 pm.",
+    },
+    {
+        "event_date": "2026-07-10",
+        "start_time": "7PM",
+        "end_time": "10PM",
+        "venue_name": "Beau's Bar & Bistro",
+        "city": "Copley",
+        "zip_code": "44321",
+        "source_url": "https://beausbarandbistro.com/events",
+        "description": "Recovered from Beau's Bar & Bistro public event listing: Steve'O, July 10, 2026, 7:00 pm - 10:00 pm.",
+    },
+]
+
+LITTLE_STEVE_O_CITY_ALIASES = {
+    "downtown": "Akron",
+    "downtown akron": "Akron",
+    "hts": "Cleveland Heights",
+    "portage lakes": "Akron",
+}
+
+LITTLE_STEVE_O_KNOWN_VENUES = {
+    "8th day brewing": {"venue": "8th Day Brewing Company", "city": "Chagrin Falls"},
+    "beau grille": {"venue": "Beau's Grille", "city": "Fairlawn", "zip_code": "44333"},
+    "beaus grille": {"venue": "Beau's Grille", "city": "Fairlawn", "zip_code": "44333"},
+    "blu tique hotel": {"venue": "Blu-Tique Hotel", "city": "Akron", "zip_code": "44308"},
+    "blue monkey brewing": {"venue": "Blue Monkey Brewing Company", "city": "North Royalton", "zip_code": "44133"},
+    "brighten brewing": {"venue": "Brighten Brewing Company", "city": "Copley", "zip_code": "44321"},
+    "brewster": {"venue": "Brewsters Cafe Bistro Pub", "city": "Twinsburg", "zip_code": "44087"},
+    "crafted artisan meadery": {"venue": "Crafted Artisan Meadery", "city": "Mogadore", "zip_code": "44260"},
+    "dragonfly winery": {"venue": "Dragonfly Winery", "city": "Canal Fulton", "zip_code": "44614"},
+    "gervasi": {"venue": "Gervasi Vineyard", "city": "Canton", "zip_code": "44721"},
+    "glenwillow grille": {"venue": "Glenwillow Grille", "city": "Solon", "zip_code": "44139"},
+    "house of blues": {"venue": "House of Blues Cleveland", "city": "Cleveland"},
+    "la la": {"venue": "La La's in the Lakes", "city": "Akron", "zip_code": "44319"},
+    "la las": {"venue": "La La's in the Lakes", "city": "Akron", "zip_code": "44319"},
+    "lanning": {"venue": "Dean Martin's Lanning's Restaurant", "city": "Bath", "zip_code": "44333"},
+    "medina brewing company": {"venue": "Medina Brewing Company", "city": "Medina", "zip_code": "44256"},
+    "pint pie works": {"venue": "The Pint & Pie Works", "city": "Bath"},
+    "red hawk grille": {"venue": "Redhawk Grille", "city": "Concord"},
+    "redhawk grille": {"venue": "Redhawk Grille", "city": "Concord"},
+    "ridge rail": {"venue": "Ridge & Rail", "city": "Wadsworth", "zip_code": "44281"},
+    "rose villa": {"venue": "Rose Villa", "city": "Akron"},
+    "sarah vineyard": {"venue": "Sarah's Vineyard", "city": "Cuyahoga Falls", "zip_code": "44223"},
+    "sharon james cellars": {"venue": "Sharon James Cellars", "city": "Newbury", "zip_code": "44065"},
+    "stillhouse gervasi": {"venue": "Gervasi Vineyard", "city": "Canton", "zip_code": "44721"},
+    "the basement": {"venue": "The Basement Sports Bar & Grill", "city": "Cuyahoga Falls", "zip_code": "44221"},
+    "triv": {"venue": "Trivs", "city": "Strongsville", "zip_code": "44136"},
+    "west main st winery": {"venue": "West Main St Winery & Brewery", "city": "Ravenna", "zip_code": "44266"},
+    "wolfcreek tavern": {"venue": "Wolf Creek Tavern", "city": "Norton", "zip_code": "44203"},
+}
+
+LITTLE_STEVE_O_KNOWN_VENUE_LOOKUP = {canonical_venue_name(key): value for key, value in LITTLE_STEVE_O_KNOWN_VENUES.items()}
+
+
+def strip_parentheticals(value: str) -> str:
+    return clean(re.sub(r"\([^)]*\)", " ", value))
+
+
+def parse_little_steve_o_time(detail: str) -> tuple[str, str, str]:
+    range_match = re.search(
+        r"\b(\d{1,2}(?::\d{2})?)\s*-\s*(\d{1,2}(?::\d{2})?)\s*(am|pm)\b",
+        detail,
+        re.I,
+    )
+    if range_match:
+        start, end, suffix = range_match.groups()
+        cleaned = clean((detail[: range_match.start()] + detail[range_match.end() :]).strip(" ,-"))
+        return normalize_time_value(start, suffix), normalize_time_value(end, suffix), cleaned
+    single_match = re.search(r"\b(\d{1,2}(?::\d{2})?)\s*(am|pm)\b", detail, re.I)
+    if single_match:
+        start, suffix = single_match.groups()
+        cleaned = clean((detail[: single_match.start()] + detail[single_match.end() :]).strip(" ,-"))
+        return normalize_time_value(start, suffix), "", cleaned
+    bare_range_match = re.search(r"\b(\d{1,2}(?::\d{2})?)\s*-\s*(\d{1,2}(?::\d{2})?)\b\s*$", detail)
+    if bare_range_match:
+        start, end = bare_range_match.groups()
+        cleaned = clean(detail[: bare_range_match.start()].strip(" ,-"))
+        return normalize_time_value(start, "PM"), normalize_time_value(end, "PM"), cleaned
+    return "", "", detail
+
+
+def normalize_little_steve_o_venue(value: str) -> str:
+    text = clean(value).replace("/", " ")
+    text = re.sub(r"\bw\s*/\s*.+$", " ", clean(value), flags=re.I).replace("/", " ")
+    text = strip_parentheticals(text)
+    text = re.sub(r"\b(?:solo|solo debut|debut|doubletree|hilton)\b", " ", text, flags=re.I)
+    return clean(text.strip(" ,-"))
+
+
+def parse_little_steve_o_location(detail: str) -> tuple[str, str, str]:
+    if re.search(r"\bprivate\b", detail, re.I):
+        city_match = re.search(r"\bin\s+(.+)$", detail, re.I)
+        city = clean(re.sub(r"\bw/\s*.+$", "", city_match.group(1), flags=re.I)) if city_match else ""
+        city = strip_parentheticals(city)
+        city = LITTLE_STEVE_O_CITY_ALIASES.get(canonical_venue_name(city), city)
+        return "Private Event", city, ""
+
+    parts = re.split(r"\bin\b", detail, maxsplit=1, flags=re.I)
+    venue_raw = parts[0]
+    city = ""
+    if len(parts) > 1:
+        city = clean(re.sub(r"\bw/\s*.+$", "", parts[1], flags=re.I))
+        city = strip_parentheticals(city)
+        city = LITTLE_STEVE_O_CITY_ALIASES.get(canonical_venue_name(city), city)
+    venue = normalize_little_steve_o_venue(venue_raw)
+    if not venue:
+        return "", city, ""
+    known = LITTLE_STEVE_O_KNOWN_VENUE_LOOKUP.get(canonical_venue_name(venue))
+    if known:
+        return known["venue"], known.get("city", "") or city, known.get("zip_code", "")
+    return re.sub(r"'S\b", "'s", venue.title()), city, ""
+
+
+def little_steve_o_entry_year(entry: dict[str, object]) -> int:
+    published = clean(((entry.get("published") or {}) if isinstance(entry.get("published"), dict) else {}).get("$t"))
+    match = re.match(r"^(20\d{2})", published)
+    return int(match.group(1)) if match else date.today().year
+
+
+def parse_little_steve_o_post_text(text: str, entry_year: int, artist: dict[str, str], source_url: str) -> list[ScrapedArtistEvent]:
+    normalized = clean(text)
+    starts = [match.start() for match in re.finditer(r"\b(?:MON|TUE|WED|THU|FRI|SAT|SUN)\s+\d{1,2}/\d{1,2}\b", normalized, re.I)]
+    fragments = [normalized[starts[index] : starts[index + 1] if index + 1 < len(starts) else len(normalized)] for index in range(len(starts))]
+    events: list[ScrapedArtistEvent] = []
+    for fragment in fragments:
+        match = re.match(r"^(?:MON|TUE|WED|THU|FRI|SAT|SUN)\s+(\d{1,2})/(\d{1,2})\s+(.+)$", fragment, re.I)
+        if not match:
+            continue
+        month, day, detail = match.groups()
+        try:
+            event_date = date(entry_year, int(month), int(day)).isoformat()
+        except ValueError:
+            continue
+        start_time, end_time, location_detail = parse_little_steve_o_time(detail)
+        venue, city, zip_code = parse_little_steve_o_location(location_detail)
+        if not venue:
+            continue
+        artist_name = clean(artist.get("canonical_name"))
+        title = f"{artist_name} @ {venue}" if venue != "Private Event" else f"{artist_name} private event"
+        events.append(
+            ScrapedArtistEvent(
+                artist_id=clean(artist.get("artist_id")) or make_id("artist", artist_name),
+                artist_name=artist_name,
+                artist_type=clean(artist.get("artist_type")) or "solo",
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=title,
+                venue_name=venue,
+                city=city,
+                state="OH",
+                zip_code=zip_code,
+                source=artist_site_source(clean(artist.get("website"))),
+                source_record_id=short_hash(source_url, event_date, start_time, venue, fragment, length=12),
+                source_url=source_url,
+                description=fragment,
+            )
+        )
+    return events
+
+
+def parse_little_steve_o_feed(feed_text: str, artist: dict[str, str], min_year: int | None = None) -> list[ScrapedArtistEvent]:
+    payload = json.loads(feed_text)
+    entries = payload.get("feed", {}).get("entry", [])
+    events: list[ScrapedArtistEvent] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_year = little_steve_o_entry_year(entry)
+        if min_year and entry_year < min_year:
+            continue
+        content_html = clean((entry.get("content") or {}).get("$t") if isinstance(entry.get("content"), dict) else "")
+        text = strip_html(content_html)
+        links = entry.get("link", [])
+        source_url = clean(next((link.get("href") for link in links if isinstance(link, dict) and link.get("rel") == "alternate"), ""))
+        events.extend(parse_little_steve_o_post_text(text, entry_year, artist, source_url or clean(artist.get("website"))))
+    return events
+
+
+def little_steve_o_recovered_events(artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    return [
+        ScrapedArtistEvent(
+            artist_id=artist_id,
+            artist_name=artist_name,
+            artist_type=artist_type,
+            event_date=item["event_date"],
+            start_time=item["start_time"],
+            end_time=item["end_time"],
+            title=f"{artist_name} @ {item['venue_name']}",
+            venue_name=item["venue_name"],
+            city=item["city"],
+            state="OH",
+            zip_code=item["zip_code"],
+            source=artist_site_source(clean(artist.get("website"))),
+            source_record_id=short_hash(item["source_url"], item["event_date"], item["venue_name"], length=12),
+            source_url=item["source_url"],
+            description=item["description"],
+        )
+        for item in LITTLE_STEVE_O_RECOVERED_FUTURE_EVENTS
+    ]
+
+
+def parse_little_steve_o_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    try:
+        feed_text = fetch_url(LITTLE_STEVE_O_FEED_URL)
+    except Exception as exc:
+        logger.warning("Could not fetch Little Steve-O events feed %s: %s", LITTLE_STEVE_O_FEED_URL, exc)
+        return []
+    min_year = date.today().year
+    events = parse_little_steve_o_feed(feed_text, artist, min_year=min_year)
+    events.extend(little_steve_o_recovered_events(artist))
+    deduped: dict[str, ScrapedArtistEvent] = {}
+    for event in events:
+        event_day = parse_iso(event.event_date)
+        if event_day and event_day.year >= min_year:
+            deduped[event.event_id] = event
+    return sorted(deduped.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
 def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website"))
     try:
@@ -1883,6 +2147,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             scraped = parse_austin_walkin_cane_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
+        elif "littlesteveo.com" in website.lower():
+            scraped = parse_little_steve_o_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
         else:
             home_html = ""
             try:
@@ -1897,6 +2165,12 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         logger.info("%s yielded %d artist-site events", artist.get("canonical_name"), len(scraped))
+        if scraped:
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        else:
+            checked_artist_ids.discard(artist_id)
+            checked_sources.discard(artist_site_source(website))
         events.extend(scraped)
     return ArtistSiteScrape(events=events, checked_artist_ids=checked_artist_ids, checked_sources=checked_sources)
 

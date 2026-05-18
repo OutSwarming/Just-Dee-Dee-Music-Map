@@ -532,6 +532,59 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
 
         self.assertEqual(artist_gig_tracker.find_master_venue_alias(scraper_row, {master_row["venue_id"]: master_row}), "")
 
+    def test_little_steve_o_weekly_post_parser_extracts_multiple_gigs(self):
+        events = artist_gig_tracker.parse_little_steve_o_post_text(
+            "FRI 5/15 GLENWILLOW GRILLE in Solon w/WES 7:30-10:30 pm "
+            "SAT 5/16 BEAU'S GRILLE (DoubleTree) in Fairlawn 7-10 pm "
+            "SUN 5/17 STILLHOUSE/GERVASI in Canton 7-10 pm",
+            2026,
+            {
+                "artist_id": "artist-little-steve-o",
+                "canonical_name": "Little Steve-O",
+                "artist_type": "solo",
+                "website": "https://www.littlesteveo.com/",
+            },
+            "https://www.littlesteveo.com/2026/05/little-steve-o-this-week.html",
+        )
+
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[0].event_date, "2026-05-15")
+        self.assertEqual(events[0].venue_name, "Glenwillow Grille")
+        self.assertEqual(events[0].city, "Solon")
+        self.assertEqual(events[0].start_time, "7:30PM")
+        self.assertEqual(events[0].end_time, "10:30PM")
+        self.assertEqual(events[1].venue_name, "Beau's Grille")
+        self.assertEqual(events[2].venue_name, "Gervasi Vineyard")
+
+    def test_little_steve_o_private_event_does_not_become_venue(self):
+        events = artist_gig_tracker.parse_little_steve_o_post_text(
+            "FRI 5/8 PRIVATE EVENT in Mantua 7 pm",
+            2026,
+            {
+                "artist_id": "artist-little-steve-o",
+                "canonical_name": "Little Steve-O",
+                "artist_type": "solo",
+                "website": "https://www.littlesteveo.com/",
+            },
+            "https://www.littlesteveo.com/2026/05/little-steve-o-this-week.html",
+        )
+
+        self.assertEqual(events[0].venue_name, "Private Event")
+        self.assertEqual(events[0].city, "Mantua")
+        self.assertFalse(artist_gig_tracker.should_materialize_venue(events[0]))
+
+    def test_little_steve_o_recovered_future_events_include_beaus_bar(self):
+        events = artist_gig_tracker.little_steve_o_recovered_events({
+            "artist_id": "artist-little-steve-o",
+            "canonical_name": "Little Steve-O",
+            "artist_type": "solo",
+            "website": "https://www.littlesteveo.com/",
+        })
+
+        self.assertEqual(events[0].venue_name, "Beau's Bar & Bistro")
+        self.assertEqual(events[0].event_date, "2026-06-05")
+        self.assertEqual(events[1].event_date, "2026-07-10")
+
 
 if __name__ == "__main__":
     unittest.main()
