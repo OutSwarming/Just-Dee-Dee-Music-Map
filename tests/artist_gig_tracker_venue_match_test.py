@@ -405,6 +405,133 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
 
         self.assertEqual(artist_gig_tracker.find_master_venue_alias(scraper_row, {master_row["venue_id"]: master_row}), "")
 
+    def test_austin_official_json_parser_filters_noise_and_parses_ohio_gigs(self):
+        events = artist_gig_tracker.parse_austin_official_events("""
+            <script type="application/ld+json">
+            [
+              {
+                "@context": "http://schema.org",
+                "@type": "Event",
+                "name": "Music Box w/ Johnny Rawls • CLE, OH • 7:30pm",
+                "url": "https://walkincane.com/event/music-box/",
+                "startDate": "2026-02-27T19:30:00+00:00",
+                "endDate": "2026-02-27T22:00:00+00:00"
+              },
+              {
+                "@context": "http://schema.org",
+                "@type": "Event",
+                "name": "Every Tuesday • WRUW • 91.1 fm • Ivy’s Red Sweater • noon-2pm",
+                "url": "https://walkincane.com/event/wruw/",
+                "startDate": "2026-03-03T12:00:00+00:00",
+                "endDate": "2026-03-03T14:00:00+00:00"
+              },
+              {
+                "@context": "http://schema.org",
+                "@type": "Event",
+                "name": "Johnny Rawls • Monroe, MI • TBA",
+                "url": "https://walkincane.com/event/monroe/",
+                "startDate": "2026-02-17T00:00:00+00:00"
+              }
+            ]
+            </script>
+        """, "https://walkincane.com/events/list/", {
+            "artist_id": "artist-austin",
+            "canonical_name": "Austin Walkin' Cane",
+            "artist_type": "solo",
+            "website": "https://walkincane.com/",
+        })
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].venue_name, "Music Box Supper Club")
+        self.assertEqual(events[0].city, "Cleveland")
+        self.assertEqual(events[0].start_time, "7:30PM")
+
+    def test_austin_squarespace_parser_finds_future_forest_city_gig(self):
+        events = artist_gig_tracker.parse_austin_squarespace_events("""
+            <h1>Austin Walkin' Cane</h1>
+            <p>Friday, May 22, 2026</p>
+            <p>5:00 PM</p>
+            <p>7:00 PM</p>
+            <p>Forest City Brewery</p>
+        """, "https://www.forestcitybrewery.com/events", {
+            "artist_id": "artist-austin",
+            "canonical_name": "Austin Walkin' Cane",
+            "artist_type": "solo",
+            "website": "https://walkincane.com/",
+        })
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_date, "2026-05-22")
+        self.assertEqual(events[0].venue_name, "Forest City Brewery")
+        self.assertEqual(events[0].city, "Cleveland")
+
+    def test_austin_kent_parser_adds_festival_date(self):
+        events = artist_gig_tracker.parse_austin_kent_blues_events("""
+            <p>July 18, 2026 - Downtown, Kent OH</p>
+            <h1>Austin Walkin’ Cane</h1>
+        """, "https://www.kentbluesfest.com/artist/austin-walkin-cane", {
+            "artist_id": "artist-austin",
+            "canonical_name": "Austin Walkin' Cane",
+            "artist_type": "solo",
+            "website": "https://walkincane.com/",
+        })
+
+        self.assertEqual(events[0].venue_name, "Kent Blues Fest")
+        self.assertEqual(events[0].event_date, "2026-07-18")
+
+    def test_exact_name_match_requires_city_when_city_is_known(self):
+        venues = [
+            {
+                "venue_id": "venue-rush-inn-avon",
+                "place_name": "Rush Inn",
+                "city": "Avon",
+                "state": "OH",
+            }
+        ]
+        event = self.make_event(
+            venue_name="Rush Inn",
+            city="Lakewood",
+            title="Austin Walkin' Cane @ Rush Inn",
+            artist_name="Austin Walkin' Cane",
+        )
+
+        self.assertEqual(artist_gig_tracker.match_venue_id(venues, event), "")
+
+    def test_likely_same_venue_does_not_use_venue_name_as_city_overlap(self):
+        row = {
+            "venue_id": "venue-rush-inn-avon",
+            "place_name": "Rush Inn",
+            "city": "Avon",
+            "state": "OH",
+        }
+        event = self.make_event(
+            venue_name="Rush Inn",
+            city="Lakewood",
+            title="Austin Walkin' Cane @ Rush Inn",
+            artist_name="Austin Walkin' Cane",
+            description="Rush Inn • Lakewood, OH • 8-11pm",
+        )
+
+        self.assertFalse(artist_gig_tracker.likely_same_venue(row, event))
+
+    def test_scraper_alias_does_not_merge_same_name_different_city_without_address(self):
+        scraper_row = {
+            "venue_id": "venue-ridge-rail-sharon-center",
+            "place_name": "Ridge & Rail",
+            "city": "Sharon Center",
+            "source": "artist_site_sync",
+        }
+        master_row = {
+            "venue_id": "ridge-and-rail-wadsworth-oh-44281",
+            "place_name": "Ridge & Rail",
+            "address": "6784 Ridge Rd",
+            "city": "Wadsworth",
+            "zip": "44281",
+            "source": "master_sheet_sheet1",
+        }
+
+        self.assertEqual(artist_gig_tracker.find_master_venue_alias(scraper_row, {master_row["venue_id"]: master_row}), "")
+
 
 if __name__ == "__main__":
     unittest.main()

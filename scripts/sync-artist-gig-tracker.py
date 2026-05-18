@@ -212,8 +212,11 @@ KNOWN_VENUE_ALIASES = {
     "blue turtle": "blue-turtle-tavern-north-olmsted-oh-44070",
     "bait house brewery": "bait-house-brewery-223-meigs-st-sandusky-oh-44870",
     "ballentine": "ballantine-willoughby-oh-44094",
+    "beachland ballroom": "beachland-ballroom-cleveland-oh-44110",
+    "beachland tavern": "beachland-ballroom-cleveland-oh-44110",
     "caddyshack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
     "caddy shack": "the-caddy-shack-115-division-st-kelleys-island-oh-43438",
+    "collision bend": "collision-bend-brewing-1261-babbitt-road-oh",
     "crocker park in park": "crocker-park-177-market-st-westlake-oh-44145",
     "esp brewing": "esp-brewing-united-states-oh",
     "divot": "divot-s-sports-bar-13393-york-rd-north-royalton-oh-44133",
@@ -221,6 +224,7 @@ KNOWN_VENUE_ALIASES = {
     "galaxy": "galaxy-restaurant-wadsworth-oh-44281",
     "gideon owen winery": "gideon-owen-port-clinton-oh-43452",
     "grab n go": "grab-n-go-beverage-drivethru-and-pub-236-n-state-rd-medina-oh-44256",
+    "jenks building": "the-jenks-building-1884-front-st-cuyahoga-falls-oh-44221",
     "loby": "lobys-irish-pub-and-grill-canton-oh-44708",
     "jimmy bukketts": "jimmy-bukkett-s-fremont-oh-43420",
     "medina brewing company": "medina-brewing-company-320-s-court-st-g9-medina-oh-44256",
@@ -232,9 +236,12 @@ KNOWN_VENUE_ALIASES = {
     "runinmuck": "camp-runinmuck-lakeside-marblehead-oh-43440",
     "seeing double": "seeing-double-speakeasy-bar-north-olmsted-oh-44070",
     "secret at center": "secret-of-center-3511-center-road-oh-oh",
+    "speak of the devil": "speak-of-the-devil-cocktail-bar-lorain-oh-44052",
     "square 22": "square-22-restaurant-and-bar-strongsville-oh-44136",
     "local strongsville": "the-local-bar-strongsville-oh-44136",
     "the keys": "the-keys-put-in-bay-put-in-bay-oh-43456",
+    "the pint pie work": "the-pint-and-pie-works-bath-oh",
+    "pint pie work": "the-pint-and-pie-works-bath-oh",
     "twin oast": "twin-oast-brewing-port-clinton-oh-43452",
     "waters edge": "waters-edge-tiki-bar-and-grill-lakeside-marblehead-oh-43440",
     "wine room": "the-wine-room-avon-avon-oh-44011",
@@ -341,6 +348,57 @@ KNOWN_NEW_VENUE_DETAILS = {
         "venue_type": "Event Venue",
         "phone_number": "330-644-7797",
         "website": "https://www.turkeyfootislandclub.com/",
+    },
+    "beachland ballroom": {
+        "place_name": "Beachland Ballroom & Tavern",
+        "address": "15711 Waterloo Rd",
+        "city": "Cleveland",
+        "zip": "44110",
+        "venue_type": "Live Music Venue",
+        "phone_number": "216-383-1124",
+        "website": "https://www.beachlandballroom.com/",
+    },
+    "beachland tavern": {
+        "place_name": "Beachland Ballroom & Tavern",
+        "address": "15711 Waterloo Rd",
+        "city": "Cleveland",
+        "zip": "44110",
+        "venue_type": "Live Music Venue",
+        "phone_number": "216-383-1124",
+        "website": "https://www.beachlandballroom.com/",
+    },
+    "federated church family life center": {
+        "place_name": "Federated Church Family Life Center",
+        "address": "76 Bell St",
+        "city": "Chagrin Falls",
+        "zip": "44022",
+        "venue_type": "Event Venue",
+        "phone_number": "440-247-6490",
+        "website": "https://fedchurch.org/pas/",
+    },
+    "kent blues fest": {
+        "place_name": "Kent Blues Fest",
+        "city": "Kent",
+        "zip": "44240",
+        "venue_type": "Festival",
+        "website": "https://www.kentbluesfest.com/",
+    },
+    "music box supper club": {
+        "place_name": "Music Box Supper Club",
+        "address": "1148 Main Ave",
+        "city": "Cleveland",
+        "zip": "44113",
+        "venue_type": "Live Music Venue",
+        "phone_number": "216-242-1250",
+        "website": "https://musicboxcle.com/",
+    },
+    "visible voice books": {
+        "place_name": "Visible Voice Books",
+        "address": "4601 Lorain Ave",
+        "city": "Cleveland",
+        "zip": "44102",
+        "venue_type": "Bookstore",
+        "website": "https://www.visiblevoicebooks.com/",
     },
 }
 
@@ -1408,6 +1466,381 @@ def parse_rob_rocks_calendar(artist: dict[str, str], logger: logging.Logger) -> 
     return parse_rob_rocks_schedule_lines(parser.lines(), {**artist, "website": website})
 
 
+AUSTIN_WALKIN_CANE_CALENDAR_PAGES = [
+    "https://walkincane.com/events/list/?eventDisplay=past",
+    *[f"https://walkincane.com/events/list/page/{page}/?eventDisplay=past" for page in range(2, 9)],
+    "https://walkincane.com/events/list/",
+]
+
+AUSTIN_WALKIN_CANE_EXTRA_PAGES = [
+    "https://www.forestcitybrewery.com/events",
+    "https://www.visiblevoicebooks.com/calendar-of-events",
+    "https://fedchurch.org/pas/",
+    "https://www.kentbluesfest.com/artist/austin-walkin-cane",
+    "https://musicboxcle.com/schedule/at-a-glance-concert-schedule/",
+]
+
+AUSTIN_CITY_ALIASES = {
+    "cle": "Cleveland",
+    "cuyahoga falls": "Cuyahoga Falls",
+}
+
+AUSTIN_KNOWN_VENUES = {
+    "a j rocco": {"venue": "A.J. Rocco's", "city": "Cleveland"},
+    "beachland ballroom": {"venue": "Beachland Ballroom & Tavern", "city": "Cleveland", "zip_code": "44110"},
+    "beachland tavern": {"venue": "Beachland Ballroom & Tavern", "city": "Cleveland", "zip_code": "44110"},
+    "brother lounge": {"venue": "Brother's Lounge", "city": "Cleveland"},
+    "cbg": {"venue": "Chestnut Beer Garden", "city": "Akron"},
+    "chestnut beer garden": {"venue": "Chestnut Beer Garden", "city": "Akron"},
+    "collision bend": {"venue": "Collision Bend Brewing", "city": "Euclid"},
+    "federated church family life center": {
+        "venue": "Federated Church Family Life Center",
+        "city": "Chagrin Falls",
+        "zip_code": "44022",
+    },
+    "forest city brewery": {"venue": "Forest City Brewery", "city": "Cleveland", "zip_code": "44113"},
+    "harpersfield winery": {"venue": "Harpersfield Winery", "city": "Madison"},
+    "house of blues": {"venue": "House of Blues Cleveland", "city": "Cleveland"},
+    "jenks building": {"venue": "The Jenks Building", "city": "Cuyahoga Falls", "zip_code": "44221"},
+    "kent blues fest": {"venue": "Kent Blues Fest", "city": "Kent", "zip_code": "44240"},
+    "music box": {"venue": "Music Box Supper Club", "city": "Cleveland", "zip_code": "44113"},
+    "music box supper club": {"venue": "Music Box Supper Club", "city": "Cleveland", "zip_code": "44113"},
+    "olde towne charleston social club": {"venue": "Olde Towne Charleston Social Club", "city": "Lorain"},
+    "rush inn": {"venue": "Rush Inn", "city": ""},
+    "sarah vineyard": {"venue": "Sarah's Vineyard", "city": "Cuyahoga Falls", "zip_code": "44223"},
+    "speak of the devil": {"venue": "Speak of the Devil Cocktail Bar", "city": "Lorain", "zip_code": "44052"},
+    "the treelawn": {"venue": "Treelawn Social Club", "city": "Cleveland"},
+    "union house": {"venue": "Union House", "city": "Cleveland"},
+    "visible voice books": {"venue": "Visible Voice Books", "city": "Cleveland", "zip_code": "44102"},
+    "west park station": {"venue": "West Park Station", "city": "Cleveland"},
+    "wine dive": {"venue": "Wine Dive", "city": "Lakewood"},
+    "windows on the river": {"venue": "Windows on the River", "city": "Cleveland"},
+}
+
+AUSTIN_KNOWN_VENUE_LOOKUP = {canonical_venue_name(key): value for key, value in AUSTIN_KNOWN_VENUES.items()}
+
+
+def austin_known_venue(key: str) -> dict[str, str]:
+    return AUSTIN_KNOWN_VENUE_LOOKUP[canonical_venue_name(key)]
+
+
+def format_24h_time(value: str) -> str:
+    match = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?$", clean(value))
+    if not match:
+        return clean(value)
+    hour, minute = (int(match.group(1)), match.group(2))
+    suffix = "AM" if hour < 12 else "PM"
+    hour = hour % 12 or 12
+    return f"{hour}:{minute}{suffix}"
+
+
+def extract_json_ld_events(html_text: str) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for match in re.finditer(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>\s*(.*?)\s*</script>', html_text, re.S | re.I):
+        raw = html.unescape(match.group(1))
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        items = payload if isinstance(payload, list) else [payload]
+        rows.extend(item for item in items if isinstance(item, dict) and clean(item.get("@type")).lower() == "event")
+    return rows
+
+
+def parse_schema_event_datetime(value: object) -> tuple[str, str]:
+    text = clean(value)
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}(?::\d{2})?))?", text)
+    if not match:
+        return "", ""
+    event_date, event_time = match.groups()
+    return event_date, format_24h_time(event_time or "")
+
+
+def normalize_austin_venue_part(value: str) -> str:
+    text = clean(value)
+    text = re.split(r"\s+w/\s+|\s+with\s+", text, maxsplit=1, flags=re.I)[0]
+    text = re.sub(r"\([^)]*\)", " ", text)
+    text = re.sub(r"\b(?:opening for|jam night|festival|cancelled|canceled)\b.*$", " ", text, flags=re.I)
+    return clean(text.strip(" •-"))
+
+
+def parse_austin_walkin_cane_location(title: str) -> tuple[str, str, str] | None:
+    cleaned = html.unescape(clean(title)).replace("&#038;", "&")
+    if re.search(r"\b(cancelled|canceled|wruw|ivy.?s red sweater)\b", cleaned, re.I):
+        return None
+    if re.search(r"\bprivate party\b", cleaned, re.I):
+        return "Private Event", "", ""
+    parts = [clean(part) for part in cleaned.split("•") if clean(part)]
+    if not parts:
+        return None
+    state = "OH" if any(re.search(r"\bOH\b", part) for part in parts) else ""
+    if not state and any(re.search(r"\b(MI|MS|PA|NY|IN|KY|WV)\b", part) for part in parts):
+        return None
+
+    city = ""
+    for part in parts:
+        city_match = re.search(r"\b([A-Za-z .'-]+),\s*OH\b", part)
+        if city_match:
+            city = clean(city_match.group(1))
+            city = AUSTIN_CITY_ALIASES.get(canonical_venue_name(city), city)
+            break
+
+    venue = normalize_austin_venue_part(parts[0])
+    if canonical_venue_name(venue) in {"awc", "austin walkin cane"} and len(parts) > 1:
+        venue = normalize_austin_venue_part(parts[1])
+    if not venue:
+        return None
+    known = AUSTIN_KNOWN_VENUE_LOOKUP.get(canonical_venue_name(venue))
+    if known:
+        return known["venue"], city or known.get("city", ""), known.get("zip_code", "")
+    if not state and not city:
+        return None
+    return venue, city, ""
+
+
+def make_austin_event(
+    artist: dict[str, str],
+    event_date: str,
+    start_time: str,
+    end_time: str,
+    venue: str,
+    city: str,
+    zip_code: str,
+    source_url: str,
+    description: str,
+    title_prefix: str = "",
+) -> ScrapedArtistEvent:
+    artist_name = clean(artist.get("canonical_name"))
+    artist_id = clean(artist.get("artist_id")) or make_id("artist", artist_name)
+    artist_type = clean(artist.get("artist_type")) or "solo"
+    title = clean(title_prefix) or (f"{artist_name} @ {venue}" if venue != "Private Event" else f"{artist_name} private event")
+    return ScrapedArtistEvent(
+        artist_id=artist_id,
+        artist_name=artist_name,
+        artist_type=artist_type,
+        event_date=event_date,
+        start_time=start_time,
+        end_time=end_time,
+        title=title,
+        venue_name=venue,
+        city=city,
+        state="OH",
+        zip_code=zip_code,
+        source=artist_site_source(clean(artist.get("website"))),
+        source_record_id=short_hash(source_url, event_date, start_time, venue, description, length=12),
+        source_url=source_url,
+        description=description,
+    )
+
+
+def parse_austin_official_events(html_text: str, source_url: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    events: list[ScrapedArtistEvent] = []
+    for item in extract_json_ld_events(html_text):
+        event_date, start_time = parse_schema_event_datetime(item.get("startDate"))
+        _end_date, end_time = parse_schema_event_datetime(item.get("endDate"))
+        if not event_date:
+            continue
+        parsed_location = parse_austin_walkin_cane_location(clean(item.get("name")))
+        if not parsed_location:
+            continue
+        venue, city, zip_code = parsed_location
+        events.append(
+            make_austin_event(
+                artist,
+                event_date,
+                start_time,
+                end_time,
+                venue,
+                city,
+                zip_code,
+                clean(item.get("url")) or source_url,
+                clean(item.get("name")),
+            )
+        )
+    return events
+
+
+def parse_long_date_line(value: str, default_year: int | None = None) -> tuple[str, str] | None:
+    text = clean(value)
+    text = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", text, flags=re.I)
+    patterns = [
+        ("%A, %B %d, %Y", r"^[A-Za-z]+,\s+[A-Za-z]+\s+\d{1,2},\s+20\d{2}"),
+        ("%B %d, %Y", r"^[A-Za-z]+\s+\d{1,2},\s+20\d{2}"),
+    ]
+    for fmt, regex in patterns:
+        match = re.search(regex, text)
+        if match:
+            event_date = datetime.strptime(match.group(0), fmt).date().isoformat()
+            tail = clean(text[match.end() :].strip(" ,"))
+            return event_date, tail
+    if default_year:
+        short_match = re.search(r"^(\d{1,2})/(\d{1,2})", text)
+        if short_match:
+            month, day = map(int, short_match.groups())
+            return date(default_year, month, day).isoformat(), clean(text[short_match.end() :])
+    return None
+
+
+def parse_ampm_time(value: str) -> str:
+    match = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*([AP]M)\b", clean(value), re.I)
+    if not match:
+        return ""
+    hour, minute, suffix = match.groups()
+    return f"{int(hour)}:{minute or '00'}{suffix.upper()}"
+
+
+def parse_austin_squarespace_events(html_text: str, source_url: str, artist: dict[str, str], default_venue: str = "") -> list[ScrapedArtistEvent]:
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    lines = parser.lines()
+    events: list[ScrapedArtistEvent] = []
+    seen_dates: set[str] = set()
+    for index, line in enumerate(lines):
+        lowered = norm(line)
+        if "austin walkin cane" not in lowered or lowered.startswith("damn fine blues"):
+            continue
+        parsed_date = parse_long_date_line(lines[index + 1]) if index + 1 < len(lines) else None
+        if not parsed_date:
+            continue
+        event_date, _tail = parsed_date
+        if event_date in seen_dates:
+            continue
+        seen_dates.add(event_date)
+        start_time = parse_ampm_time(lines[index + 2]) if index + 2 < len(lines) else ""
+        end_time = parse_ampm_time(lines[index + 3]) if index + 3 < len(lines) else ""
+        venue = default_venue or (clean(lines[index + 4]) if index + 4 < len(lines) else "")
+        known = AUSTIN_KNOWN_VENUE_LOOKUP.get(canonical_venue_name(venue))
+        city = known.get("city", "") if known else ""
+        zip_code = known.get("zip_code", "") if known else ""
+        if not venue:
+            continue
+        events.append(make_austin_event(artist, event_date, start_time, end_time, known.get("venue", venue) if known else venue, city, zip_code, source_url, line))
+    return events
+
+
+def parse_austin_fedchurch_events(html_text: str, source_url: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    lines = parser.lines()
+    events: list[ScrapedArtistEvent] = []
+    for index, line in enumerate(lines):
+        if "austin walkin cane" not in norm(line):
+            continue
+        parsed_date = parse_long_date_line(lines[index + 1]) if index + 1 < len(lines) else None
+        if not parsed_date:
+            continue
+        event_date, tail = parsed_date
+        known = austin_known_venue("federated church family life center")
+        events.append(
+            make_austin_event(
+                artist,
+                event_date,
+                parse_ampm_time(tail),
+                "",
+                known["venue"],
+                known["city"],
+                known["zip_code"],
+                source_url,
+                clean(" | ".join(lines[index : min(len(lines), index + 4)])),
+                "Austin Walkin' Cane @ Federated Church Family Life Center",
+            )
+        )
+    return events
+
+
+def parse_austin_kent_blues_events(html_text: str, source_url: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    text = "\n".join(parser.lines())
+    if "Austin Walkin" not in text:
+        return []
+    match = re.search(r"([A-Za-z]+\s+\d{1,2},\s+20\d{2})\s+-\s+Downtown,\s+Kent\s+OH", text)
+    if not match:
+        return []
+    event_date = datetime.strptime(match.group(1), "%B %d, %Y").date().isoformat()
+    known = austin_known_venue("kent blues fest")
+    return [
+        make_austin_event(
+            artist,
+            event_date,
+            "",
+            "",
+            known["venue"],
+            known["city"],
+            known["zip_code"],
+            source_url,
+            "Austin Walkin' Cane at Kent Blues Fest, Downtown Kent OH",
+            "Austin Walkin' Cane @ Kent Blues Fest",
+        )
+    ]
+
+
+def parse_austin_music_box_schedule(html_text: str, source_url: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    parser = VisibleTextParser()
+    parser.feed(html_text)
+    events: list[ScrapedArtistEvent] = []
+    known = austin_known_venue("music box supper club")
+    for line in parser.lines():
+        if "austin walkin" not in norm(line):
+            continue
+        match = re.search(r"(\d{1,2})/(\d{1,2})(\d{1,2}:\d{2}\s*[ap]m).*Austin Walkin", line, re.I)
+        if not match:
+            continue
+        month, day, time_text = match.groups()
+        year = date.today().year + (1 if date.today().month == 12 and int(month) == 1 else 0)
+        event_date = date(year, int(month), int(day)).isoformat()
+        events.append(
+            make_austin_event(
+                artist,
+                event_date,
+                parse_ampm_time(time_text),
+                "",
+                known["venue"],
+                known["city"],
+                known["zip_code"],
+                source_url,
+                line,
+                "Blues Brunch with Austin Walkin' Cane",
+            )
+        )
+    return events
+
+
+def parse_austin_walkin_cane_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    events: list[ScrapedArtistEvent] = []
+    min_date = date(date.today().year, 1, 1)
+    for page_url in AUSTIN_WALKIN_CANE_CALENDAR_PAGES:
+        try:
+            page_html = fetch_url(page_url)
+        except Exception as exc:
+            logger.info("Could not fetch Austin Walkin' Cane calendar page %s: %s", page_url, exc)
+            continue
+        page_events = parse_austin_official_events(page_html, page_url, artist)
+        events.extend(event for event in page_events if parse_iso(event.event_date) and parse_iso(event.event_date) >= min_date)
+
+    for page_url in AUSTIN_WALKIN_CANE_EXTRA_PAGES:
+        try:
+            page_html = fetch_url(page_url)
+        except Exception as exc:
+            logger.info("Could not fetch Austin Walkin' Cane supplemental page %s: %s", page_url, exc)
+            continue
+        if "forestcitybrewery.com" in page_url:
+            events.extend(parse_austin_squarespace_events(page_html, page_url, artist))
+        elif "visiblevoicebooks.com" in page_url:
+            events.extend(parse_austin_squarespace_events(page_html, page_url, artist, default_venue="Visible Voice Books"))
+        elif "fedchurch.org" in page_url:
+            events.extend(parse_austin_fedchurch_events(page_html, page_url, artist))
+        elif "kentbluesfest.com" in page_url:
+            events.extend(parse_austin_kent_blues_events(page_html, page_url, artist))
+        elif "musicboxcle.com" in page_url:
+            events.extend(parse_austin_music_box_schedule(page_html, page_url, artist))
+
+    deduped: dict[str, ScrapedArtistEvent] = {}
+    for event in events:
+        deduped[event.event_id] = event
+    return sorted(deduped.values(), key=lambda event: (event.event_date, event.start_time, event.venue_name))
+
+
 def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
     website = clean(artist.get("website"))
     try:
@@ -1444,6 +1877,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_sources.add(artist_site_source(website))
         elif "robrockscle.com" in website.lower():
             scraped = parse_rob_rocks_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
+        elif "walkincane.com" in website.lower():
+            scraped = parse_austin_walkin_cane_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
@@ -1494,7 +1931,7 @@ def likely_same_venue(row: dict[str, str], event: ScrapedArtistEvent) -> bool:
     name_match = row_canonical == event_canonical or row_canonical in event_canonical or event_canonical in row_canonical
     if not name_match:
         return False
-    city_overlap = bool(venue_city_tokens(event.city, event.description) & venue_city_tokens(*row_city_values, row_name))
+    city_overlap = bool(venue_city_tokens(event.city) & venue_city_tokens(*row_city_values))
     zip_overlap = bool(venue_zip_tokens(event.zip_code, event.description) & venue_zip_tokens(*row_city_values, row_name))
     return city_overlap or zip_overlap
 
@@ -1579,6 +2016,17 @@ def find_master_venue_alias(row: dict[str, str], masters_by_id: dict[str, dict[s
         if similarity < 0.72:
             continue
         place_overlap = rows_have_place_overlap(row, master)
+        row_place_tokens = venue_city_tokens(row.get("city"), row.get("City"), row.get("address"), row.get("Address"), row.get("zip"), row.get("Zip"))
+        master_place_tokens = venue_city_tokens(
+            master.get("city"),
+            master.get("City"),
+            master.get("address"),
+            master.get("Address"),
+            master.get("zip"),
+            master.get("Zip"),
+        )
+        if not place_overlap and row_place_tokens and master_place_tokens:
+            continue
         if not place_overlap and similarity < 0.98:
             continue
         score = similarity + (0.25 if place_overlap else 0)
@@ -1589,7 +2037,13 @@ def find_master_venue_alias(row: dict[str, str], masters_by_id: dict[str, dict[s
 
 
 def enrich_known_new_venue(row: dict[str, str]) -> None:
-    details = KNOWN_NEW_VENUE_DETAILS.get(canonical_venue_name(row.get("place_name")))
+    row_key = canonical_venue_name(row.get("place_name"))
+    details = KNOWN_NEW_VENUE_DETAILS.get(row_key)
+    if not details:
+        for key, value in KNOWN_NEW_VENUE_DETAILS.items():
+            if canonical_venue_name(key) == row_key:
+                details = value
+                break
     if not details:
         return
     for key, value in details.items():
@@ -1650,15 +2104,19 @@ def match_venue_id(venues: list[dict[str, str]], event: ScrapedArtistEvent) -> s
     alias_id = KNOWN_VENUE_ALIASES.get(canonical_venue_name(event.venue_name))
     if alias_id and any(clean(row.get("venue_id") or row.get("Place ID")) == alias_id for row in venues):
         return alias_id
-    by_name = {norm(row.get("place_name") or row.get("Place Name")): clean(row.get("venue_id") or row.get("Place ID")) for row in venues}
+    by_name: dict[str, list[dict[str, str]]] = {}
+    for row in venues:
+        by_name.setdefault(norm(row.get("place_name") or row.get("Place Name")), []).append(row)
     candidates = [
         norm(event.venue_name),
         norm(f"{event.venue_name} {event.city}"),
         norm(f"The {event.venue_name}"),
     ]
     for candidate in candidates:
-        if candidate in by_name:
-            return by_name[candidate]
+        for row in by_name.get(candidate, []):
+            row_city = norm(row.get("city") or row.get("City"))
+            if not row_city or not norm(event.city) or row_city == norm(event.city):
+                return clean(row.get("venue_id") or row.get("Place ID"))
     event_address = venue_address_fingerprint(event)
     if event_address:
         for row in venues:
