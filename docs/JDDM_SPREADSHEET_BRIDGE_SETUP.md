@@ -105,6 +105,13 @@ Configured public ICS fallback:
 
 Note: the `justdeedeemusic@gmail.com` public ICS URL returned 404 during local verification, so the live bridge uses Apps Script `CalendarApp` for that main calendar. The spreadsheet/script owner must have access to that calendar.
 
+Calendar access failures are treated as source outages, not as an empty
+calendar. When the required calendar is unavailable, the bridge reports
+`calendarCoverageComplete: false`, refuses a blanket replacement of future gig
+dates, and preserves calendar-only dates. A successfully checked official
+website feed can still add new dates and remove only dates that came from its
+previous website snapshot.
+
 After pasting the latest `Code.gs` and deploying:
 
 1. Open Apps Script from the original working spreadsheet.

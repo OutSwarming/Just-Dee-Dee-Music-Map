@@ -1,7 +1,10 @@
 import importlib.util
+import json
 import logging
 import sys
+import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 
@@ -1134,6 +1137,153 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertEqual(events[0].venue_name, "Beau's Bar & Bistro")
         self.assertEqual(events[0].event_date, "2026-06-05")
         self.assertEqual(events[1].event_date, "2026-07-10")
+
+    def test_missing_future_event_from_successfully_checked_site_is_canceled(self):
+        source = "artist_site:furiousgeorgehartwig.com"
+        merged = artist_gig_tracker.merge_tracker(
+            venues=[{"venue_id": "venue-room", "place_name": "Room", "city": "Akron"}],
+            artists=[{"artist_id": "artist-furious", "canonical_name": "Furious George Hartwig", "website": "https://furiousgeorgehartwig.com/home"}],
+            events=[{
+                "event_id": "event-removed",
+                "event_date": "2099-08-10",
+                "title": "Furious George Hartwig @ Room",
+                "venue_id": "venue-room",
+                "venue_name_snapshot": "Room",
+                "source": source,
+                "source_url": "https://furiousgeorgehartwig.com/home",
+                "status": "confirmed",
+            }],
+            event_artists=[{
+                "event_artist_id": "link-removed",
+                "event_id": "event-removed",
+                "artist_id": "artist-furious",
+                "artist_name_snapshot": "Furious George Hartwig",
+            }],
+            history=[],
+            reviews=[],
+            scrape=artist_gig_tracker.ArtistSiteScrape(
+                events=[],
+                checked_artist_ids={"artist-furious"},
+                checked_sources={source},
+            ),
+        )
+
+        event = next(row for row in merged["Events"] if row["event_id"] == "event-removed")
+        self.assertEqual(event["status"], "canceled_or_removed")
+        self.assertEqual(merged["summary"]["canceled_or_removed"], 1)
+        self.assertEqual(merged["summary"]["canceled_events"][0]["artist_name"], "Furious George Hartwig")
+
+    def test_official_jddm_feed_contains_only_current_official_website_gigs(self):
+        source = artist_gig_tracker.artist_site_source("https://www.justdeedeemusic.com/")
+        official = self.make_event(
+            artist_id="artist-jddm",
+            artist_name="Just Dee Dee Music",
+            event_date="2099-08-11",
+            source=source,
+            source_url="https://www.justdeedeemusic.com/calendar/",
+        )
+        furious = self.make_event(event_date="2099-08-12")
+        scrape = artist_gig_tracker.ArtistSiteScrape(
+            events=[official, furious],
+            checked_artist_ids={"artist-jddm", "artist-furious-george"},
+            checked_sources={source, furious.source},
+        )
+
+        events = artist_gig_tracker.official_jddm_website_gigs(scrape, today=date(2099, 8, 1))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["date"], "2099-08-11")
+        self.assertEqual(events[0]["venueName"], "Olesia's Taverne of Richfield")
+
+    def test_noninteractive_bridge_import_posts_all_six_tracker_tables(self):
+        captured = {"payloads": [], "timeouts": []}
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps({"ok": True, "action": "syncArtistTrackerTables"}).encode()
+
+        def fake_open(request, timeout=0):
+            captured["payloads"].append(json.loads(request.data.decode()))
+            captured["timeouts"].append(timeout)
+            return FakeResponse()
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {}
+            for sheet in ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]:
+                path = root / f"{sheet}.csv"
+                path.write_text("id,name\n1,Example\n", encoding="utf-8")
+                paths[sheet] = path
+            result = artist_gig_tracker.import_outputs_via_bridge(
+                paths,
+                "https://example.test/bridge",
+                logging.getLogger("test"),
+                opener=fake_open,
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(captured["payloads"]), 6)
+        self.assertEqual({payload["action"] for payload in captured["payloads"]}, {"syncArtistTrackerTable"})
+        self.assertEqual(
+            {payload["sheetName"] for payload in captured["payloads"]},
+            {"Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"},
+        )
+        self.assertTrue(all("id,name" in payload["csv"] for payload in captured["payloads"]))
+        self.assertTrue(all(timeout >= 180 for timeout in captured["timeouts"]))
+
+    def test_artist_change_text_reports_additions_removals_and_date_changes(self):
+        body = artist_gig_tracker.build_artist_change_text({
+            "added_events": [{"artist_name": "Furious George", "venue_name": "New Room", "event_date": "2099-08-01"}],
+            "canceled_events": [{"artist_name": "Furious George", "venue_name": "Old Room", "event_date": "2099-08-02"}],
+            "rescheduled_events": [{"artist_name": "Just Dee Dee Music", "venue_name": "Winery", "event_date": "2099-08-03"}],
+            "new_venues": [],
+        }, app_url="https://example.test/app/")
+
+        self.assertIn("NEW:", body)
+        self.assertIn("REMOVED:", body)
+        self.assertIn("DATE CHANGED:", body)
+        self.assertIn("https://example.test/app/", body)
+
+    def test_artist_sync_installer_runs_at_load_and_every_five_hours(self):
+        installer = (ROOT / "scripts" / "install-artist-gig-tracker-sync.mjs").read_text(encoding="utf-8")
+
+        self.assertIn("<key>RunAtLoad</key>", installer)
+        self.assertIn("<key>StartInterval</key>", installer)
+        self.assertIn("<integer>18000</integer>", installer)
+        self.assertNotIn("<key>StartCalendarInterval</key>", installer)
+
+    def test_primal_rhythm_official_tour_calendar_is_discovered_and_parsed(self):
+        calendar_url = artist_gig_tracker.primal_rhythm_calendar_url(
+            '<iframe src="https://calendar.google.com/calendar/embed?src=primal%40group.calendar.google.com&amp;ctz=UTC"></iframe>'
+        )
+        events = artist_gig_tracker.parse_primal_rhythm_ics("""BEGIN:VCALENDAR
+BEGIN:VEVENT
+DTSTART:20990822T220000Z
+UID:primal-filia@example.test
+SUMMARY:Fillia Winery
+LOCATION:3059 Greenwich Rd\, Wadsworth\, OH 44281\, USA
+END:VEVENT
+END:VCALENDAR
+""", {
+            "artist_id": "artist-primal-rhythm",
+            "canonical_name": "Primal Rhythm",
+            "artist_type": "band",
+            "website": "https://primalrhythm.net/",
+        })
+
+        self.assertIn("primal%40group.calendar.google.com", calendar_url)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_date, "2099-08-22")
+        self.assertEqual(events[0].start_time, "6:00PM")
+        self.assertEqual(events[0].venue_name, "Filia Cellars")
+        self.assertEqual(events[0].city, "Wadsworth")
+        self.assertEqual(events[0].zip_code, "44281")
 
 
 if __name__ == "__main__":

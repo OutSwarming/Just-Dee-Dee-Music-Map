@@ -42,6 +42,14 @@ function createFakeSheet(initialHeaders, initialRows = []) {
                 writes.push({ row, column, values: nextValues });
                 return this;
             },
+            clearContent() {
+                for (let rowOffset = 0; rowOffset < numRows; rowOffset += 1) {
+                    for (let columnOffset = 0; columnOffset < numColumns; columnOffset += 1) {
+                        values[row - 1 + rowOffset][column - 1 + columnOffset] = '';
+                    }
+                }
+                return this;
+            },
             setNumberFormat() {
                 formatting.push({ type: 'numberFormat', row, column });
                 return this;
@@ -109,6 +117,14 @@ function createFakeSheet(initialHeaders, initialRows = []) {
         },
         deleteRows(startRow, count) {
             values.splice(startRow - 1, count);
+            return this;
+        },
+        insertRowsAfter(afterRow, count) {
+            values.splice(afterRow, 0, ...Array.from({ length: count }, () => []));
+            return this;
+        },
+        insertColumnsAfter(afterColumn, count) {
+            values.forEach(row => row.splice(afterColumn, 0, ...Array(count).fill('')));
             return this;
         },
         appendRow(row) {
@@ -652,6 +668,146 @@ test('calendar sync fuzzy-matches venue names and adds missing future real gigs'
     assert.equal(added[headerIndex(headers, 'Status')], 'Needs Review');
     assert.equal(added[headerIndex(headers, 'Future Gigs')], '2099-03-03');
     assert.match(added[headerIndex(headers, 'Notes')], /Google Calendar future gig/i);
+});
+
+test('official website gig reconciliation adds late gigs and removes deleted gigs', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Address', 'City', 'State', 'Zip', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Notes'],
+        [['Last Minute Room', '1 Main St', 'Akron', 'OH', '44308', 'last-minute-room-akron-oh', 'Booked', '', '', '']]
+    );
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    const added = bridge.syncWebsiteGigEvents_({
+        sourceChecked: true,
+        events: [{
+            id: 'official-web-1',
+            date: '2099-08-09',
+            title: 'JustDeeDeeMusic Live @ Last Minute Room',
+            venueName: 'Last Minute Room',
+            location: '1 Main St, Akron, OH 44308',
+            sourceUrl: 'https://www.justdeedeemusic.com/calendar/'
+        }]
+    });
+    let mapSheet = bridge.getSheet_();
+    let headers = mapSheet.values[0];
+    let row = mapSheet.values[1];
+
+    assert.equal(added.ok, true);
+    assert.equal(added.websiteEventCount, 1);
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-08-09');
+    assert.equal(row[headerIndex(headers, 'Next Booked')], '2099-08-09');
+
+    const removed = bridge.syncWebsiteGigEvents_({ sourceChecked: true, events: [] });
+    mapSheet = bridge.getSheet_();
+    headers = mapSheet.values[0];
+    row = mapSheet.values[1];
+
+    assert.equal(removed.ok, true);
+    assert.equal(removed.websiteEventCount, 0);
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '');
+    assert.equal(row[headerIndex(headers, 'Next Booked')], '');
+    assert.equal(row[headerIndex(headers, 'Future Gig Count')], 0);
+});
+
+test('website deletion preserves calendar-only dates when calendar access is unavailable', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Address', 'City', 'State', 'Zip', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Notes'],
+        [['Shared Source Room', '1 Main St', 'Akron', 'OH', '44308', 'shared-source-room-akron-oh', 'Booked', '', '2099-09-10', '']]
+    );
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    const seeded = bridge.syncWebsiteGigEvents_({
+        sourceChecked: true,
+        events: [{
+            id: 'official-web-shared-1',
+            date: '2099-08-09',
+            title: 'JustDeeDeeMusic Live @ Shared Source Room',
+            venueName: 'Shared Source Room',
+            location: '1 Main St, Akron, OH 44308',
+            sourceUrl: 'https://www.justdeedeemusic.com/calendar/'
+        }]
+    });
+    let mapSheet = bridge.getSheet_();
+    let headers = mapSheet.values[0];
+    let row = mapSheet.values[1];
+
+    assert.equal(seeded.mapSync.calendarCoverageComplete, false);
+    assert.equal(seeded.mapSync.replaceFutureGigs, false);
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-08-09; 2099-09-10');
+
+    const removed = bridge.syncWebsiteGigEvents_({ sourceChecked: true, events: [] });
+    mapSheet = bridge.getSheet_();
+    headers = mapSheet.values[0];
+    row = mapSheet.values[1];
+
+    assert.equal(removed.mapSync.calendarCoverageComplete, false);
+    assert.equal(row[headerIndex(headers, 'Future Gigs')], '2099-09-10');
+    assert.equal(row[headerIndex(headers, 'Next Booked')], '2099-09-10');
+});
+
+test('website gig reconciliation refuses to erase data after a failed source check', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Future Gigs'],
+        [['Safe Room', 'safe-room', 'Booked', '2099-09-01']]
+    );
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.syncWebsiteGigEvents_({ sourceChecked: false, events: [] });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'UNCONFIRMED_WEBSITE_GIG_SOURCE');
+    assert.equal(sheet.values[1][headerIndex(sheet.values[0], 'Future Gigs')], '2099-09-01');
+});
+
+test('artist tracker bridge import validates every table before replacing tabs', () => {
+    const sheet = createFakeSheet(['Place Name'], [['Map Row']]);
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+    const tables = Object.fromEntries(bridge.JDDM_ARTIST_TRACKER_SHEETS.map(name => [
+        name,
+        `id,name\n${name.toLowerCase()},${name}`
+    ]));
+
+    const result = bridge.syncArtistTrackerTables_({ tables });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.rowCounts.Events, 1);
+    assert.equal(bridge.getSheet_().values[1][0], 'Map Row');
+    assert.throws(
+        () => bridge.syncArtistTrackerTables_({ tables: { Artists: 'id,name\na,Artist' } }),
+        /complete CSV payload/i
+    );
+});
+
+test('artist tracker bridge can import one allowed sheet per request', () => {
+    const sheet = createFakeSheet(['Place Name'], [['Map Row']]);
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    const result = bridge.syncArtistTrackerTable_({
+        sheetName: 'Events',
+        csv: 'event_id,title\nevent-1,Official Site Gig\nevent-stale,Old Gig'
+    });
+    const replaced = bridge.syncArtistTrackerTable_({
+        sheetName: 'Events',
+        csv: 'event_id,title\nevent-1,Official Site Gig'
+    });
+    const rejected = bridge.syncArtistTrackerTable_({
+        sheetName: 'Sheet1',
+        csv: 'Place Name\nDo not overwrite map'
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.rowCount, 2);
+    assert.equal(replaced.rowCount, 1);
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.code, 'INVALID_ARTIST_TRACKER_SHEET');
+    assert.equal(bridge.getSheet_().values[1][0], 'Map Row');
+    const eventSheet = bridge.getSpreadsheet_().getSheetByName('Events');
+    assert.equal(eventSheet.values[2][0], '');
 });
 
 test('setPlayed writes Status instead of legacy Played columns', () => {

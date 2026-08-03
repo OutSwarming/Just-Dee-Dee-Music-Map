@@ -41,13 +41,10 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
         <key>PATH</key>
         <string>${xmlEscape(`${path.dirname(nodePath)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`)}</string>
     </dict>
-    <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>8</integer>
-        <key>Minute</key>
-        <integer>30</integer>
-    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>18000</integer>
     <key>StandardOutPath</key>
     <string>${xmlEscape(logPath)}</string>
     <key>StandardErrorPath</key>
@@ -62,5 +59,5 @@ await writeFile(launchAgentPath, plist);
 console.log(`Wrote ${launchAgentPath}`);
 console.log("Load it with:");
 console.log(`launchctl bootstrap gui/$(id -u) ${launchAgentPath}`);
-console.log("Run once now with:");
+console.log("The job runs at load and every five hours. Run it manually with:");
 console.log(`${pythonPath} ${syncScript} --import-google-sheet`);

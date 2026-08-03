@@ -36,12 +36,14 @@ import sys
 import tempfile
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 try:
     from playwright.sync_api import sync_playwright
@@ -55,8 +57,13 @@ DEFAULT_OUT_DIR = REPO_ROOT / "data" / "scraped" / "artist_site_sync"
 LOG_PATH = Path.home() / "Library" / "Logs" / "jddm-artist-gig-tracker-sync.log"
 CHROME_DEBUG_URL = "http://127.0.0.1:9222"
 DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
+DEFAULT_BRIDGE_URL = (
+    "https://script.google.com/macros/s/"
+    "AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec"
+)
 DEFAULT_TEXT_RECIPIENTS = ["+14403054062", "+12168499292"]
 SERVICE_PRIORITY = ["iMessage", "SMS"]
+FETCH_FAILURE_COUNT = 0
 CLEVELAND_LAT = 41.4993
 CLEVELAND_LON = -81.6944
 NORTHEAST_OHIO_RADIUS_MILES = 90
@@ -108,6 +115,7 @@ MARIA_PETTI_BANDSINTOWN_URL = (
     "https://rest.bandsintown.com/artists/Maria%20Petti/events"
     "?app_id=squarespace-maria-petti&date=all"
 )
+PRIMAL_RHYTHM_TOUR_URL = "https://primalrhythm.net/tour"
 
 SHEET_GIDS = {
     "Venues": "494362240",
@@ -1089,6 +1097,7 @@ class ArtistSiteScrape:
 
 
 def fetch_url(url: str) -> str:
+    global FETCH_FAILURE_COUNT
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -1096,30 +1105,35 @@ def fetch_url(url: str) -> str:
     }
     request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=40) as response:
-            return response.read().decode("utf-8", errors="ignore")
-    except urllib.error.HTTPError as exc:
-        if exc.code != 406:
-            raise
-    result = subprocess.run(
-        [
-            "curl",
-            "-L",
-            "-s",
-            "-A",
-            headers["User-Agent"],
-            "-H",
-            f"Accept: {headers['Accept']}",
-            "-H",
-            f"Accept-Language: {headers['Accept-Language']}",
-            url,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=45,
-    )
-    return result.stdout
+        try:
+            with urllib.request.urlopen(request, timeout=40) as response:
+                return response.read().decode("utf-8", errors="ignore")
+        except urllib.error.HTTPError as exc:
+            if exc.code != 406:
+                raise
+        result = subprocess.run(
+            [
+                "curl",
+                "-L",
+                "-sS",
+                "--fail",
+                "-A",
+                headers["User-Agent"],
+                "-H",
+                f"Accept: {headers['Accept']}",
+                "-H",
+                f"Accept-Language: {headers['Accept-Language']}",
+                url,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
+        return result.stdout
+    except Exception:
+        FETCH_FAILURE_COUNT += 1
+        raise
 
 
 def find_squarespace_tourdates_blocks(html_text: str) -> list[dict[str, object]]:
@@ -3540,6 +3554,84 @@ def parse_jerry_popiel_calendar(artist: dict[str, str], logger: logging.Logger) 
     return parse_jerry_popiel_schedule_lines(parser.lines(), artist)
 
 
+def unfold_ics(value: str) -> str:
+    return re.sub(r"\r?\n[ \t]", "", value)
+
+
+def ics_property(block: str, name: str) -> str:
+    match = re.search(rf"^{re.escape(name)}(?:;[^:]*)?:(.*)$", block, re.MULTILINE)
+    if not match:
+        return ""
+    return clean(match.group(1).replace(r"\,", ",").replace(r"\;", ";").replace(r"\n", " "))
+
+
+def primal_rhythm_calendar_url(html_text: str) -> str:
+    match = re.search(r"calendar\.google\.com/calendar/embed\?[^\"'<>]*\bsrc=([^&\"'<>]+)", html.unescape(html_text), re.I)
+    if not match:
+        return ""
+    calendar_id = urllib.parse.unquote(match.group(1))
+    return "https://calendar.google.com/calendar/ical/" + urllib.parse.quote(calendar_id, safe="") + "/public/basic.ics"
+
+
+def parse_primal_rhythm_ics(ics_text: str, artist: dict[str, str]) -> list[ScrapedArtistEvent]:
+    website = clean(artist.get("website")) or "https://primalrhythm.net/"
+    events: list[ScrapedArtistEvent] = []
+    for index, block in enumerate(unfold_ics(ics_text).split("BEGIN:VEVENT")[1:]):
+        raw_date = ics_property(block, "DTSTART")
+        date_match = re.match(r"(\d{4})(\d{2})(\d{2})", raw_date)
+        if not date_match:
+            continue
+        event_date = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
+        summary = ics_property(block, "SUMMARY") or "Primal Rhythm performance"
+        location = ics_property(block, "LOCATION")
+        venue_name = "Filia Cellars" if norm(summary) in {"filia winery", "filias cellar", "filias cellars", "fillia winery"} else summary
+        address = extract_display_street_address(location)
+        zip_match = re.search(r"\b(\d{5})\b", location)
+        city_match = re.search(r",\s*([^,]+),\s*(?:OH|Ohio)\s+\d{5}\b", location, re.I)
+        time_match = re.match(r"\d{8}T(\d{2})(\d{2})", raw_date)
+        start_time = ""
+        if time_match:
+            hour = int(time_match.group(1))
+            minute = int(time_match.group(2))
+            if raw_date.endswith("Z"):
+                utc_value = datetime.strptime(raw_date[:15], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+                local_value = utc_value.astimezone(ZoneInfo("America/New_York"))
+                event_date = local_value.date().isoformat()
+                hour = local_value.hour
+                minute = local_value.minute
+            suffix = "AM" if hour < 12 else "PM"
+            display_hour = hour % 12 or 12
+            start_time = f"{display_hour}:{minute:02d}{suffix}"
+        source_record_id = ics_property(block, "UID") or short_hash(website, event_date, summary, index, length=12)
+        events.append(ScrapedArtistEvent(
+            artist_id=clean(artist.get("artist_id")) or make_id("artist", artist.get("canonical_name")),
+            artist_name=clean(artist.get("canonical_name")) or "Primal Rhythm",
+            artist_type=clean(artist.get("artist_type")) or "band",
+            event_date=event_date,
+            start_time=start_time,
+            end_time="",
+            title=f"Primal Rhythm @ {venue_name}",
+            venue_name=venue_name,
+            city=clean(city_match.group(1)) if city_match else "",
+            state="OH" if re.search(r"\b(?:OH|Ohio)\b", location, re.I) else "",
+            zip_code=zip_match.group(1) if zip_match else "",
+            source=artist_site_source(website),
+            source_record_id=source_record_id,
+            source_url=PRIMAL_RHYTHM_TOUR_URL,
+            description=" | ".join(part for part in [address, location] if part),
+        ))
+    return events
+
+
+def parse_primal_rhythm_calendar(artist: dict[str, str], logger: logging.Logger) -> list[ScrapedArtistEvent]:
+    tour_html = fetch_url(PRIMAL_RHYTHM_TOUR_URL)
+    calendar_url = primal_rhythm_calendar_url(tour_html)
+    if not calendar_url:
+        logger.info("Primal Rhythm official tour page currently has no public calendar feed")
+        return []
+    return parse_primal_rhythm_ics(fetch_url(calendar_url), artist)
+
+
 def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging.Logger) -> ArtistSiteScrape:
     filia_scrape = scrape_filia_cellars_schedule(artists, logger)
     events: list[ScrapedArtistEvent] = list(filia_scrape.events)
@@ -3550,6 +3642,7 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
         if not website:
             continue
         artist_id = clean(artist.get("artist_id")) or make_id("artist", artist.get("canonical_name"))
+        fetch_failures_before = FETCH_FAILURE_COUNT
         scraped: list[ScrapedArtistEvent]
         if norm(artist.get("canonical_name")) == "doug ribley":
             scraped = parse_doug_ribley_calendar(artist, logger)
@@ -3603,6 +3696,10 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             scraped = parse_half_craicd_calendar(artist, logger)
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
+        elif "primalrhythm.net" in website.lower():
+            scraped = parse_primal_rhythm_calendar(artist, logger)
+            checked_artist_ids.add(artist_id)
+            checked_sources.add(artist_site_source(website))
         else:
             home_html = ""
             try:
@@ -3620,10 +3717,12 @@ def scrape_supported_artist_sites(artists: list[dict[str, str]], logger: logging
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         logger.info("%s yielded %d artist-site events", artist.get("canonical_name"), len(scraped))
-        if scraped:
+        source_check_succeeded = FETCH_FAILURE_COUNT == fetch_failures_before
+        if scraped or source_check_succeeded:
             checked_artist_ids.add(artist_id)
             checked_sources.add(artist_site_source(website))
         else:
+            logger.warning("Skipping deletion reconciliation for %s because its official source check failed", artist.get("canonical_name"))
             checked_artist_ids.discard(artist_id)
             checked_sources.discard(artist_site_source(website))
         events.extend(scraped)
@@ -3976,6 +4075,9 @@ def merge_tracker(
     updated = 0
     canceled = 0
     rescheduled = 0
+    added_event_alerts: list[dict[str, str]] = []
+    canceled_event_alerts: list[dict[str, str]] = []
+    rescheduled_event_alerts: list[dict[str, str]] = []
     new_venue_alerts: dict[str, dict[str, object]] = {}
 
     for item in scraped:
@@ -4031,6 +4133,15 @@ def merge_tracker(
         events_by_id[item.event_id] = row
         added += 0 if existing else 1
         updated += 1 if existing else 0
+        if not existing and parse_iso(item.event_date) and parse_iso(item.event_date) >= today:
+            added_event_alerts.append({
+                "event_id": item.event_id,
+                "event_date": item.event_date,
+                "artist_name": item.artist_name,
+                "venue_name": item.venue_name,
+                "title": item.title,
+                "source_url": item.source_url,
+            })
 
         event_artist_id = make_id("eventartist", item.event_id, item.artist_id)
         event_artists_by_id[event_artist_id] = {
@@ -4111,8 +4222,24 @@ def merge_tracker(
             if next_status == "rescheduled_or_date_changed":
                 note += " A similar artist/title/venue appears on another date."
                 rescheduled += 1
+                rescheduled_event_alerts.append({
+                    "event_id": clean(row.get("event_id")),
+                    "event_date": clean(row.get("event_date")),
+                    "artist_name": clean(next((link.get("artist_name_snapshot") for link in event_artists_by_id.values() if clean(link.get("event_id")) == clean(row.get("event_id"))), "")),
+                    "venue_name": clean(row.get("venue_name_snapshot")),
+                    "title": clean(row.get("title")),
+                    "source_url": clean(row.get("source_url")),
+                })
             else:
                 canceled += 1
+                canceled_event_alerts.append({
+                    "event_id": clean(row.get("event_id")),
+                    "event_date": clean(row.get("event_date")),
+                    "artist_name": clean(next((link.get("artist_name_snapshot") for link in event_artists_by_id.values() if clean(link.get("event_id")) == clean(row.get("event_id"))), "")),
+                    "venue_name": clean(row.get("venue_name_snapshot")),
+                    "title": clean(row.get("title")),
+                    "source_url": clean(row.get("source_url")),
+                })
             row["notes"] = clean(" | ".join(x for x in [row.get("notes"), note] if clean(x)))
             row["scraped_at"] = now_iso()
 
@@ -4143,6 +4270,9 @@ def merge_tracker(
             "canceled_or_removed": canceled,
             "rescheduled_or_date_changed": rescheduled,
             "new_venue_count": len(new_venue_alerts),
+            "added_events": added_event_alerts,
+            "canceled_events": canceled_event_alerts,
+            "rescheduled_events": rescheduled_event_alerts,
             "new_venues": [
                 {
                     **alert,
@@ -4208,6 +4338,97 @@ def import_outputs_to_google_sheet(spreadsheet_id: str, output_paths: dict[str, 
         for sheet in ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]:
             logger.info("Importing %s into Google Sheet", sheet)
             import_csv_to_sheet(page, spreadsheet_id, sheet, output_paths[sheet])
+
+
+def post_bridge_json(
+    bridge_url: str,
+    payload: dict[str, object],
+    timeout: int = 180,
+    opener: object | None = None,
+) -> dict[str, object]:
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    request = urllib.request.Request(
+        bridge_url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "JDDM official artist website sync/2.0",
+        },
+        method="POST",
+    )
+    open_request = opener or urllib.request.urlopen
+    try:
+        with open_request(request, timeout=timeout) as response:  # type: ignore[operator]
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Spreadsheet bridge HTTP {exc.code}: {clean(detail) or exc.reason}") from exc
+    if not isinstance(result, dict) or not result.get("ok"):
+        message = clean(result.get("message")) if isinstance(result, dict) else "Invalid bridge response."
+        raise RuntimeError(message or "The spreadsheet bridge rejected the artist-site update.")
+    return result
+
+
+def import_outputs_via_bridge(
+    output_paths: dict[str, Path],
+    bridge_url: str,
+    logger: logging.Logger,
+    opener: object | None = None,
+) -> dict[str, object]:
+    sheet_names = ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]
+    results: dict[str, object] = {}
+    for sheet in sheet_names:
+        logger.info("Importing artist tracker tab %s through the non-interactive sheet bridge", sheet)
+        results[sheet] = post_bridge_json(
+            bridge_url,
+            {
+                "action": "syncArtistTrackerTable",
+                "sheetName": sheet,
+                "csv": output_paths[sheet].read_text(encoding="utf-8"),
+            },
+            timeout=180,
+            opener=opener,
+        )
+    return {"ok": True, "action": "syncArtistTrackerTables", "sheets": results}
+
+
+def official_jddm_website_gigs(scrape: ArtistSiteScrape, today: date | None = None) -> list[dict[str, object]]:
+    today = today or date.today()
+    source = artist_site_source("https://www.justdeedeemusic.com/")
+    events: list[dict[str, object]] = []
+    for item in scrape.events:
+        event_day = parse_iso(item.event_date)
+        if item.source != source or not event_day or event_day < today:
+            continue
+        events.append({
+            "id": item.event_id,
+            "date": item.event_date,
+            "title": item.title,
+            "venueName": item.venue_name,
+            "location": item.description,
+            "sourceRecordId": item.source_record_id,
+            "sourceUrl": item.source_url,
+        })
+    return events
+
+
+def sync_official_website_gigs_to_map(
+    scrape: ArtistSiteScrape,
+    bridge_url: str,
+    logger: logging.Logger,
+    opener: object | None = None,
+) -> dict[str, object]:
+    source = artist_site_source("https://www.justdeedeemusic.com/")
+    if source not in scrape.checked_sources:
+        raise RuntimeError("Just Dee Dee Music's official website was not checked successfully; map website gigs were left unchanged.")
+    events = official_jddm_website_gigs(scrape)
+    logger.info("Reconciling %d future Just Dee Dee Music website gigs into the live map", len(events))
+    return post_bridge_json(
+        bridge_url,
+        {"action": "syncWebsiteGigEvents", "sourceChecked": True, "events": events},
+        timeout=180,
+        opener=opener,
+    )
 
 
 def apple_string(value: object) -> str:
@@ -4282,6 +4503,41 @@ def build_new_venue_text(new_venues: list[dict[str, object]], app_url: str = DEF
     return "\n".join(lines)
 
 
+def format_event_alert_line(prefix: str, event: dict[str, object]) -> str:
+    artist = clean(event.get("artist_name")) or "Artist"
+    venue = clean(event.get("venue_name")) or clean(event.get("title")) or "venue TBD"
+    event_date = format_alert_date(event.get("event_date")) or "date TBD"
+    return f"{prefix} {artist} at {venue} — {event_date}"
+
+
+def build_artist_change_text(summary: dict[str, object], app_url: str = DEFAULT_APP_URL) -> str:
+    added = summary.get("added_events") if isinstance(summary.get("added_events"), list) else []
+    canceled = summary.get("canceled_events") if isinstance(summary.get("canceled_events"), list) else []
+    rescheduled = summary.get("rescheduled_events") if isinstance(summary.get("rescheduled_events"), list) else []
+    new_venues = summary.get("new_venues") if isinstance(summary.get("new_venues"), list) else []
+    if not added and not canceled and not rescheduled and not new_venues:
+        return ""
+
+    lines = ["Official musician website update:"]
+    for event in added[:6]:
+        lines.append(format_event_alert_line("NEW:", event))
+    for event in canceled[:6]:
+        lines.append(format_event_alert_line("REMOVED:", event))
+    for event in rescheduled[:6]:
+        lines.append(format_event_alert_line("DATE CHANGED:", event))
+    known_venue_names = {clean(event.get("venue_name")) for event in added if isinstance(event, dict)}
+    for venue in new_venues[:4]:
+        name = clean(venue.get("venue_name")) if isinstance(venue, dict) else ""
+        if name and name not in known_venue_names:
+            lines.append(f"NEW PLACE: {name}")
+    total = len(added) + len(canceled) + len(rescheduled)
+    shown = min(len(added), 6) + min(len(canceled), 6) + min(len(rescheduled), 6)
+    if total > shown:
+        lines.append(f"...and {total - shown} more gig changes.")
+    lines.append(app_url)
+    return "\n".join(lines)
+
+
 def get_text_recipients(args: argparse.Namespace) -> list[str]:
     raw: list[str] = []
     if args.text_recipient:
@@ -4307,13 +4563,27 @@ def maybe_send_new_venue_alert(summary: dict[str, object], args: argparse.Namesp
         logger.info("Sent new venue text alert to %s", ", ".join(sent))
 
 
+def maybe_send_artist_change_alert(summary: dict[str, object], args: argparse.Namespace, logger: logging.Logger) -> None:
+    if args.no_new_venue_text:
+        return
+    body = build_artist_change_text(summary, app_url=args.app_url)
+    recipients = get_text_recipients(args)
+    if not recipients or not body:
+        return
+    sent = send_text_message(body, recipients, logger)
+    if sent:
+        logger.info("Sent official musician website change text to %s", ", ".join(sent))
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sync artist website calendars into the master gig tracker.")
     parser.add_argument("--spreadsheet-id", default=DEFAULT_SPREADSHEET_ID)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT_DIR)
-    parser.add_argument("--import-google-sheet", action="store_true", help="Replace live tracker tabs with repaired CSVs via logged-in Chrome.")
+    parser.add_argument("--import-google-sheet", action="store_true", help="Replace live tracker tabs through the non-interactive spreadsheet bridge.")
+    parser.add_argument("--browser-import", action="store_true", help="Use the legacy interactive Chrome import instead of the sheet bridge.")
+    parser.add_argument("--bridge-url", default=os.environ.get("JDDM_SPREADSHEET_BRIDGE_URL", DEFAULT_BRIDGE_URL))
     parser.add_argument("--dry-run", action="store_true", help="Build output files but do not import into Google Sheets.")
-    parser.add_argument("--no-new-venue-text", action="store_true", help="Do not text when new venues are created.")
+    parser.add_argument("--no-new-venue-text", action="store_true", help="Do not text the official-site gig change digest.")
     parser.add_argument("--text-recipient", action="append", default=[], help="Phone number to text when new venues are found. Defaults to Carter and Dee Dee.")
     parser.add_argument("--app-url", default=DEFAULT_APP_URL)
     parser.add_argument("--log-level", default="INFO")
@@ -4372,9 +4642,13 @@ def main(argv: list[str]) -> int:
     print(json.dumps(summary, indent=2))
 
     if args.import_google_sheet and not args.dry_run:
-        import_outputs_to_google_sheet(args.spreadsheet_id, output_paths, logger)
+        if args.browser_import:
+            import_outputs_to_google_sheet(args.spreadsheet_id, output_paths, logger)
+        else:
+            import_outputs_via_bridge(output_paths, args.bridge_url, logger)
         logger.info("Imported repaired tracker tabs into Google Sheets")
-        maybe_send_new_venue_alert(summary, args, logger)
+        sync_official_website_gigs_to_map(scrape, args.bridge_url, logger)
+        maybe_send_artist_change_alert(summary, args, logger)
     return 0
 
 

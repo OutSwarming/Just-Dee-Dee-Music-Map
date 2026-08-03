@@ -15,8 +15,18 @@ var JDDM_CALENDAR_IDS = [
   'justdeedeemusic@gmail.com',
   '051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com'
 ];
+var JDDM_REQUIRED_CALENDAR_IDS = ['justdeedeemusic@gmail.com'];
 var JDDM_SHEET_NAME_HINTS = ['Sheet1', 'JustDeeDeeMusic Master Venue Spreadsheet', 'Master Venue', 'Venues'];
 var JDDM_ARCHIVE_PREFIX = 'JDDM Archive ';
+var JDDM_WEBSITE_GIG_SHEET = 'WebsiteGigs';
+var JDDM_ARTIST_TRACKER_SHEETS = [
+  'Venues',
+  'Artists',
+  'Events',
+  'Event_Artists',
+  'Venue_Artist_History',
+  'Review_Queue'
+];
 
 var JDDM_CRM_STATUS_OPTIONS = [
   'Not Set',
@@ -160,6 +170,9 @@ function routeRequest_(payload) {
     if (action === 'schema') return jsonOutput_(getSchema_());
     if (action === 'csv') return csvOutput_(buildCsv_());
     if (action === 'syncArtistSourceAudit') return jsonOutput_(syncArtistSourceAudit_(payload));
+    if (action === 'syncArtistTrackerTable') return jsonOutput_(syncArtistTrackerTable_(payload));
+    if (action === 'syncArtistTrackerTables') return jsonOutput_(syncArtistTrackerTables_(payload));
+    if (action === 'syncWebsiteGigEvents') return jsonOutput_(syncWebsiteGigEvents_(payload));
     if (action === 'setupComputerSection' || action === 'syncComputerSection') return jsonOutput_(setupComputerSection_(payload));
     if (action === 'purgeAndSetup' || action === 'purgeSheet') return jsonOutput_(purgeAndSetup_(payload));
     if (action === 'migrateCrmStatuses' || action === 'simplifyCrmStatuses') return jsonOutput_(migrateCrmStatuses_(payload));
@@ -647,11 +660,180 @@ function syncArtistSourceAudit_(payload) {
   };
 }
 
+function syncArtistTrackerTables_(payload) {
+  payload = payload || {};
+  var tables = payload.tables || {};
+  var prepared = JDDM_ARTIST_TRACKER_SHEETS.map(function(sheetName) {
+    var csv = String(tables[sheetName] || '');
+    var values = csv ? Utilities.parseCsv(csv) : null;
+    if (!values || !values.length || !values[0] || !values[0].length) {
+      var error = new Error('A complete CSV payload is required for tracker sheet ' + sheetName + '.');
+      error.code = 'INCOMPLETE_ARTIST_TRACKER_IMPORT';
+      throw error;
+    }
+    return { sheetName: sheetName, values: values };
+  });
+
+  var lock = typeof LockService !== 'undefined' && LockService.getScriptLock
+    ? LockService.getScriptLock()
+    : null;
+  if (lock) lock.waitLock(30000);
+  try {
+    var ss = getSpreadsheet_();
+    var rowCounts = {};
+    prepared.forEach(function(item) {
+      var sheet = ss.getSheetByName(item.sheetName);
+      if (!sheet) sheet = ss.insertSheet(item.sheetName);
+      replaceSheetValues_(sheet, item.values);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, item.values[0].length)
+        .setFontWeight('bold')
+        .setBackground('#134f5c')
+        .setFontColor('#ffffff');
+      rowCounts[item.sheetName] = Math.max(item.values.length - 1, 0);
+    });
+    return {
+      ok: true,
+      action: 'syncArtistTrackerTables',
+      sheets: JDDM_ARTIST_TRACKER_SHEETS.slice(),
+      rowCounts: rowCounts,
+      importedAt: new Date().toISOString()
+    };
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+
+function syncArtistTrackerTable_(payload) {
+  payload = payload || {};
+  var sheetName = clean_(payload.sheetName);
+  if (JDDM_ARTIST_TRACKER_SHEETS.indexOf(sheetName) < 0) {
+    return { ok: false, code: 'INVALID_ARTIST_TRACKER_SHEET', message: 'That tracker sheet is not allowed.' };
+  }
+  var csv = String(payload.csv || '');
+  var values = csv ? Utilities.parseCsv(csv) : null;
+  if (!values || !values.length || !values[0] || !values[0].length) {
+    return { ok: false, code: 'EMPTY_ARTIST_TRACKER_TABLE', message: 'A complete tracker CSV is required.' };
+  }
+
+  var lock = typeof LockService !== 'undefined' && LockService.getScriptLock
+    ? LockService.getScriptLock()
+    : null;
+  if (lock) lock.waitLock(30000);
+  try {
+    var ss = getSpreadsheet_();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) sheet = ss.insertSheet(sheetName);
+    replaceSheetValues_(sheet, values);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, values[0].length)
+      .setFontWeight('bold')
+      .setBackground('#134f5c')
+      .setFontColor('#ffffff');
+    return {
+      ok: true,
+      action: 'syncArtistTrackerTable',
+      sheetName: sheetName,
+      rowCount: Math.max(values.length - 1, 0),
+      columnCount: values[0].length,
+      importedAt: new Date().toISOString()
+    };
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+
+function normalizeWebsiteGigPayloadEvent_(event, index) {
+  event = event || {};
+  var title = clean_(event.title);
+  var location = clean_(event.location || event.description);
+  var nextEvent = {
+    id: clean_(event.id || event.sourceRecordId) || 'website-' + index,
+    date: parseIsoDate_(event.date || event.eventDate),
+    title: title,
+    venueName: clean_(event.venueName) || normalizeCalendarVenueName_(title),
+    location: location,
+    isAllDay: isTrue_(event.isAllDay),
+    sourceUrl: clean_(event.sourceUrl)
+  };
+  return isRealCalendarGig_(nextEvent) ? nextEvent : null;
+}
+
+function writeWebsiteGigEvents_(events) {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(JDDM_WEBSITE_GIG_SHEET);
+  if (!sheet) sheet = ss.insertSheet(JDDM_WEBSITE_GIG_SHEET);
+  var headers = ['Event ID', 'Event Date', 'Title', 'Venue Name', 'Location', 'Source URL', 'Last Seen'];
+  var now = new Date();
+  var values = [headers].concat(events.map(function(event) {
+    return [event.id, event.date, event.title, event.venueName, event.location, event.sourceUrl, now];
+  }));
+  replaceSheetValues_(sheet, values);
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, headers.length)
+    .setFontWeight('bold')
+    .setBackground('#134f5c')
+    .setFontColor('#ffffff');
+}
+
+function getStoredWebsiteGigEvents_() {
+  var sheet = getSpreadsheet_().getSheetByName(JDDM_WEBSITE_GIG_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+  var headers = makeHeaderMap_((values[0] || []).map(clean_));
+  return values.slice(1).map(function(row, index) {
+    return normalizeWebsiteGigPayloadEvent_({
+      id: getFirstByHeaders_(row, headers, ['Event ID']),
+      date: getFirstByHeaders_(row, headers, ['Event Date']),
+      title: getFirstByHeaders_(row, headers, ['Title']),
+      venueName: getFirstByHeaders_(row, headers, ['Venue Name']),
+      location: getFirstByHeaders_(row, headers, ['Location']),
+      sourceUrl: getFirstByHeaders_(row, headers, ['Source URL'])
+    }, index);
+  }).filter(Boolean);
+}
+
+function syncWebsiteGigEvents_(payload) {
+  payload = payload || {};
+  if (!Array.isArray(payload.events) || !isTrue_(payload.sourceChecked)) {
+    return {
+      ok: false,
+      code: 'UNCONFIRMED_WEBSITE_GIG_SOURCE',
+      message: 'A successfully checked official website event list is required.'
+    };
+  }
+  var events = payload.events.map(normalizeWebsiteGigPayloadEvent_).filter(Boolean);
+  var previousWebsiteEvents = getStoredWebsiteGigEvents_();
+  writeWebsiteGigEvents_(events);
+  var mapSync = syncCalendarGigEvents_({
+    addMissing: true,
+    replaceFutureGigs: true,
+    previousWebsiteEvents: previousWebsiteEvents
+  });
+  return {
+    ok: true,
+    action: 'syncWebsiteGigEvents',
+    websiteEventCount: events.length,
+    mapSync: mapSync,
+    syncedAt: new Date().toISOString()
+  };
+}
+
 function ensureSheetSize_(sheet, rows, columns) {
   rows = Math.max(Number(rows) || 1, 1);
   columns = Math.max(Number(columns) || 1, 1);
   if (sheet.getMaxRows() < rows) sheet.insertRowsAfter(sheet.getMaxRows(), rows - sheet.getMaxRows());
   if (sheet.getMaxColumns() < columns) sheet.insertColumnsAfter(sheet.getMaxColumns(), columns - sheet.getMaxColumns());
+}
+
+function replaceSheetValues_(sheet, values) {
+  var rowCount = values.length;
+  var columnCount = values[0].length;
+  ensureSheetSize_(sheet, rowCount, columnCount);
+  var clearRows = Math.max(sheet.getLastRow(), rowCount, 1);
+  var clearColumns = Math.max(sheet.getLastColumn(), columnCount, 1);
+  sheet.getRange(1, 1, clearRows, clearColumns).clearContent();
+  sheet.getRange(1, 1, rowCount, columnCount).setValues(values);
 }
 
 function formatArtistSourceAuditSheet_(sheet, rowCount, columnCount) {
@@ -1418,30 +1600,61 @@ function parseCalendarLocation_(location) {
   return result;
 }
 
-function getCalendarEvents_() {
+function getCalendarEventsResult_() {
   var start = new Date(2010, 0, 1);
   var end = new Date();
   end.setFullYear(end.getFullYear() + 2);
   var events = [];
+  var availableCalendarIds = [];
+  var unavailableCalendarIds = [];
   JDDM_CALENDAR_IDS.forEach(function(calendarId) {
-    var calendar = CalendarApp.getCalendarById(calendarId);
-    if (!calendar) return;
-    calendar.getEvents(start, end).forEach(function(event) {
-      var title = clean_(event.getTitle());
-      var location = clean_(event.getLocation());
-      if (!title && !location) return;
-      var nextEvent = {
-        title: title,
-        venueName: normalizeCalendarVenueName_(title),
-        location: location,
-        date: parseIsoDate_(safeCalendarEventCall_(event, 'getStartTime', null)),
-        id: calendarId + ':' + safeCalendarEventCall_(event, 'getId', ''),
-        isAllDay: Boolean(safeCalendarEventCall_(event, 'isAllDayEvent', false))
-      };
-      if (isRealCalendarGig_(nextEvent)) events.push(nextEvent);
-    });
+    try {
+      var calendar = CalendarApp.getCalendarById(calendarId);
+      if (!calendar) {
+        unavailableCalendarIds.push(calendarId);
+        return;
+      }
+      availableCalendarIds.push(calendarId);
+      calendar.getEvents(start, end).forEach(function(event) {
+        var title = clean_(event.getTitle());
+        var location = clean_(event.getLocation());
+        if (!title && !location) return;
+        var nextEvent = {
+          title: title,
+          venueName: normalizeCalendarVenueName_(title),
+          location: location,
+          date: parseIsoDate_(safeCalendarEventCall_(event, 'getStartTime', null)),
+          id: calendarId + ':' + safeCalendarEventCall_(event, 'getId', ''),
+          isAllDay: Boolean(safeCalendarEventCall_(event, 'isAllDayEvent', false))
+        };
+        if (isRealCalendarGig_(nextEvent)) events.push(nextEvent);
+      });
+    } catch (error) {
+      unavailableCalendarIds.push(calendarId);
+    }
   });
-  return events;
+  return {
+    events: events,
+    availableCalendarIds: availableCalendarIds,
+    unavailableCalendarIds: unavailableCalendarIds,
+    coverageComplete: JDDM_REQUIRED_CALENDAR_IDS.every(function(calendarId) {
+      return availableCalendarIds.indexOf(calendarId) >= 0;
+    })
+  };
+}
+
+function getCalendarEvents_() {
+  return getCalendarEventsResult_().events;
+}
+
+function dedupeGigEvents_(events) {
+  var deduped = {};
+  (events || []).forEach(function(event) {
+    if (!event || !event.date) return;
+    var key = [event.date, normalizeKey_(event.venueName || event.title), normalizeKey_(event.location)].join('|');
+    if (!deduped[key]) deduped[key] = event;
+  });
+  return Object.keys(deduped).map(function(key) { return deduped[key]; });
 }
 
 function findEventRow_(data, event) {
@@ -1488,7 +1701,7 @@ function appendVenueFromEvent_(data, event) {
   setByHeader_(row, map, 'Zip', parsedLocation.zip);
   setByHeader_(row, map, 'Place ID', slugify_([name, parsedLocation.city, parsedLocation.state].filter(Boolean).join(' ')));
   setByHeader_(row, map, 'Status', 'Needs Review');
-  setByHeader_(row, map, 'Notes', 'Created from Google Calendar future gig. Review venue details and coordinates.');
+  setByHeader_(row, map, 'Notes', 'Created from Google Calendar future gig or official artist website gig. Review venue details and coordinates.');
   data.sheet.appendRow(row);
   return data.sheet.getLastRow();
 }
@@ -1520,15 +1733,30 @@ function syncCalendarGigEvents_(payload) {
   setupComputerSection_({ applyFormatting: false });
   var data = getData_();
   var today = todayIso_();
-  var events = getCalendarEvents_();
+  var calendarResult = getCalendarEventsResult_();
+  var events = dedupeGigEvents_(calendarResult.events.concat(getStoredWebsiteGigEvents_()));
   var touched = {};
   var addMissing = payload && payload.addMissing !== undefined ? isTrue_(payload.addMissing) : true;
-  var replaceFutureGigs = !(payload && isFalse_(payload.replaceFutureGigs));
+  var replaceFutureGigsRequested = !(payload && isFalse_(payload.replaceFutureGigs));
+  var replaceFutureGigs = replaceFutureGigsRequested && calendarResult.coverageComplete;
+  var previousWebsiteEvents = payload && Array.isArray(payload.previousWebsiteEvents)
+    ? payload.previousWebsiteEvents
+    : [];
+  var websiteDatesToReplaceByRow = {};
   var addedRows = [];
   var unmatchedFutureEvents = [];
   var unmatchedPastEvents = [];
 
   if (replaceFutureGigs) seedCalendarRowsWithExistingFuture_(data, touched);
+
+  previousWebsiteEvents.forEach(function(event) {
+    if (!event || !event.date || event.date < today) return;
+    var rowNumber = findEventRow_(data, event);
+    if (rowNumber < 0) return;
+    if (!touched[rowNumber]) touched[rowNumber] = { past: [], future: [] };
+    if (!websiteDatesToReplaceByRow[rowNumber]) websiteDatesToReplaceByRow[rowNumber] = {};
+    websiteDatesToReplaceByRow[rowNumber][event.date] = true;
+  });
 
   events.forEach(function(event) {
     if (!event.date) return;
@@ -1558,9 +1786,16 @@ function syncCalendarGigEvents_(payload) {
       return date && date < today;
     });
     var past = uniqueSortedDates_(currentPast.concat(expiredFutureDates, touched[rowNumber].past));
-    var future = replaceFutureGigs
-      ? uniqueSortedDates_(touched[rowNumber].future)
-      : uniqueSortedDates_(currentFuture.concat(touched[rowNumber].future));
+    var future;
+    if (replaceFutureGigs) {
+      future = uniqueSortedDates_(touched[rowNumber].future);
+    } else {
+      var websiteDatesToReplace = websiteDatesToReplaceByRow[rowNumber] || {};
+      var preservedFuture = currentFuture.filter(function(date) {
+        return !websiteDatesToReplace[date];
+      });
+      future = uniqueSortedDates_(preservedFuture.concat(touched[rowNumber].future));
+    }
     setByHeader_(row, data.headerMap, 'Past Gigs', past.join('; '));
     setByHeader_(row, data.headerMap, 'Future Gigs', future.join('; '));
     setByHeader_(row, data.headerMap, 'Last Played', past.length ? past[past.length - 1] : '');
@@ -1581,6 +1816,10 @@ function syncCalendarGigEvents_(payload) {
     addedRows: addedRows,
     unmatchedFutureEvents: unmatchedFutureEvents,
     unmatchedPastEventCount: unmatchedPastEvents.length,
+    availableCalendarIds: calendarResult.availableCalendarIds,
+    unavailableCalendarIds: calendarResult.unavailableCalendarIds,
+    calendarCoverageComplete: calendarResult.coverageComplete,
+    replaceFutureGigsRequested: replaceFutureGigsRequested,
     replaceFutureGigs: replaceFutureGigs,
     formatting: formatting
   };

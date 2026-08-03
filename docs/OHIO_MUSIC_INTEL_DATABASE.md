@@ -108,7 +108,7 @@ for the app's local/cloud sync.
 The live app bridge should prefer `Sheet1` before any database-style `Venues`
 tab so importing these tables cannot accidentally change the app feed.
 
-## Daily Artist Website Sync
+## Five-Hour Artist Website Sync
 
 Artist website calendars are synced into the live Google Sheet with:
 
@@ -116,14 +116,14 @@ Artist website calendars are synced into the live Google Sheet with:
 npm run music:artist-sync:write
 ```
 
-Install the once-daily macOS job with:
+Install the macOS job that runs immediately and every five hours with:
 
 ```bash
 npm run music:artist-sync:install
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.justdeedeemusic.artist-gig-tracker-sync.plist
 ```
 
-The job runs every day at 8:30 AM and updates these tracker tabs from the
+The job runs at load and every five hours. It updates these tracker tabs from the
 artists listed in `Artists.website`:
 
 - `Venues`
@@ -152,7 +152,11 @@ Data safety rules:
   `Review_Queue` instead of being silently guessed.
 - When the sync creates a genuinely new venue, it texts Carter and Dee Dee with
   the venue, artist, date, and app link after the Google Sheet import succeeds.
+- New, removed, and date-changed future gigs from successfully checked official
+  artist sources are included in the change text after the import succeeds.
+- The sync imports through the spreadsheet bridge and does not require an open,
+  logged-in, remote-debugging Chrome window.
 
 To add more artists later, add one row to `Artists` with a stable `artist_id`,
-`canonical_name`, `artist_type`, and `website`. The next daily sync will check
+`canonical_name`, `artist_type`, and `website`. The next five-hour sync will check
 any supported public calendar automatically.
