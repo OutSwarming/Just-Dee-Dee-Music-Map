@@ -168,6 +168,7 @@ function routeRequest_(payload) {
     if (action === 'recalculateGigCounts' || action === 'fixGigCounts') return jsonOutput_(recalculateGigCounts_(payload));
     if (action === 'cleanupCalendarOnlyRows' || action === 'removeCalendarOnlyRows') return jsonOutput_(cleanupCalendarOnlyRows_(payload));
     if (action === 'getVenue') return jsonOutput_(getVenue_(payload));
+    if (action === 'createVenue') return jsonOutput_(createVenue_(payload));
     if (action === 'saveVenue') return jsonOutput_(saveVenue_(payload));
     if (action === 'setPlayed') return jsonOutput_(setPlayed_(payload));
     if (action === 'syncCalendarGigEvents' || action === 'runCalendarAutomation') return jsonOutput_(syncCalendarGigEvents_(payload));
@@ -1102,7 +1103,112 @@ function saveVenue_(payload) {
 
   data.sheet.getRange(rowNumber, 1, 1, data.headers.length).setValues([row]);
   applyRowHighlighting_({ startRow: rowNumber, rowCount: 1, limit: 1 });
-  return { ok: true, action: 'saveVenue', rowNumber: rowNumber, venue: rowObject_(row, data.headerMap) };
+  return {
+    ok: true,
+    action: 'saveVenue',
+    rowNumber: rowNumber,
+    venue: rowObject_(row, data.headerMap),
+    rawFields: rawFieldsFromRow_(row, data.headerMap),
+    csv: buildCsv_()
+  };
+}
+
+function geocodeVenueRow_(row, headerMap) {
+  if (getByHeader_(row, headerMap, 'Latitude') && getByHeader_(row, headerMap, 'Longitude')) return row;
+  var query = [
+    getByHeader_(row, headerMap, 'Address'),
+    getByHeader_(row, headerMap, 'City'),
+    getByHeader_(row, headerMap, 'State'),
+    getByHeader_(row, headerMap, 'Zip')
+  ].filter(Boolean).join(', ');
+  if (!query) return row;
+
+  try {
+    var response = Maps.newGeocoder().setRegion('us').geocode(query);
+    var location = response && response.results && response.results[0] && response.results[0].geometry
+      ? response.results[0].geometry.location
+      : null;
+    if (location) {
+      setByHeader_(row, headerMap, 'Latitude', location.lat);
+      setByHeader_(row, headerMap, 'Longitude', location.lng);
+    }
+  } catch (error) {
+    // The row can still be saved for review; the client explains that coordinates are required for a pin.
+  }
+  return row;
+}
+
+function createVenue_(payload) {
+  setupComputerSection_({ applyFormatting: false });
+  var data = getData_();
+  var row = data.headers.map(function() { return ''; });
+  var rawFields = payload.rawFields || {};
+  var venue = payload.venue || {};
+
+  Object.keys(rawFields).forEach(function(header) {
+    var canonical = normalizeRawFieldHeader_(header);
+    if (!canonical) return;
+    var value = rawFields[header];
+    if (canonical === 'Status') value = normalizeCrmStatus_(value);
+    setByHeader_(row, data.headerMap, canonical, value);
+  });
+
+  Object.keys(venue).forEach(function(header) {
+    var canonical = normalizeRawFieldHeader_(header);
+    if (canonical) setByHeader_(row, data.headerMap, canonical, venue[header]);
+  });
+
+  var name = getByHeader_(row, data.headerMap, 'Place Name');
+  if (!name) return { ok: false, code: 'PLACE_NAME_REQUIRED', message: 'Place Name is required.' };
+  if (!getByHeader_(row, data.headerMap, 'Status')) setByHeader_(row, data.headerMap, 'Status', 'Needs Review');
+  if (!getByHeader_(row, data.headerMap, 'State')) setByHeader_(row, data.headerMap, 'State', 'OH');
+
+  var addressKey = normalizeKey_([
+    getByHeader_(row, data.headerMap, 'Address'),
+    getByHeader_(row, data.headerMap, 'City'),
+    getByHeader_(row, data.headerMap, 'State')
+  ].join(' '));
+  for (var i = 0; i < data.rows.length; i++) {
+    var existingName = normalizeKey_(getByHeader_(data.rows[i], data.headerMap, 'Place Name'));
+    var existingAddress = normalizeKey_([
+      getByHeader_(data.rows[i], data.headerMap, 'Address'),
+      getByHeader_(data.rows[i], data.headerMap, 'City'),
+      getByHeader_(data.rows[i], data.headerMap, 'State')
+    ].join(' '));
+    if (existingName === normalizeKey_(name) && (!addressKey || existingAddress === addressKey)) {
+      return { ok: false, code: 'DUPLICATE_VENUE', message: 'That place is already on the map.', rowNumber: i + 2 };
+    }
+  }
+
+  var baseId = getByHeader_(row, data.headerMap, 'Place ID') || slugify_([
+    name,
+    getByHeader_(row, data.headerMap, 'City'),
+    getByHeader_(row, data.headerMap, 'State'),
+    getByHeader_(row, data.headerMap, 'Zip')
+  ].filter(Boolean).join(' '));
+  var id = baseId || 'venue-' + new Date().getTime();
+  var suffix = 2;
+  while (findRowById_(data, id) >= 0) {
+    id = baseId + '-' + suffix;
+    suffix++;
+  }
+  setByHeader_(row, data.headerMap, 'Place ID', id);
+  geocodeVenueRow_(row, data.headerMap);
+
+  data.sheet.appendRow(row);
+  var rowNumber = data.sheet.getLastRow();
+  applyRowHighlighting_({ startRow: rowNumber, rowCount: 1, limit: 1 });
+  data = getData_();
+  row = data.rows[rowNumber - 2];
+  return {
+    ok: true,
+    action: 'createVenue',
+    rowNumber: rowNumber,
+    venue: rowObject_(row, data.headerMap),
+    rawFields: rawFieldsFromRow_(row, data.headerMap),
+    hasCoordinates: Boolean(getByHeader_(row, data.headerMap, 'Latitude') && getByHeader_(row, data.headerMap, 'Longitude')),
+    csv: buildCsv_()
+  };
 }
 
 function setPlayed_(payload) {

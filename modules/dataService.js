@@ -476,6 +476,7 @@ function quickHash(str) {
 
 let lastDataHash = null;
 let pollInFlight = false;
+let activePollPromise = null;
 let seenHashes = new Map();
 const MAX_SEEN_DATA_HASHES = 64;
 const DATA_POLL_INTERVAL_MS = 5 * 60 * 1000;
@@ -636,7 +637,14 @@ function loadPackagedVenueDataFallback(options = {}) {
 }
 
 function pollForUpdates(options = {}) {
-    if (!navigator.onLine || pollInFlight) return Promise.resolve(false);
+    if (!navigator.onLine) return Promise.resolve(false);
+    if (pollInFlight) {
+        if (!options.userInitiated || !activePollPromise) return Promise.resolve(false);
+        const inFlightPromise = activePollPromise;
+        return inFlightPromise
+            .catch(() => false)
+            .then(() => pollForUpdates({ ...options, queuedAfterInFlight: true }));
+    }
 
     try { window.BARK.incrementRequestCount(); }
     catch (e) { return Promise.reject(e); }
@@ -663,7 +671,7 @@ function pollForUpdates(options = {}) {
         fetchOptions.headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
     }
 
-    return fetch(requestUrl, fetchOptions)
+    activePollPromise = fetch(requestUrl, fetchOptions)
         .then(res => {
             if (!res.ok) throw new Error('Network response was not ok');
             return res.text().then(text => ({ newCsv: text, url: res.url }));
@@ -696,7 +704,9 @@ function pollForUpdates(options = {}) {
         .finally(() => {
             clearTimeout(timeoutId);
             pollInFlight = false;
+            activePollPromise = null;
         });
+    return activePollPromise;
 }
 
 let dataPollErrorCount = 0;

@@ -18,6 +18,8 @@ const MESSAGES_DB_PATH = path.join(homedir(), "Library", "Messages", "chat.db");
 const VENUES_CSV_PATH = path.join(REPO_ROOT, "assets", "data", "jddm-venues.csv");
 const CALENDAR_GIGS_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-calendar-gigs.json");
 const WEBSITE_FUTURE_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-website-bookings-future.json");
+const LIVE_MAP_CSV_URL = process.env.JDDM_VENUE_CSV_URL
+    || "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec?action=csv";
 const SERVICE_PRIORITY = ["iMessage", "SMS"];
 
 const REMINDERS = Object.freeze([
@@ -93,7 +95,7 @@ function selectScheduledReminder(date = new Date()) {
         || REMINDERS.slice().sort((a, b) => Math.abs(a.hour - hour) - Math.abs(b.hour - hour))[0];
 }
 
-function parseCsv(text) {
+export function parseCsv(text) {
     const rows = [];
     let row = [];
     let cell = "";
@@ -209,11 +211,84 @@ async function readJsonFile(filePath, fallback) {
     }
 }
 
-async function loadPlannerSnapshot() {
-    const venueRows = parseCsv(await readFile(VENUES_CSV_PATH, "utf8"));
+async function fetchLiveVenueCsv(options = {}) {
+    const fetchImpl = options.fetchImpl || fetch;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), Number(options.timeoutMs || 20000));
+    const separator = LIVE_MAP_CSV_URL.includes("?") ? "&" : "?";
+    try {
+        const response = await fetchImpl(`${LIVE_MAP_CSV_URL}${separator}t=${Date.now()}`, {
+            cache: "no-store",
+            redirect: "follow",
+            signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`Live map CSV returned HTTP ${response.status}.`);
+        const csv = await response.text();
+        if (!/\bPlace Name\b/i.test(csv) || csv.length < 100) {
+            throw new Error("Live map CSV response was incomplete.");
+        }
+        return csv;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function loadVenueRows(options = {}) {
+    if (options.venueCsvText !== undefined) {
+        return { rows: parseCsv(options.venueCsvText), source: "injected" };
+    }
+
+    try {
+        const csv = await fetchLiveVenueCsv(options);
+        return { rows: parseCsv(csv), source: "live-map" };
+    } catch (error) {
+        const reason = error && error.message ? error.message : String(error);
+        await appendLog(`live-map-fallback ${reason}`);
+        return {
+            rows: parseCsv(await readFile(VENUES_CSV_PATH, "utf8")),
+            source: "packaged-fallback"
+        };
+    }
+}
+
+export function extractGigDates(value) {
+    const text = clean(value);
+    if (!text) return [];
+    const matches = [
+        ...(text.match(/\b\d{4}-\d{1,2}-\d{1,2}\b/g) || []),
+        ...(text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || []),
+        ...(text.match(/\b(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/gi) || [])
+    ];
+    return Array.from(new Set(matches
+        .map(parseLocalDate)
+        .filter(Boolean)
+        .map(formatIsoDate)))
+        .sort();
+}
+
+function buildMapFutureGigs(venueRows, todayIso) {
+    const seen = new Set();
+    const gigs = [];
+    venueRows.forEach(venue => {
+        const dates = extractGigDates([venue["Future Gigs"], venue["Next Booked"]].filter(Boolean).join("; "));
+        dates.filter(date => date >= todayIso).forEach(eventDate => {
+            const venueName = clean(venue["Place Name"]) || "Venue TBD";
+            const key = `${eventDate}|${normalizeLoose(venueName)}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            gigs.push({ eventDate, venueName, title: venueName, source: "live-map" });
+        });
+    });
+    return gigs;
+}
+
+export async function loadPlannerSnapshot(options = {}) {
+    const venueSnapshot = await loadVenueRows(options);
+    const venueRows = venueSnapshot.rows;
     const calendar = await readJsonFile(CALENDAR_GIGS_PATH, { gigs: [], blockedEvents: [] });
     const website = await readJsonFile(WEBSITE_FUTURE_PATH, { bookings: [] });
     const today = new Date();
+    const todayIso = formatIsoDate(today);
     const normalizedVenues = venueRows.map(row => ({
         ...row,
         status: clean(row.Status) || "Not Set",
@@ -232,12 +307,21 @@ async function loadPlannerSnapshot() {
     const responded = activeVenues
         .filter(venue => normalizeLoose(venue.status).includes("responded"))
         .sort(sortVenuePriority);
-    const futureGigs = [
+    const combinedFutureGigs = [
+        ...buildMapFutureGigs(venueRows, todayIso),
         ...(Array.isArray(calendar.gigs) ? calendar.gigs : []),
         ...(Array.isArray(website.bookings) ? website.bookings : [])
     ]
-        .filter(event => clean(event.eventDate) >= formatIsoDate(today))
+        .filter(event => clean(event.eventDate) >= todayIso)
         .sort((a, b) => clean(a.eventDate).localeCompare(clean(b.eventDate)));
+    const futureGigs = [];
+    const seenFutureGigs = new Set();
+    combinedFutureGigs.forEach(event => {
+        const key = `${clean(event.eventDate)}|${normalizeLoose(event.venueName || event.title)}`;
+        if (!clean(event.eventDate) || seenFutureGigs.has(key)) return;
+        seenFutureGigs.add(key);
+        futureGigs.push(event);
+    });
     const blockedEvents = Array.isArray(calendar.blockedEvents) ? calendar.blockedEvents : [];
 
     return {
@@ -249,6 +333,7 @@ async function loadPlannerSnapshot() {
         responded,
         futureGigs,
         blockedEvents,
+        venueDataSource: venueSnapshot.source,
         calendarGeneratedAt: calendar.generatedAt || website.pulledAt || null,
         availability: {
             weekends: getAvailableDates({
@@ -578,8 +663,10 @@ async function main() {
     throw new Error("Missing command. Run with --help.");
 }
 
-main().catch(async (error) => {
-    await appendLog(`error ${error && error.message ? error.message : String(error)}`);
-    console.error(error && error.message ? error.message : error);
-    process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    main().catch(async (error) => {
+        await appendLog(`error ${error && error.message ? error.message : String(error)}`);
+        console.error(error && error.message ? error.message : error);
+        process.exit(1);
+    });
+}

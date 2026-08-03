@@ -14,9 +14,28 @@
         'Next Follow Up',
         'Notes'
     ];
+    const CREATE_FIELD_ORDER = [
+        'Place Name',
+        'Address',
+        'City',
+        'State',
+        'Zip',
+        'Venue Type',
+        'Website',
+        'Status',
+        'Contact Name',
+        'Email/Contact',
+        'Phone Number',
+        'Contact Type',
+        'Next Follow Up',
+        'Latitude',
+        'Longitude',
+        'Notes'
+    ];
 
     let activeVenue = null;
     let activeRawFields = {};
+    let isCreatingVenue = false;
 
     function qs(id) {
         return document.getElementById(id);
@@ -53,6 +72,21 @@
         if (refreshBtn) refreshBtn.disabled = Boolean(isBusy);
     }
 
+    function setEditorMode(isCreating) {
+        const eyebrow = qs('venue-edit-modal') && qs('venue-edit-modal').querySelector('.venue-edit-eyebrow');
+        const title = qs('venue-edit-title');
+        const help = qs('venue-edit-modal') && qs('venue-edit-modal').querySelector('.venue-edit-help');
+        const refreshBtn = qs('venue-edit-refresh');
+        const saveBtn = qs('venue-edit-save');
+        if (eyebrow) eyebrow.textContent = isCreating ? 'New Map Place' : 'Pin CRM Editor';
+        if (title) title.textContent = isCreating ? 'Add a Place to the Map' : 'Update Venue Status';
+        if (help) help.textContent = isCreating
+            ? 'Add the place details once. The spreadsheet bridge will create the row, generate its map ID, and geocode the address.'
+            : 'Edit the venue status, follow-up, contact details, and notes, then save back to the Just Dee Dee Music spreadsheet.';
+        if (refreshBtn) refreshBtn.hidden = Boolean(isCreating);
+        if (saveBtn) saveBtn.textContent = isCreating ? 'Add Place to Map' : 'Save to Spreadsheet';
+    }
+
     function openModal() {
         const modal = qs('venue-edit-modal');
         if (!modal) return;
@@ -69,6 +103,8 @@
         document.body.classList.remove('venue-edit-open');
         activeVenue = null;
         activeRawFields = {};
+        isCreatingVenue = false;
+        setEditorMode(false);
     }
 
     function getSchemaOptions(type) {
@@ -117,6 +153,36 @@
             'Contact Type': clean(booking.contactType || venue.contactType),
             'Next Follow Up': clean(booking.nextFollowUpDate || venue.nextFollowUpDate),
             Notes: clean(venue.notes || venue.info)
+        };
+    }
+
+    function getMapCenterFields() {
+        const map = window.map || (window.BARK && window.BARK.map);
+        if (!map || typeof map.getCenter !== 'function') return { Latitude: '', Longitude: '' };
+        const center = map.getCenter();
+        return {
+            Latitude: center && Number.isFinite(Number(center.lat)) ? Number(center.lat).toFixed(6) : '',
+            Longitude: center && Number.isFinite(Number(center.lng)) ? Number(center.lng).toFixed(6) : ''
+        };
+    }
+
+    function buildNewVenueRawFields() {
+        return {
+            'Place Name': '',
+            Address: '',
+            City: '',
+            State: 'OH',
+            Zip: '',
+            'Venue Type': 'Other Venue',
+            Website: '',
+            Status: 'Needs Review',
+            'Contact Name': '',
+            'Email/Contact': '',
+            'Phone Number': '',
+            'Contact Type': '',
+            'Next Follow Up': '',
+            ...getMapCenterFields(),
+            Notes: ''
         };
     }
 
@@ -196,7 +262,9 @@
         if (!container) return;
 
         activeRawFields = rawFields && typeof rawFields === 'object' ? rawFields : {};
-        const headers = getRenderableHeaders(activeRawFields);
+        const headers = isCreatingVenue
+            ? CREATE_FIELD_ORDER.filter(header => Object.prototype.hasOwnProperty.call(activeRawFields, header))
+            : getRenderableHeaders(activeRawFields);
 
         if (headers.length === 0) {
             container.innerHTML = '<p class="venue-edit-help">CRM fields will appear here once the bridge loads this venue.</p>';
@@ -423,6 +491,7 @@
     }
 
     async function loadSourceRow() {
+        if (isCreatingVenue) return;
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
             renderRawFields(buildInitialRawFields(activeVenue));
@@ -468,8 +537,8 @@
 
         const rawFields = collectRawFields();
         const fields = buildVenueFromRawFields(rawFields);
-        if (!clean(fields.name) || !clean(fields.lat) || !clean(fields.lng)) {
-            setStatus('Venue name, latitude, and longitude are required. Fill them in the spreadsheet fields before saving.', 'error');
+        if (!clean(fields.name)) {
+            setStatus('Place Name is required.', 'error');
             return;
         }
 
@@ -477,25 +546,27 @@
         setStatus('Saving to spreadsheet...', 'neutral');
 
         try {
-            const result = await service.saveVenue({
-                id: activeVenue.id,
-                rawFields
-            });
+            const result = isCreatingVenue
+                ? await service.createVenue({ rawFields })
+                : await service.saveVenue({ id: activeVenue.id, rawFields });
 
             if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
                 window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
             } else {
-                applyLocalVenueUpdate(activeVenue.id, fields);
+                if (!isCreatingVenue) applyLocalVenueUpdate(activeVenue.id, fields);
+                if (window.JDDM_VENUE_CSV_URL && typeof window.BARK.refreshSpreadsheetMap === 'function') {
+                    await window.BARK.refreshSpreadsheetMap();
+                }
             }
 
-            if (window.JDDM_VENUE_CSV_URL && typeof window.BARK.loadData === 'function') {
-                setTimeout(() => window.BARK.loadData({ userInitiated: true, autofillLimit: 25 }), 800);
-            }
-
+            const coordinateNote = isCreatingVenue && result && result.hasCoordinates === false
+                ? ' The row was added, but it needs a complete address or coordinates before a pin can appear.'
+                : '';
             const syncMessage = window.JDDM_VENUE_CSV_URL
-                ? 'Saved to spreadsheet. The map is refreshing from the latest sheet data.'
+                ? `${isCreatingVenue ? 'Place added' : 'Saved'} to spreadsheet and refreshed on the map.${coordinateNote}`
                 : 'Saved to spreadsheet. This pin is updated locally; full sheet sync can be enabled after the live sheet has coordinates.';
             setStatus(syncMessage, 'success');
+            if (isCreatingVenue && result && result.venue) activeVenue = { ...result.venue };
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
             setStatus(error.message || 'Save failed. Check the Apps Script deployment and try again.', 'error');
@@ -534,6 +605,8 @@
             return;
         }
 
+        isCreatingVenue = false;
+        setEditorMode(false);
         activeVenue = { ...venue };
         renderRawFields(buildInitialRawFields(activeVenue));
         bindModalEvents();
@@ -542,13 +615,40 @@
         await loadSourceRow();
     }
 
+    function openNewVenueEditor() {
+        const service = getSpreadsheetService();
+        if (!service || !service.isConfigured()) {
+            alert('The spreadsheet bridge must be connected before adding a place.');
+            return;
+        }
+        isCreatingVenue = true;
+        activeVenue = {};
+        setEditorMode(true);
+        renderRawFields(buildNewVenueRawFields());
+        bindModalEvents();
+        setStatus('Enter the place name and address. Latitude and longitude are optional; the bridge will geocode the address.', 'neutral');
+        openModal();
+    }
+
+    function bindAddVenueButtons() {
+        document.querySelectorAll('[data-add-venue="true"]').forEach(button => {
+            if (button.dataset.boundAddVenue === 'true') return;
+            button.dataset.boundAddVenue = 'true';
+            button.addEventListener('click', openNewVenueEditor);
+        });
+    }
+
     window.BARK.openVenueEditor = openVenueEditor;
+    window.BARK.openNewVenueEditor = openNewVenueEditor;
     window.BARK.closeVenueEditor = closeModal;
     window.BARK.venueEditModal = {
         buildVenueFromRawFields,
         buildInitialRawFields,
         getRenderableHeaders,
         collectRawFields,
+        buildNewVenueRawFields,
         toDateInputValue
     };
+
+    document.addEventListener('DOMContentLoaded', bindAddVenueButtons);
 })();

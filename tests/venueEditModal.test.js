@@ -87,6 +87,19 @@ test('venue editor renders only focused pin CRM fields it receives', () => {
     assert.equal(headers.includes('draftStatus'), false);
 });
 
+test('new venue form includes map identity, address, contact, and coordinate fields', () => {
+    const modal = loadVenueEditModal();
+    const fields = modal.buildNewVenueRawFields();
+
+    assert.equal(fields['Place Name'], '');
+    assert.equal(fields.State, 'OH');
+    assert.equal(fields.Status, 'Needs Review');
+    assert.equal(fields['Venue Type'], 'Other Venue');
+    assert.ok(Object.prototype.hasOwnProperty.call(fields, 'Latitude'));
+    assert.ok(Object.prototype.hasOwnProperty.call(fields, 'Longitude'));
+    assert.ok(Object.prototype.hasOwnProperty.call(fields, 'Email/Contact'));
+});
+
 test('venue editor builds structured booking fields from raw sheet aliases', () => {
     const modal = loadVenueEditModal();
     const fields = modal.buildVenueFromRawFields({

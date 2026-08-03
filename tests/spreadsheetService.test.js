@@ -70,3 +70,23 @@ test('spreadsheet service rejects health checks when bridge URL is missing', asy
         error => error.code === 'SPREADSHEET_BRIDGE_NOT_CONFIGURED'
     );
 });
+
+test('spreadsheet service exposes the create venue bridge action', async () => {
+    let requestOptions = null;
+    const service = loadSpreadsheetService({
+        apiUrl: 'https://script.google.com/macros/s/test-deployment/exec',
+        fetchImpl: async (_url, options) => {
+            requestOptions = options;
+            return { ok: true, text: async () => '{"ok":true,"action":"createVenue"}' };
+        }
+    });
+
+    const result = await service.createVenue({
+        rawFields: { 'Place Name': 'New Music Room', City: 'Akron' }
+    });
+    const body = JSON.parse(requestOptions.body);
+
+    assert.equal(body.action, 'createVenue');
+    assert.equal(body.rawFields['Place Name'], 'New Music Room');
+    assert.equal(result.action, 'createVenue');
+});

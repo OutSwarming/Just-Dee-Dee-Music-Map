@@ -101,6 +101,10 @@
         return request('saveVenue', { id, venue, rawFields });
     }
 
+    async function createVenue({ venue, rawFields }) {
+        return request('createVenue', { venue, rawFields });
+    }
+
     async function setPlayed(id, played) {
         return request('setPlayed', { id, played: Boolean(played) });
     }
@@ -112,6 +116,7 @@
         getSchema,
         getVenue,
         saveVenue,
+        createVenue,
         setPlayed
     };
 })();

@@ -246,3 +246,38 @@ test('manual spreadsheet refresh uses autofill endpoint without packaged fallbac
     assert.equal(bark.__getPublishedPoints()[0].name, 'Fresh Venue');
     assert.equal(bark.getVenueDataSyncStatus().source, 'Manual Refresh');
 });
+
+test('manual refresh queues behind an in-flight background sheet request', async () => {
+    const calls = [];
+    const pending = [];
+    const csv = [
+        'id,venue name,city,state,latitude,longitude,venue type,played',
+        'venue-one-cleveland-oh,Venue One,Cleveland,OH,41.4993,-81.6944,Club,no'
+    ].join('\n');
+    const bark = loadDataService({
+        storageSeed: {
+            jddmVenueCSV: csv,
+            jddmVenueCSV_time: '1777905600000'
+        },
+        spreadsheetUrl: 'https://script.google.com/macros/s/test/exec',
+        venueCsvUrl: 'https://script.google.com/macros/s/test/exec?action=csv',
+        fetchImpl: (url) => {
+            calls.push(String(url));
+            return new Promise(resolve => pending.push(resolve));
+        }
+    });
+
+    const background = bark.loadData();
+    await Promise.resolve();
+    const manual = bark.refreshSpreadsheetMap();
+    assert.equal(calls.length, 1);
+
+    pending.shift()({ ok: true, url: calls[0], text: async () => csv });
+    await background;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 2);
+    assert.match(calls[1], /autofill=1/);
+
+    pending.shift()({ ok: true, url: calls[1], text: async () => csv });
+    assert.equal(await manual, true);
+});

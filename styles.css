@@ -1498,6 +1498,34 @@ body.app-tab-active #slide-panel {
     white-space: nowrap;
 }
 
+.booking-header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.booking-add-place {
+    appearance: none;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #111827;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.booking-add-place:hover,
+.booking-add-place:focus-visible {
+    background: #fcd34d;
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 2px;
+}
+
 .booking-sheet-health,
 .booking-data-sync {
     display: flex;
@@ -2872,6 +2900,17 @@ body.app-tab-active #slide-panel {
         padding: 6px 10px;
         font-size: 10px;
         letter-spacing: 0.4px;
+    }
+
+    #planner-view .booking-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    #planner-view .booking-add-place {
+        padding: 7px 10px;
+        font-size: 11px;
     }
 
     /* Compact one-line status rows for Sheet Sync + Venue Data refresh panels.

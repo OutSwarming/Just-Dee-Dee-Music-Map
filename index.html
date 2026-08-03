@@ -19,7 +19,7 @@
 
     <!-- QRCode JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="styles.css?v=54">
+    <link rel="stylesheet" href="styles.css?v=55">
     <link rel="stylesheet" href="styles/mapStyles.css?v=8">
     <link rel="stylesheet" href="styles/trophyCase.css">
 
@@ -483,7 +483,10 @@
                     <h2>Today&apos;s Booking Work</h2>
                     <p>Review venues, follow-ups, missing contact info, and booked opportunities from the live map data.</p>
                 </div>
-                <span class="booking-readonly-pill">Live workflow</span>
+                <div class="booking-header-actions">
+                    <button type="button" class="booking-add-place" data-add-venue="true">+ Add Place</button>
+                    <span class="booking-readonly-pill">Live workflow</span>
+                </div>
             </div>
 
             <section id="booking-sheet-health" class="booking-sheet-health" data-tone="neutral" aria-live="polite"></section>
@@ -1367,7 +1370,7 @@
     <script src="services/checkinService.js?v=5" defer></script>
     <script src="services/authPremiumUi.js?v=2" defer></script>
     <script src="services/premiumService.js?v=1" defer></script>
-    <script src="services/spreadsheetService.js?v=2" defer></script>
+    <script src="services/spreadsheetService.js?v=3" defer></script>
     <script src="services/authAccountUi.js?v=1" defer></script>
     <script src="services/authService.js?v=23" defer></script>
     <script src="modules/markerLayerPolicy.js?v=5" defer></script>
@@ -1376,14 +1379,14 @@
     <script src="modules/mapEngine.js?v=3" defer></script>
     <script src="modules/renderEngine.js?v=11" defer></script>
     <script src="renderers/panelRenderer.js?v=8" defer></script>
-    <script src="modules/venueEditModal.js?v=5" defer></script>
+    <script src="modules/venueEditModal.js?v=6" defer></script>
     <script src="modules/searchEngine.js?v=6" defer></script>
     <script src="modules/bookingSchema.js?v=8" defer></script>
     <script src="modules/bookingEmailTemplates.js?v=3" defer></script>
     <script src="modules/bookingAvailability.js?v=1" defer></script>
     <script src="modules/deeDeeReminders.js?v=2" defer></script>
     <script src="modules/bookingActions.js?v=5" defer></script>
-    <script src="modules/dataService.js?v=8" defer></script>
+    <script src="modules/dataService.js?v=9" defer></script>
     <script src="modules/websiteBookingsService.js?v=1" defer></script>
     <script src="modules/bookingDashboard.js?v=13" defer></script>
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>

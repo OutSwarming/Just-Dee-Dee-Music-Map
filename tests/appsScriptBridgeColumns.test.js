@@ -667,6 +667,51 @@ test('setPlayed writes Status instead of legacy Played columns', () => {
     assert.equal(sheet.values[1][2], 'Played in the Past');
 });
 
+test('createVenue appends a canonical map row and rejects an exact duplicate', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Address', 'City', 'State', 'Zip', 'Place ID', 'Longitude', 'Latitude', 'Status', 'Venue Type', 'Notes'],
+        [['Existing Room', '1 Main St', 'Akron', 'OH', '44308', 'existing-room-akron-oh', '-81.5', '41.1', 'Needs Review', 'Other Venue', '']]
+    );
+    const bridge = loadBridge(sheet);
+
+    const created = bridge.createVenue_({
+        rawFields: {
+            'Place Name': 'New Music Room',
+            Address: '22 Market St',
+            City: 'Akron',
+            State: 'OH',
+            Zip: '44308',
+            Latitude: '41.081',
+            Longitude: '-81.519',
+            Status: 'Not Contacted Yet',
+            'Venue Type': 'Pub/Bar'
+        }
+    });
+    const cleanSheet = bridge.getSheet_();
+    const headers = cleanSheet.values[0];
+    const added = cleanSheet.values.find(row => row[headerIndex(headers, 'Place Name')] === 'New Music Room');
+
+    assert.equal(created.ok, true);
+    assert.equal(created.action, 'createVenue');
+    assert.equal(created.hasCoordinates, true);
+    assert.ok(added);
+    assert.equal(added[headerIndex(headers, 'Place Name')], 'New Music Room');
+    assert.equal(added[headerIndex(headers, 'Place ID')], 'new-music-room-akron-oh-44308');
+    assert.equal(added[headerIndex(headers, 'Status')], 'Not Contacted Yet');
+    assert.match(created.csv, /New Music Room/);
+
+    const duplicate = bridge.createVenue_({
+        rawFields: {
+            'Place Name': 'New Music Room',
+            Address: '22 Market St',
+            City: 'Akron',
+            State: 'OH'
+        }
+    });
+    assert.equal(duplicate.ok, false);
+    assert.equal(duplicate.code, 'DUPLICATE_VENUE');
+});
+
 test('health advertises the lean storage schema', () => {
     const sheet = createFakeSheet(['Venue Name', 'CRM Status']);
     const bridge = loadBridge(sheet);
