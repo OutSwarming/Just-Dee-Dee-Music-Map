@@ -255,6 +255,8 @@ class FacebookEventsScraperTest(unittest.TestCase):
         )
         self.assertTrue(facebook_events.is_source_outage_result(0, scraper))
         self.assertFalse(facebook_events.is_source_outage_result(1, scraper))
+        self.assertTrue(facebook_events.facebook_page_scan_is_outage(0, accessible_pages=1, blocked_pages=2))
+        self.assertFalse(facebook_events.facebook_page_scan_is_outage(0, accessible_pages=3, blocked_pages=0))
 
     def test_source_outage_preserves_last_good_database_and_exports(self):
         class FakeOutageScraper:

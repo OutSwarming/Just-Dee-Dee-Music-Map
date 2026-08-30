@@ -133,6 +133,10 @@ class FacebookSourceOutage(RuntimeError):
     """Facebook returned a login/restriction wall or no usable source page."""
 
 
+def facebook_page_scan_is_outage(event_link_count: int, accessible_pages: int, blocked_pages: int) -> bool:
+    return accessible_pages == 0 or (event_link_count == 0 and blocked_pages > 0)
+
+
 def stable_hash(*parts: object, length: int = 16) -> str:
     return hashlib.sha256("|".join(clean(part) for part in parts).encode("utf-8")).hexdigest()[:length]
 
@@ -1061,7 +1065,9 @@ class FacebookEventsScraper:
                     break
             if len(event_links) >= self.args.max_events_per_entity:
                 break
-        if accessible_pages == 0:
+        if not event_links and blocked_pages > 0:
+            raise FacebookSourceOutage("Facebook returned login/restriction walls and no usable event links.")
+        if facebook_page_scan_is_outage(len(event_links), accessible_pages, blocked_pages):
             reason = "login/restriction walls" if blocked_pages else "navigation failures"
             raise FacebookSourceOutage(f"Every Facebook Events URL failed because of {reason}.")
         self.logger.info("Collected %d event links for %s", len(event_links), source_name)
@@ -1507,6 +1513,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--login", action="store_true", help="Open Facebook headful and save a reusable login session.")
     parser.add_argument("--storage-state", type=Path, default=DEFAULT_STORAGE_STATE)
     parser.add_argument("--limit", "--max-events-per-entity", dest="max_events_per_entity", type=int, default=50)
+    parser.add_argument("--entity-limit", type=int, default=0, help="Process only the first N input entities (useful for a bounded live health check).")
     parser.add_argument("--mode", choices=["future_only", "all"], default="all")
     parser.add_argument("--headless", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--timeout-ms", type=int, default=45000)
@@ -1552,6 +1559,8 @@ async def async_main(argv: list[str]) -> int:
     if not args.input:
         raise SystemExit("--input is required unless --login is used.")
     entities = load_spreadsheet(args.input)
+    if args.entity_limit > 0:
+        entities = entities[: args.entity_limit]
     logger.info("Loaded %d input entities from %s", len(entities), args.input)
     scraper = FacebookEventsScraper(args)
     events = await scraper.run(entities)
