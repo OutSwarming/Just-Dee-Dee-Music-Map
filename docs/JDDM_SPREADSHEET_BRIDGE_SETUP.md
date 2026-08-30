@@ -30,7 +30,7 @@ This app is hosted on GitHub Pages, so it cannot write to Google Sheets by itsel
 The app is currently wired back to the original working bridge:
 
 ```js
-window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyeskUlFOAAfBKjhVtHpDHfjKn_SOfzaN0CIorRvyRirS_hTzTjjwf5w5gB2qs9yiw8/exec";
+window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 ```
 
@@ -43,28 +43,17 @@ window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autof
 
 The current `Code.gs` uses the active bound spreadsheet. Open the Apps Script editor from the spreadsheet itself with `Extensions` > `Apps Script`, then paste/deploy the bridge there.
 
-`JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. The app also refreshes immediately after a save when the bridge returns updated CSV.
+`JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. Reliable-write bridge `2026-08-30-reliable-writes` returns only the changed venue after a save; the app updates that venue locally and refreshes the full map feed in the background.
 
-Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has generated coordinates in columns R/S/T. Until then, keep the checked-in CSV as the map fallback.
+When updating an existing deployment, choose `Deploy` > `Manage deployments` > the pencil icon, select `New version`, and deploy. Replacing code without creating a new deployment version does not update the live `/exec` endpoint. The Booking Planner health card must report schema `2026-08-30-reliable-writes` before live editing is considered ready.
+
+Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has usable `Place ID`, `Longitude`, and `Latitude` values. Until then, keep the checked-in CSV as the map fallback.
 
 ## 4. Generated Map Columns
 
-The bridge owns these generated map columns:
+The clean storage bridge keeps map identity in the first eight canonical columns: `Place Name`, `Address`, `City`, `Zip`, `State`, `Place ID`, `Longitude`, and `Latitude`.
 
-- Column R: `Longitude`
-- Column S: `Latitude`
-- Column T: `Site ID`
-
-When a row is edited or synced, the bridge fills `Site ID` from the venue/place text and fills missing coordinates by geocoding the row address. These columns are what the map uses as the stable spreadsheet source of truth.
-
-After pasting the latest `Code.gs`, run this once in Apps Script:
-
-1. Select `installJddmAutoFillTrigger` from the function dropdown.
-2. Click `Run`.
-3. Approve the Google permissions.
-4. Reload the spreadsheet.
-
-New or edited rows will then auto-fill columns R/S/T.
+When the app creates a venue, the bridge generates `Place ID` and fills missing coordinates by geocoding the address. If geocoding cannot find the address, the row is still saved for review, but a pin will not appear until coordinates are supplied.
 
 ## 5. Booking CRM Columns
 
@@ -244,3 +233,7 @@ After connecting the URL:
 5. Click `Save to Spreadsheet`.
 6. Confirm the Google Sheet row updates.
 7. Confirm the map refreshes from the sheet.
+8. Add the same test venue twice with the same request retry and confirm only one row exists.
+9. Repeat 20 harmless status edits and confirm none report `fetch aborted`.
+
+Venue creation no longer runs spreadsheet setup. If the bridge returns `SCHEMA_NOT_READY`, run the one-time clean storage setup from Apps Script, verify the health card, and then retry the add.

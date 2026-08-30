@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+    buildReminderBody,
     extractGigDates,
+    getServicePriorityForHealth,
+    isDataFresh,
+    isVerifiedMessageStatus,
     loadPlannerSnapshot,
-    parseCsv
+    parseCsv,
+    updateDeliveryHealth
 } from '../scripts/dee-dee-local-text-reminders.mjs';
 
 test('reminder CSV parser preserves quoted live-map fields', () => {
@@ -28,4 +33,67 @@ test('reminder planner extracts current future gigs from the live map CSV snapsh
     assert.ok(snapshot.followUps.some(venue => venue.name === 'Follow Up Room'));
     assert.ok(snapshot.futureGigs.some(gig => gig.eventDate === '2099-08-15' && gig.venueName === 'Live New Room'));
     assert.deepEqual(extractGigDates('2099-08-15; Sun Sep 20 2099'), ['2099-08-15', '2099-09-20']);
+});
+
+test('reminder freshness rejects data older than the two-day safety window', () => {
+    const now = Date.parse('2026-08-30T12:00:00Z');
+    assert.equal(isDataFresh(now - (47 * 60 * 60 * 1000), now), true);
+    assert.equal(isDataFresh(now - (49 * 60 * 60 * 1000), now), false);
+});
+
+test('calendar reminders suppress totals when the calendar snapshot is stale', () => {
+    const body = buildReminderBody(
+        { id: 'available-dates', body: 'Hey Dee Dee! Check dates.\n\nhttps://example.test' },
+        {
+            calendarDataFresh: false,
+            newPlaces: [],
+            missingInfo: [],
+            followUps: [],
+            responded: [],
+            futureGigs: [],
+            blockedEvents: [],
+            availability: {
+                weekends: { dates: ['2099-01-01'], busyCount: 99 },
+                weekdays: { dates: ['2099-01-02'], busyCount: 99 }
+            }
+        }
+    );
+
+    assert.match(body, /more than two days old/i);
+    assert.doesNotMatch(body, /99 booked/i);
+    assert.doesNotMatch(body, /2099-01-01/);
+});
+
+test('message delivery verification requires a readable successful Messages row', () => {
+    assert.equal(isVerifiedMessageStatus(null), false);
+    assert.equal(isVerifiedMessageStatus({ verified: false, error: 0, isSent: true }), false);
+    assert.equal(isVerifiedMessageStatus({ verified: true, error: 1, isSent: true }), false);
+    assert.equal(isVerifiedMessageStatus({ verified: true, error: 0, isSent: false, isDelivered: false }), false);
+    assert.equal(isVerifiedMessageStatus({ verified: true, error: 0, isSent: true, isDelivered: false }), true);
+});
+
+test('delivery health recommends a provider fallback after 48 unverified hours', () => {
+    const recipient = '+15555550123';
+    const firstAttempt = new Date('2026-08-28T10:00:00Z');
+    const afterWindow = new Date('2026-08-30T10:00:01Z');
+    const first = updateDeliveryHealth({}, [{ recipient, service: 'iMessage', verified: false }], firstAttempt);
+    const stale = updateDeliveryHealth(first, [{ recipient, service: 'iMessage', verified: false }], afterWindow);
+    const recovered = updateDeliveryHealth(stale, [{ recipient, service: 'iMessage', verified: true }], new Date('2026-08-30T11:00:00Z'));
+
+    assert.equal(first.fallbackRecommended, false);
+    assert.equal(stale.fallbackRecommended, true);
+    assert.deepEqual(stale.staleRecipients, [recipient]);
+    assert.equal(recovered.fallbackRecommended, false);
+    assert.equal(recovered.recipients[recipient].unverifiedSince, null);
+});
+
+test('scheduled delivery switches from iMessage-first to SMS-first after the fallback window', () => {
+    const recipient = '+15555550123';
+    const firstAttempt = new Date('2026-08-28T10:00:00Z');
+    const afterWindow = new Date('2026-08-30T10:00:01Z');
+    const first = updateDeliveryHealth({}, [{ recipient, service: 'iMessage', verified: false }], firstAttempt);
+    const stale = updateDeliveryHealth(first, [], afterWindow);
+
+    assert.deepEqual(getServicePriorityForHealth(first), ['iMessage', 'SMS']);
+    assert.deepEqual(getServicePriorityForHealth(stale), ['SMS', 'iMessage']);
 });

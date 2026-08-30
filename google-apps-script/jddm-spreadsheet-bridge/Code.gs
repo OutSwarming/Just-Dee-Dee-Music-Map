@@ -8,7 +8,7 @@
  * - Purge/setup is explicit. Health/csv never delete columns.
  */
 
-var JDDM_SCHEMA_VERSION = '2026-05-08-simplified-crm-statuses';
+var JDDM_SCHEMA_VERSION = '2026-08-30-reliable-writes';
 var EDIT_TOKEN = '';
 var JDDM_TIMEZONE = 'America/New_York';
 var JDDM_CALENDAR_IDS = [
@@ -338,6 +338,90 @@ function setByHeader_(row, headerMap, header, value) {
   var canonicalMap = headerMap.__canonical || headerMap;
   var index = canonicalMap[normalizeKey_(canonicalHeader_(header))];
   if (index !== undefined) row[index] = value;
+}
+
+function setTrackedByHeader_(row, headerMap, header, value, changedIndexes) {
+  var canonicalMap = headerMap.__canonical || headerMap;
+  var index = canonicalMap[normalizeKey_(canonicalHeader_(header))];
+  if (index === undefined || row[index] === value) return false;
+  row[index] = value;
+  changedIndexes[index] = true;
+  return true;
+}
+
+function writeTrackedCells_(sheet, rowNumber, row, changedIndexes) {
+  var indexes = Object.keys(changedIndexes || {}).map(Number).sort(function(a, b) { return a - b; });
+  if (!indexes.length) return [];
+
+  var writtenHeaders = [];
+  var start = indexes[0];
+  var end = start;
+  var flush = function() {
+    sheet.getRange(rowNumber, start + 1, 1, end - start + 1).setValues([row.slice(start, end + 1)]);
+    for (var columnIndex = start; columnIndex <= end; columnIndex++) writtenHeaders.push(columnIndex);
+  };
+
+  for (var i = 1; i < indexes.length; i++) {
+    if (indexes[i] === end + 1) {
+      end = indexes[i];
+      continue;
+    }
+    flush();
+    start = indexes[i];
+    end = start;
+  }
+  flush();
+  return writtenHeaders;
+}
+
+function withScriptLock_(callback) {
+  var lock = typeof LockService !== 'undefined' && LockService.getScriptLock
+    ? LockService.getScriptLock()
+    : null;
+  if (lock) lock.waitLock(30000);
+  try {
+    return callback();
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+
+function applyVenueRowHighlight_(sheet, rowNumber, row, headerMap, width) {
+  var state = isBlankVenueRow_(row, headerMap) ? 'NONE' : classifyVenueRowHighlight_(row, headerMap);
+  var background = JDDM_ROW_HIGHLIGHT_COLORS[state] || JDDM_ROW_HIGHLIGHT_COLORS.NONE;
+  var fontColor = state === 'BOOKED' || state === 'CLOSED'
+    ? JDDM_ROW_HIGHLIGHT_COLORS.FONT_LIGHT
+    : JDDM_ROW_HIGHLIGHT_COLORS.FONT_DARK;
+  sheet.getRange(rowNumber, 1, 1, Math.max(width || row.length, 1))
+    .setBackground(background)
+    .setFontColor(fontColor);
+  return state;
+}
+
+function getCreateRequestProperties_() {
+  if (typeof PropertiesService === 'undefined' || !PropertiesService.getDocumentProperties) return null;
+  return PropertiesService.getDocumentProperties();
+}
+
+function getCreateRequestKey_(requestId) {
+  var safeId = clean_(requestId).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 160);
+  return safeId ? 'JDDM_CREATE_' + safeId : '';
+}
+
+function readCreateRequestResult_(properties, requestKey) {
+  if (!properties || !requestKey) return null;
+  var stored = properties.getProperty(requestKey);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch (error) {
+    return null;
+  }
+}
+
+function rememberCreateRequestResult_(properties, requestKey, result) {
+  if (!properties || !requestKey) return;
+  properties.setProperty(requestKey, JSON.stringify(result));
 }
 
 function toNumber_(value) {
@@ -1260,39 +1344,47 @@ function normalizeRawFieldHeader_(header) {
 }
 
 function saveVenue_(payload) {
-  var data = getData_();
-  var rowNumber = findRowById_(data, payload.id);
-  if (rowNumber < 0) return { ok: false, code: 'NOT_FOUND', message: 'Venue was not found.' };
-  var row = data.rows[rowNumber - 2].slice();
-  var rawFields = payload.rawFields || {};
-  var venue = payload.venue || {};
+  payload = payload || {};
+  return withScriptLock_(function() {
+    var data = getData_();
+    var rowNumber = findRowById_(data, payload.id);
+    if (rowNumber < 0) return { ok: false, code: 'NOT_FOUND', message: 'Venue was not found.' };
+    var row = data.rows[rowNumber - 2].slice();
+    var rawFields = payload.rawFields || {};
+    var venue = payload.venue || {};
+    var changedIndexes = {};
+    var statusChanged = false;
 
-  Object.keys(rawFields).forEach(function(header) {
-    var canonical = normalizeRawFieldHeader_(header);
-    if (!canonical) return;
-    var value = rawFields[header];
-    if (canonical === 'Status') value = normalizeCrmStatus_(value);
-    setByHeader_(row, data.headerMap, canonical, value);
+    Object.keys(rawFields).forEach(function(header) {
+      var canonical = normalizeRawFieldHeader_(header);
+      if (!canonical) return;
+      var value = rawFields[header];
+      if (canonical === 'Status') value = normalizeCrmStatus_(value);
+      if (setTrackedByHeader_(row, data.headerMap, canonical, value, changedIndexes) && canonical === 'Status') statusChanged = true;
+    });
+
+    if (venue.contactStatus) {
+      statusChanged = setTrackedByHeader_(row, data.headerMap, 'Status', normalizeCrmStatus_(venue.contactStatus), changedIndexes) || statusChanged;
+    }
+    if (venue.nextFollowUpDate !== undefined) setTrackedByHeader_(row, data.headerMap, 'Next Follow Up', clean_(venue.nextFollowUpDate), changedIndexes);
+    if (venue.priority !== undefined) setTrackedByHeader_(row, data.headerMap, 'Priority', clean_(venue.priority), changedIndexes);
+    if (venue.bestFitScore !== undefined && !getByHeader_(row, data.headerMap, 'Priority')) {
+      setTrackedByHeader_(row, data.headerMap, 'Priority', clean_(venue.bestFitScore), changedIndexes);
+    }
+    if (venue.notes !== undefined) setTrackedByHeader_(row, data.headerMap, 'Notes', clean_(venue.notes), changedIndexes);
+
+    var writtenIndexes = writeTrackedCells_(data.sheet, rowNumber, row, changedIndexes);
+    if (statusChanged) applyVenueRowHighlight_(data.sheet, rowNumber, row, data.headerMap, data.headers.length);
+    return {
+      ok: true,
+      action: 'saveVenue',
+      requestId: clean_(payload.requestId),
+      rowNumber: rowNumber,
+      changedHeaders: writtenIndexes.map(function(index) { return data.headers[index]; }),
+      venue: rowObject_(row, data.headerMap),
+      rawFields: rawFieldsFromRow_(row, data.headerMap)
+    };
   });
-
-  if (venue.contactStatus) setByHeader_(row, data.headerMap, 'Status', normalizeCrmStatus_(venue.contactStatus));
-  if (venue.nextFollowUpDate !== undefined) setByHeader_(row, data.headerMap, 'Next Follow Up', clean_(venue.nextFollowUpDate));
-  if (venue.priority !== undefined) setByHeader_(row, data.headerMap, 'Priority', clean_(venue.priority));
-  if (venue.bestFitScore !== undefined && !getByHeader_(row, data.headerMap, 'Priority')) {
-    setByHeader_(row, data.headerMap, 'Priority', clean_(venue.bestFitScore));
-  }
-  if (venue.notes !== undefined) setByHeader_(row, data.headerMap, 'Notes', clean_(venue.notes));
-
-  data.sheet.getRange(rowNumber, 1, 1, data.headers.length).setValues([row]);
-  applyRowHighlighting_({ startRow: rowNumber, rowCount: 1, limit: 1 });
-  return {
-    ok: true,
-    action: 'saveVenue',
-    rowNumber: rowNumber,
-    venue: rowObject_(row, data.headerMap),
-    rawFields: rawFieldsFromRow_(row, data.headerMap),
-    csv: buildCsv_()
-  };
 }
 
 function geocodeVenueRow_(row, headerMap) {
@@ -1321,89 +1413,112 @@ function geocodeVenueRow_(row, headerMap) {
 }
 
 function createVenue_(payload) {
-  setupComputerSection_({ applyFormatting: false });
-  var data = getData_();
-  var row = data.headers.map(function() { return ''; });
-  var rawFields = payload.rawFields || {};
-  var venue = payload.venue || {};
-
-  Object.keys(rawFields).forEach(function(header) {
-    var canonical = normalizeRawFieldHeader_(header);
-    if (!canonical) return;
-    var value = rawFields[header];
-    if (canonical === 'Status') value = normalizeCrmStatus_(value);
-    setByHeader_(row, data.headerMap, canonical, value);
-  });
-
-  Object.keys(venue).forEach(function(header) {
-    var canonical = normalizeRawFieldHeader_(header);
-    if (canonical) setByHeader_(row, data.headerMap, canonical, venue[header]);
-  });
-
-  var name = getByHeader_(row, data.headerMap, 'Place Name');
-  if (!name) return { ok: false, code: 'PLACE_NAME_REQUIRED', message: 'Place Name is required.' };
-  if (!getByHeader_(row, data.headerMap, 'Status')) setByHeader_(row, data.headerMap, 'Status', 'Needs Review');
-  if (!getByHeader_(row, data.headerMap, 'State')) setByHeader_(row, data.headerMap, 'State', 'OH');
-
-  var addressKey = normalizeKey_([
-    getByHeader_(row, data.headerMap, 'Address'),
-    getByHeader_(row, data.headerMap, 'City'),
-    getByHeader_(row, data.headerMap, 'State')
-  ].join(' '));
-  for (var i = 0; i < data.rows.length; i++) {
-    var existingName = normalizeKey_(getByHeader_(data.rows[i], data.headerMap, 'Place Name'));
-    var existingAddress = normalizeKey_([
-      getByHeader_(data.rows[i], data.headerMap, 'Address'),
-      getByHeader_(data.rows[i], data.headerMap, 'City'),
-      getByHeader_(data.rows[i], data.headerMap, 'State')
-    ].join(' '));
-    if (existingName === normalizeKey_(name) && (!addressKey || existingAddress === addressKey)) {
-      return { ok: false, code: 'DUPLICATE_VENUE', message: 'That place is already on the map.', rowNumber: i + 2 };
+  payload = payload || {};
+  return withScriptLock_(function() {
+    var properties = getCreateRequestProperties_();
+    var requestKey = getCreateRequestKey_(payload.requestId);
+    var replay = readCreateRequestResult_(properties, requestKey);
+    if (replay) {
+      replay.replayed = true;
+      return replay;
     }
-  }
 
-  var baseId = getByHeader_(row, data.headerMap, 'Place ID') || slugify_([
-    name,
-    getByHeader_(row, data.headerMap, 'City'),
-    getByHeader_(row, data.headerMap, 'State'),
-    getByHeader_(row, data.headerMap, 'Zip')
-  ].filter(Boolean).join(' '));
-  var id = baseId || 'venue-' + new Date().getTime();
-  var suffix = 2;
-  while (findRowById_(data, id) >= 0) {
-    id = baseId + '-' + suffix;
-    suffix++;
-  }
-  setByHeader_(row, data.headerMap, 'Place ID', id);
-  geocodeVenueRow_(row, data.headerMap);
+    var data = getData_();
+    if (!headersAreCanonical_(data.headers)) {
+      return {
+        ok: false,
+        code: 'SCHEMA_NOT_READY',
+        message: 'The spreadsheet needs its one-time setup before places can be added.'
+      };
+    }
 
-  data.sheet.appendRow(row);
-  var rowNumber = data.sheet.getLastRow();
-  applyRowHighlighting_({ startRow: rowNumber, rowCount: 1, limit: 1 });
-  data = getData_();
-  row = data.rows[rowNumber - 2];
-  return {
-    ok: true,
-    action: 'createVenue',
-    rowNumber: rowNumber,
-    venue: rowObject_(row, data.headerMap),
-    rawFields: rawFieldsFromRow_(row, data.headerMap),
-    hasCoordinates: Boolean(getByHeader_(row, data.headerMap, 'Latitude') && getByHeader_(row, data.headerMap, 'Longitude')),
-    csv: buildCsv_()
-  };
+    var row = data.headers.map(function() { return ''; });
+    var rawFields = payload.rawFields || {};
+    var venue = payload.venue || {};
+
+    Object.keys(rawFields).forEach(function(header) {
+      var canonical = normalizeRawFieldHeader_(header);
+      if (!canonical) return;
+      var value = rawFields[header];
+      if (canonical === 'Status') value = normalizeCrmStatus_(value);
+      setByHeader_(row, data.headerMap, canonical, value);
+    });
+
+    Object.keys(venue).forEach(function(header) {
+      var canonical = normalizeRawFieldHeader_(header);
+      if (canonical) setByHeader_(row, data.headerMap, canonical, venue[header]);
+    });
+
+    var name = getByHeader_(row, data.headerMap, 'Place Name');
+    if (!name) return { ok: false, code: 'PLACE_NAME_REQUIRED', message: 'Place Name is required.' };
+    if (!getByHeader_(row, data.headerMap, 'Status')) setByHeader_(row, data.headerMap, 'Status', 'Needs Review');
+    if (!getByHeader_(row, data.headerMap, 'State')) setByHeader_(row, data.headerMap, 'State', 'OH');
+
+    var addressKey = normalizeKey_([
+      getByHeader_(row, data.headerMap, 'Address'),
+      getByHeader_(row, data.headerMap, 'City'),
+      getByHeader_(row, data.headerMap, 'State')
+    ].join(' '));
+    for (var i = 0; i < data.rows.length; i++) {
+      var existingName = normalizeKey_(getByHeader_(data.rows[i], data.headerMap, 'Place Name'));
+      var existingAddress = normalizeKey_([
+        getByHeader_(data.rows[i], data.headerMap, 'Address'),
+        getByHeader_(data.rows[i], data.headerMap, 'City'),
+        getByHeader_(data.rows[i], data.headerMap, 'State')
+      ].join(' '));
+      if (existingName === normalizeKey_(name) && (!addressKey || existingAddress === addressKey)) {
+        return { ok: false, code: 'DUPLICATE_VENUE', message: 'That place is already on the map.', rowNumber: i + 2 };
+      }
+    }
+
+    var baseId = getByHeader_(row, data.headerMap, 'Place ID') || slugify_([
+      name,
+      getByHeader_(row, data.headerMap, 'City'),
+      getByHeader_(row, data.headerMap, 'State'),
+      getByHeader_(row, data.headerMap, 'Zip')
+    ].filter(Boolean).join(' '));
+    var id = baseId || 'venue-' + new Date().getTime();
+    var suffix = 2;
+    while (findRowById_(data, id) >= 0) {
+      id = baseId + '-' + suffix;
+      suffix++;
+    }
+    setByHeader_(row, data.headerMap, 'Place ID', id);
+    geocodeVenueRow_(row, data.headerMap);
+
+    data.sheet.appendRow(row);
+    var rowNumber = data.sheet.getLastRow();
+    applyVenueRowHighlight_(data.sheet, rowNumber, row, data.headerMap, data.headers.length);
+    var result = {
+      ok: true,
+      action: 'createVenue',
+      requestId: clean_(payload.requestId),
+      rowNumber: rowNumber,
+      venue: rowObject_(row, data.headerMap),
+      rawFields: rawFieldsFromRow_(row, data.headerMap),
+      hasCoordinates: Boolean(getByHeader_(row, data.headerMap, 'Latitude') && getByHeader_(row, data.headerMap, 'Longitude'))
+    };
+    rememberCreateRequestResult_(properties, requestKey, result);
+    return result;
+  });
 }
 
 function setPlayed_(payload) {
-  var data = getData_();
-  var rowNumber = findRowById_(data, payload.id);
-  if (rowNumber < 0) return { ok: false, code: 'NOT_FOUND', message: 'Venue was not found.' };
-  var status = payload.played ? 'Played in the Past' : 'Needs Review';
-  var statusMap = data.headerMap.__canonical || data.headerMap;
-  var statusColumn = statusMap[normalizeKey_('Status')];
-  if (statusColumn === undefined) return { ok: false, code: 'NO_STATUS_COLUMN', message: 'Status column is missing.' };
-  data.sheet.getRange(rowNumber, statusColumn + 1).setValue(status);
-  applyRowHighlighting_({ startRow: rowNumber, rowCount: 1, limit: 1 });
-  return { ok: true, action: 'setPlayed', rowNumber: rowNumber, played: Boolean(payload.played), status: status };
+  payload = payload || {};
+  return withScriptLock_(function() {
+    var data = getData_();
+    var rowNumber = findRowById_(data, payload.id);
+    if (rowNumber < 0) return { ok: false, code: 'NOT_FOUND', message: 'Venue was not found.' };
+    var status = payload.played ? 'Played in the Past' : 'Needs Review';
+    var statusMap = data.headerMap.__canonical || data.headerMap;
+    var statusColumn = statusMap[normalizeKey_('Status')];
+    if (statusColumn === undefined) return { ok: false, code: 'NO_STATUS_COLUMN', message: 'Status column is missing.' };
+    var row = data.rows[rowNumber - 2].slice();
+    row[statusColumn] = status;
+    data.sheet.getRange(rowNumber, statusColumn + 1).setValue(status);
+    applyVenueRowHighlight_(data.sheet, rowNumber, row, data.headerMap, data.headers.length);
+    return { ok: true, action: 'setPlayed', rowNumber: rowNumber, played: Boolean(payload.played), status: status };
+  });
 }
 
 function parseIsoDate_(value) {

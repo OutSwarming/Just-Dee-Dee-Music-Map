@@ -8,7 +8,9 @@
     window.BARK = window.BARK || {};
     window.BARK.services = window.BARK.services || {};
 
-    const DEFAULT_TIMEOUT_MS = 15000;
+    const READ_TIMEOUT_MS = 30000;
+    const WRITE_TIMEOUT_MS = 60000;
+    let requestSequence = 0;
 
     function clean(value) {
         return String(value === undefined || value === null ? '' : value).trim();
@@ -34,7 +36,30 @@
         };
     }
 
-    async function request(action, payload = {}) {
+    function createRequestId(action) {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return `${action}-${window.crypto.randomUUID()}`;
+        }
+        requestSequence += 1;
+        return `${action}-${Date.now().toString(36)}-${requestSequence.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function getTimeoutMs(action) {
+        return action === 'createVenue' || action === 'saveVenue' || action === 'setPlayed'
+            ? WRITE_TIMEOUT_MS
+            : READ_TIMEOUT_MS;
+    }
+
+    function buildTimeoutError(action, timeoutMs) {
+        const seconds = Math.round(timeoutMs / 1000);
+        const error = new Error(`Google Sheets did not answer within ${seconds} seconds. The write may still be finishing, so check the Sheet before retrying.`);
+        error.code = 'SPREADSHEET_BRIDGE_TIMEOUT';
+        error.action = action;
+        error.retryable = true;
+        return error;
+    }
+
+    async function request(action, payload = {}, options = {}) {
         if (!isConfigured()) {
             const error = new Error('Spreadsheet bridge is not configured yet.');
             error.code = 'SPREADSHEET_BRIDGE_NOT_CONFIGURED';
@@ -42,7 +67,12 @@
         }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+        const timeoutMs = Number(options.timeoutMs || getTimeoutMs(action));
+        let timedOut = false;
+        const timeoutId = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, timeoutMs);
 
         try {
             const response = await fetch(getApiUrl(), {
@@ -80,6 +110,11 @@
             }
 
             return parsed;
+        } catch (error) {
+            if (timedOut || (error && error.name === 'AbortError')) {
+                throw buildTimeoutError(action, timeoutMs);
+            }
+            throw error;
         } finally {
             clearTimeout(timeoutId);
         }
@@ -97,12 +132,21 @@
         return request('schema');
     }
 
-    async function saveVenue({ id, venue, rawFields }) {
-        return request('saveVenue', { id, venue, rawFields });
+    async function saveVenue({ id, venue, rawFields, requestId }) {
+        return request('saveVenue', {
+            id,
+            venue,
+            rawFields,
+            requestId: clean(requestId) || createRequestId('saveVenue')
+        });
     }
 
-    async function createVenue({ venue, rawFields }) {
-        return request('createVenue', { venue, rawFields });
+    async function createVenue({ venue, rawFields, requestId }) {
+        return request('createVenue', {
+            venue,
+            rawFields,
+            requestId: clean(requestId) || createRequestId('createVenue')
+        });
     }
 
     async function setPlayed(id, played) {

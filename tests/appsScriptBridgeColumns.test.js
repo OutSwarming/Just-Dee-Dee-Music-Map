@@ -143,6 +143,7 @@ function createFakeSheet(initialHeaders, initialRows = []) {
 function loadBridge(sheet, options = {}) {
     const sheets = [sheet];
     const calendars = options.calendars || {};
+    const documentProperties = new Map();
     const spreadsheet = {
         getSheets() {
             return sheets.slice();
@@ -259,6 +260,26 @@ function loadBridge(sheet, options = {}) {
                 };
             }
         },
+        LockService: {
+            getScriptLock() {
+                return {
+                    waitLock() {},
+                    releaseLock() {}
+                };
+            }
+        },
+        PropertiesService: {
+            getDocumentProperties() {
+                return {
+                    getProperty(key) {
+                        return documentProperties.has(key) ? documentProperties.get(key) : null;
+                    },
+                    setProperty(key, value) {
+                        documentProperties.set(key, value);
+                    }
+                };
+            }
+        },
         Utilities: {
             formatDate(date, _timezone, format) {
                 if (format === 'yyyyMMdd-HHmmss') return '20260508-000000';
@@ -366,7 +387,7 @@ test('purge keeps accurate scattered contact and gig data in canonical columns',
 
     assert.equal(result.archivedSheetName, null);
     assert.equal(result.replacedSheet, true);
-    assert.equal(result.schemaVersion, '2026-05-08-simplified-crm-statuses');
+    assert.equal(result.schemaVersion, '2026-08-30-reliable-writes');
     assert.deepEqual(plain(headers), plain(bridge.JDDM_CANONICAL_HEADERS));
     assert.equal(row[headerIndex(headers, 'Place Name')], 'Bait House Brewery');
     assert.equal(row[headerIndex(headers, 'Address')], '223 Meigs St');
@@ -829,8 +850,12 @@ test('createVenue appends a canonical map row and rejects an exact duplicate', (
         [['Existing Room', '1 Main St', 'Akron', 'OH', '44308', 'existing-room-akron-oh', '-81.5', '41.1', 'Needs Review', 'Other Venue', '']]
     );
     const bridge = loadBridge(sheet);
+    bridge.setupComputerSection_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    const rowCountBeforeCreate = cleanSheet.values.length;
 
     const created = bridge.createVenue_({
+        requestId: 'create-test-1',
         rawFields: {
             'Place Name': 'New Music Room',
             Address: '22 Market St',
@@ -843,7 +868,6 @@ test('createVenue appends a canonical map row and rejects an exact duplicate', (
             'Venue Type': 'Pub/Bar'
         }
     });
-    const cleanSheet = bridge.getSheet_();
     const headers = cleanSheet.values[0];
     const added = cleanSheet.values.find(row => row[headerIndex(headers, 'Place Name')] === 'New Music Room');
 
@@ -854,9 +878,20 @@ test('createVenue appends a canonical map row and rejects an exact duplicate', (
     assert.equal(added[headerIndex(headers, 'Place Name')], 'New Music Room');
     assert.equal(added[headerIndex(headers, 'Place ID')], 'new-music-room-akron-oh-44308');
     assert.equal(added[headerIndex(headers, 'Status')], 'Not Contacted Yet');
-    assert.match(created.csv, /New Music Room/);
+    assert.equal(created.csv, undefined);
+    assert.equal(cleanSheet.values.length, rowCountBeforeCreate + 1);
+
+    const replayed = bridge.createVenue_({
+        requestId: 'create-test-1',
+        rawFields: { 'Place Name': 'This retry must not append' }
+    });
+    assert.equal(replayed.ok, true);
+    assert.equal(replayed.replayed, true);
+    assert.equal(replayed.rowNumber, created.rowNumber);
+    assert.equal(cleanSheet.values.length, rowCountBeforeCreate + 1);
 
     const duplicate = bridge.createVenue_({
+        requestId: 'create-test-2',
         rawFields: {
             'Place Name': 'New Music Room',
             Address: '22 Market St',
@@ -868,12 +903,40 @@ test('createVenue appends a canonical map row and rejects an exact duplicate', (
     assert.equal(duplicate.code, 'DUPLICATE_VENUE');
 });
 
+test('saveVenue writes only changed cell groups and does not rebuild the full CSV', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Last Contacted', 'Contact Name', 'Email/Contact', 'Phone Number', 'Contact Type', 'Next Follow Up', 'Notes'],
+        [['The Venue', 'the-venue', 'Not Contacted Yet', '', '', '', '', '', '', 'Keep this note']]
+    );
+    const bridge = loadBridge(sheet);
+    bridge.setupComputerSection_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+    cleanSheet.writes.length = 0;
+
+    const result = bridge.saveVenue_({
+        id: 'the-venue',
+        requestId: 'save-test-1',
+        rawFields: {
+            Status: 'Follow Up Needed',
+            'Last Contacted': '2026-08-30',
+            Notes: 'Keep this note'
+        }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.csv, undefined);
+    assert.deepEqual(plain(result.changedHeaders), ['Status', 'Last Contacted']);
+    assert.equal(cleanSheet.writes.length, 1);
+    assert.equal(cleanSheet.writes[0].values[0].length, 2);
+    assert.equal(cleanSheet.values[1][headerIndex(cleanSheet.values[0], 'Notes')], 'Keep this note');
+});
+
 test('health advertises the lean storage schema', () => {
     const sheet = createFakeSheet(['Venue Name', 'CRM Status']);
     const bridge = loadBridge(sheet);
     const health = bridge.getHealth_();
 
-    assert.equal(health.schemaVersion, '2026-05-08-simplified-crm-statuses');
+    assert.equal(health.schemaVersion, '2026-08-30-reliable-writes');
     assert.ok(health.storageColumns.includes('Place Name'));
     assert.ok(health.sections.status.includes('Status'));
     assert.ok(health.statusOptions.includes('Played in the Past - Awaiting Reply'));

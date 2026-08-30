@@ -257,3 +257,29 @@ test('venue editor preserves explicit false values and formats common date input
     assert.equal(modal.toDateInputValue('5/4/26'), '2026-05-04');
     assert.equal(modal.toDateInputValue('2026-05-11'), '2026-05-11');
 });
+
+test('venue editor builds an immediate local map point after a successful create', () => {
+    const modal = loadVenueEditModal();
+    const point = modal.buildLocalVenuePoint({}, {
+        id: 'new-room-akron-oh',
+        name: 'New Room',
+        address: '22 Market St',
+        city: 'Akron',
+        state: 'OH',
+        zip: '44308',
+        lat: '41.081000',
+        lng: '-81.519000',
+        venueType: 'Pub/Bar',
+        website: 'https://example.com',
+        contactStatus: 'Needs Review',
+        notes: 'New lead from the map.'
+    });
+
+    assert.equal(point.id, 'new-room-akron-oh');
+    assert.equal(point.name, 'New Room');
+    assert.equal(point.category, 'Pub/Bar');
+    assert.equal(point.lat, '41.081000');
+    assert.equal(point.lng, '-81.519000');
+    assert.equal(point.contactStatus, 'Needs Review');
+    assert.equal(point.info, 'New lead from the map.');
+});

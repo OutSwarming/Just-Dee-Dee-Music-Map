@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { dirname } from "node:path";
@@ -21,6 +21,9 @@ const WEBSITE_FUTURE_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-website
 const LIVE_MAP_CSV_URL = process.env.JDDM_VENUE_CSV_URL
     || "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec?action=csv";
 const SERVICE_PRIORITY = ["iMessage", "SMS"];
+const FALLBACK_SERVICE_PRIORITY = ["SMS", "iMessage"];
+const MAX_DYNAMIC_DATA_AGE_MS = 48 * 60 * 60 * 1000;
+const DELIVERY_FALLBACK_AFTER_MS = 48 * 60 * 60 * 1000;
 
 const REMINDERS = Object.freeze([
     {
@@ -64,6 +67,11 @@ function hasFlag(flag) {
 
 function clean(value) {
     return String(value === undefined || value === null ? "" : value).trim();
+}
+
+export function isDataFresh(modifiedAtMs, nowMs = Date.now(), maxAgeMs = MAX_DYNAMIC_DATA_AGE_MS) {
+    const modified = Number(modifiedAtMs);
+    return Number.isFinite(modified) && modified > 0 && Math.max(0, Number(nowMs) - modified) <= Number(maxAgeMs);
 }
 
 function normalizeLoose(value) {
@@ -203,11 +211,28 @@ function sortVenuePriority(a, b) {
     return clean(a["Place Name"]).localeCompare(clean(b["Place Name"]));
 }
 
-async function readJsonFile(filePath, fallback) {
+async function readFreshJsonFile(filePath, fallback, options = {}) {
     try {
-        return JSON.parse(await readFile(filePath, "utf8"));
-    } catch {
-        return fallback;
+        const [contents, fileStats] = await Promise.all([
+            readFile(filePath, "utf8"),
+            stat(filePath)
+        ]);
+        const maxAgeMs = Number(options.maxAgeMs || MAX_DYNAMIC_DATA_AGE_MS);
+        const ageMs = Math.max(0, Date.now() - fileStats.mtimeMs);
+        return {
+            value: JSON.parse(contents),
+            fresh: isDataFresh(fileStats.mtimeMs, Date.now(), maxAgeMs),
+            modifiedAt: fileStats.mtime.toISOString(),
+            ageMs
+        };
+    } catch (error) {
+        return {
+            value: fallback,
+            fresh: false,
+            modifiedAt: null,
+            ageMs: null,
+            error: error && error.message ? error.message : String(error)
+        };
     }
 }
 
@@ -235,18 +260,27 @@ async function fetchLiveVenueCsv(options = {}) {
 
 async function loadVenueRows(options = {}) {
     if (options.venueCsvText !== undefined) {
-        return { rows: parseCsv(options.venueCsvText), source: "injected" };
+        return { rows: parseCsv(options.venueCsvText), source: "injected", fresh: true, fetchedAt: new Date().toISOString() };
     }
 
     try {
         const csv = await fetchLiveVenueCsv(options);
-        return { rows: parseCsv(csv), source: "live-map" };
+        return { rows: parseCsv(csv), source: "live-map", fresh: true, fetchedAt: new Date().toISOString() };
     } catch (error) {
         const reason = error && error.message ? error.message : String(error);
         await appendLog(`live-map-fallback ${reason}`);
+        const fallbackStats = await stat(VENUES_CSV_PATH);
+        const fallbackAgeMs = Math.max(0, Date.now() - fallbackStats.mtimeMs);
+        if (!isDataFresh(fallbackStats.mtimeMs)) {
+            const staleError = new Error(`Packaged venue fallback is stale (${Math.floor(fallbackAgeMs / 86400000)} days old).`);
+            staleError.code = "STALE_VENUE_FALLBACK";
+            throw staleError;
+        }
         return {
             rows: parseCsv(await readFile(VENUES_CSV_PATH, "utf8")),
-            source: "packaged-fallback"
+            source: "packaged-fallback",
+            fresh: true,
+            fetchedAt: fallbackStats.mtime.toISOString()
         };
     }
 }
@@ -285,8 +319,14 @@ function buildMapFutureGigs(venueRows, todayIso) {
 export async function loadPlannerSnapshot(options = {}) {
     const venueSnapshot = await loadVenueRows(options);
     const venueRows = venueSnapshot.rows;
-    const calendar = await readJsonFile(CALENDAR_GIGS_PATH, { gigs: [], blockedEvents: [] });
-    const website = await readJsonFile(WEBSITE_FUTURE_PATH, { bookings: [] });
+    const calendarSnapshot = options.calendarPayload
+        ? { value: options.calendarPayload, fresh: true, modifiedAt: new Date().toISOString(), ageMs: 0 }
+        : await readFreshJsonFile(CALENDAR_GIGS_PATH, { gigs: [], blockedEvents: [] });
+    const websiteSnapshot = options.websitePayload
+        ? { value: options.websitePayload, fresh: true, modifiedAt: new Date().toISOString(), ageMs: 0 }
+        : await readFreshJsonFile(WEBSITE_FUTURE_PATH, { bookings: [] });
+    const calendar = calendarSnapshot.value;
+    const website = websiteSnapshot.value;
     const today = new Date();
     const todayIso = formatIsoDate(today);
     const normalizedVenues = venueRows.map(row => ({
@@ -334,6 +374,16 @@ export async function loadPlannerSnapshot(options = {}) {
         futureGigs,
         blockedEvents,
         venueDataSource: venueSnapshot.source,
+        venueDataFresh: venueSnapshot.fresh !== false,
+        venueDataFetchedAt: venueSnapshot.fetchedAt || null,
+        calendarDataFresh: calendarSnapshot.fresh,
+        calendarDataModifiedAt: calendarSnapshot.modifiedAt,
+        websiteDataFresh: websiteSnapshot.fresh,
+        websiteDataModifiedAt: websiteSnapshot.modifiedAt,
+        freshnessWarnings: [
+            calendarSnapshot.fresh ? "" : "Calendar snapshot is more than two days old or unavailable.",
+            websiteSnapshot.fresh ? "" : "Website booking snapshot is more than two days old or unavailable."
+        ].filter(Boolean),
         calendarGeneratedAt: calendar.generatedAt || website.pulledAt || null,
         availability: {
             weekends: getAvailableDates({
@@ -405,8 +455,15 @@ function nextGigText(snapshot) {
     return `Next gig: ${formatDisplayDate(nextGig.eventDate)} at ${clean(nextGig.venueName || nextGig.title) || "venue TBD"}.`;
 }
 
-function buildReminderBody(reminder, snapshot) {
+export function buildReminderBody(reminder, snapshot) {
     if (!snapshot) return reminder.body;
+    if (["available-dates", "calendar-cleanup"].includes(reminder.id) && !snapshot.calendarDataFresh) {
+        return [
+            reminder.body.split("\n\n")[0],
+            "The calendar snapshot is more than two days old, so no date totals are being sent. Open the app and verify the calendar before promising a date.",
+            APP_URL
+        ].join("\n");
+    }
     const todaysNewPlaces = Math.min(8, snapshot.newPlaces.length);
     const todaysContactCleanups = Math.min(8, snapshot.missingInfo.length);
     const openWeekends = snapshot.availability.weekends.dates.slice(0, 3).map(formatDisplayDate).join(", ");
@@ -542,29 +599,90 @@ async function readLatestMessageStatus(recipient, since) {
     try {
         const { stdout } = await execFileAsync("sqlite3", [MESSAGES_DB_PATH, sql], { timeout: 15000 });
         const [service, isSent, isDelivered, error] = stdout.trim().split("|");
-        if (!service) return null;
+        if (!service) return { verified: false, reason: "No matching outgoing message was visible in the Messages database." };
         return {
+            verified: true,
             service,
             isSent: Number(isSent) === 1,
             isDelivered: Number(isDelivered) === 1,
             error: Number(error || 0)
         };
-    } catch {
-        return null;
+    } catch (error) {
+        return {
+            verified: false,
+            reason: error && error.message ? error.message : "Messages database could not be read."
+        };
     }
 }
 
-async function sendToRecipient({ body, recipient }) {
+export function isVerifiedMessageStatus(status) {
+    return Boolean(status && status.verified === true && status.error === 0 && (status.isSent || status.isDelivered));
+}
+
+export function updateDeliveryHealth(previousHealth = {}, results = [], now = new Date()) {
+    const nowIso = now.toISOString();
+    const nextHealth = { ...previousHealth, recipients: { ...(previousHealth.recipients || {}) } };
+
+    results.forEach(result => {
+        const recipient = clean(result && result.recipient);
+        if (!recipient) return;
+        const previous = nextHealth.recipients[recipient] || {};
+        const verified = Boolean(result.verified);
+        nextHealth.recipients[recipient] = {
+            ...previous,
+            lastAttemptAt: nowIso,
+            lastService: clean(result.service),
+            lastVerified: verified,
+            lastVerificationReason: verified ? "" : clean(result.verificationReason || (result.status && result.status.reason)),
+            lastVerifiedAt: verified ? nowIso : (previous.lastVerifiedAt || null),
+            unverifiedSince: verified ? null : (previous.unverifiedSince || nowIso)
+        };
+    });
+
+    const staleRecipients = Object.entries(nextHealth.recipients)
+        .filter(([, health]) => health.unverifiedSince && now.getTime() - Date.parse(health.unverifiedSince) >= DELIVERY_FALLBACK_AFTER_MS)
+        .map(([recipient]) => recipient);
+    nextHealth.updatedAt = nowIso;
+    nextHealth.fallbackRecommended = staleRecipients.length > 0;
+    nextHealth.staleRecipients = staleRecipients;
+    return nextHealth;
+}
+
+export function getServicePriorityForHealth(deliveryHealth = {}) {
+    return deliveryHealth.fallbackRecommended
+        ? FALLBACK_SERVICE_PRIORITY.slice()
+        : SERVICE_PRIORITY.slice();
+}
+
+async function sendToRecipient({ body, recipient, servicePriority = SERVICE_PRIORITY }) {
     const startedAt = new Date();
     const errors = [];
 
-    for (const serviceType of SERVICE_PRIORITY) {
+    for (const serviceType of servicePriority) {
         try {
             const service = await sendViaMessagesService({ body, recipient, serviceType });
             await new Promise(resolve => setTimeout(resolve, 2500));
             const status = await readLatestMessageStatus(recipient, startedAt);
-            if (!status || status.error === 0 || status.isSent || status.isDelivered) {
-                return { recipient, service, status };
+            if (isVerifiedMessageStatus(status)) {
+                return { recipient, service, status, verified: true };
+            }
+            if (status && status.verified === true && status.error === 0) {
+                return {
+                    recipient,
+                    service,
+                    status,
+                    verified: false,
+                    verificationReason: "The outgoing message exists but is not yet marked sent or delivered."
+                };
+            }
+            if (status && status.verified === false) {
+                return {
+                    recipient,
+                    service,
+                    status,
+                    verified: false,
+                    verificationReason: status.reason || "Delivery could not be verified."
+                };
             }
             errors.push(`${serviceType} database status error ${status.error}`);
         } catch (error) {
@@ -575,12 +693,12 @@ async function sendToRecipient({ body, recipient }) {
     throw new Error(`${recipient}: ${errors.join("; ")}`);
 }
 
-async function sendMessages({ body, recipients }) {
+async function sendMessages({ body, recipients, servicePriority = SERVICE_PRIORITY }) {
     const results = [];
     const failures = [];
     for (const recipient of recipients) {
         try {
-            results.push(await sendToRecipient({ body, recipient }));
+            results.push(await sendToRecipient({ body, recipient, servicePriority }));
         } catch (error) {
             failures.push(error && error.message ? error.message : String(error));
         }
@@ -591,9 +709,12 @@ async function sendMessages({ body, recipients }) {
 
 async function sendReminder(reminder, options = {}) {
     const recipients = options.recipients || RECIPIENTS;
+    const servicePriority = options.servicePriority || SERVICE_PRIORITY;
     let body = reminder.body;
+    let snapshot = null;
     try {
-        body = buildReminderBody(reminder, await loadPlannerSnapshot());
+        snapshot = await loadPlannerSnapshot();
+        body = buildReminderBody(reminder, snapshot);
     } catch (error) {
         await appendLog(`smart-body-fallback ${reminder.id} ${error && error.message ? error.message : String(error)}`);
     }
@@ -601,12 +722,15 @@ async function sendReminder(reminder, options = {}) {
     if (options.dryRun) {
         console.log(`[dry-run] ${reminder.label} -> ${recipients.join(", ")}`);
         console.log(body);
-        return;
+        return { results: [], snapshot, body, dryRun: true };
     }
-    const results = await sendMessages({ body, recipients });
+    const results = await sendMessages({ body, recipients, servicePriority });
     const serviceSummary = results.map(result => `${result.recipient}:${result.service}`).join(",");
-    await appendLog(`${reminder.id} sent ${results.length} via ${serviceSummary}`);
-    console.log(`${reminder.label}: sent ${results.length} via ${serviceSummary}`);
+    const verifiedCount = results.filter(result => result.verified).length;
+    const source = snapshot ? snapshot.venueDataSource : "static-body";
+    await appendLog(`${reminder.id} sent ${results.length} verified ${verifiedCount} source ${source} via ${serviceSummary}`);
+    console.log(`${reminder.label}: sent ${results.length}, verified ${verifiedCount}, source ${source}, via ${serviceSummary}`);
+    return { results, snapshot, body, dryRun: false };
 }
 
 async function runScheduled() {
@@ -618,7 +742,16 @@ async function runScheduled() {
         console.log(`${reminder.label}: already sent for ${runKey}`);
         return;
     }
-    await sendReminder(reminder);
+    state._deliveryHealth = updateDeliveryHealth(state._deliveryHealth, []);
+    const servicePriority = getServicePriorityForHealth(state._deliveryHealth);
+    if (state._deliveryHealth.fallbackRecommended) {
+        await appendLog(`delivery-fallback-active SMS-first recipients ${state._deliveryHealth.staleRecipients.join(",")}`);
+    }
+    const sendResult = await sendReminder(reminder, { servicePriority });
+    state._deliveryHealth = updateDeliveryHealth(state._deliveryHealth, sendResult.results);
+    if (state._deliveryHealth.fallbackRecommended) {
+        await appendLog(`delivery-fallback-recommended 48h recipients ${state._deliveryHealth.staleRecipients.join(",")}`);
+    }
     state[runKey] = new Date().toISOString();
     await writeState(state);
 }

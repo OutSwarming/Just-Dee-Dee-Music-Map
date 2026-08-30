@@ -88,5 +88,52 @@ test('spreadsheet service exposes the create venue bridge action', async () => {
 
     assert.equal(body.action, 'createVenue');
     assert.equal(body.rawFields['Place Name'], 'New Music Room');
+    assert.match(body.requestId, /^createVenue-/);
     assert.equal(result.action, 'createVenue');
+});
+
+test('spreadsheet write aborts become a clear maybe-completed timeout error', async () => {
+    const service = loadSpreadsheetService({
+        apiUrl: 'https://script.google.com/macros/s/test-deployment/exec',
+        fetchImpl: async () => {
+            const error = new Error('This operation was aborted');
+            error.name = 'AbortError';
+            throw error;
+        }
+    });
+
+    await assert.rejects(
+        () => service.createVenue({ rawFields: { 'Place Name': 'Slow Room' } }),
+        error => {
+            assert.equal(error.code, 'SPREADSHEET_BRIDGE_TIMEOUT');
+            assert.equal(error.action, 'createVenue');
+            assert.equal(error.retryable, true);
+            assert.match(error.message, /write may still be finishing/i);
+            assert.match(error.message, /60 seconds/i);
+            return true;
+        }
+    );
+});
+
+test('spreadsheet create preserves a caller request id across retries', async () => {
+    const bodies = [];
+    const service = loadSpreadsheetService({
+        apiUrl: 'https://script.google.com/macros/s/test-deployment/exec',
+        fetchImpl: async (_url, options) => {
+            bodies.push(JSON.parse(options.body));
+            return { ok: true, text: async () => '{"ok":true,"action":"createVenue"}' };
+        }
+    });
+
+    await service.createVenue({
+        requestId: 'stable-create-request',
+        rawFields: { 'Place Name': 'Retry Safe Room' }
+    });
+    await service.createVenue({
+        requestId: 'stable-create-request',
+        rawFields: { 'Place Name': 'Retry Safe Room' }
+    });
+
+    assert.equal(bodies[0].requestId, 'stable-create-request');
+    assert.equal(bodies[1].requestId, 'stable-create-request');
 });

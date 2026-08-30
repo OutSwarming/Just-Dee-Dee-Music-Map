@@ -62,6 +62,8 @@ const DATA_CACHE_TIME_KEY = 'jddmVenueCSV_time';
 const DATA_CACHE_SOURCE_KEY = 'jddmVenueCSV_source';
 const VENUE_DATA_SYNC_EVENT = 'jddm:venue-data-sync';
 const PACKAGED_VENUE_CSV_URL = 'assets/data/jddm-venues.csv';
+const BACKGROUND_DATA_TIMEOUT_MS = 15000;
+const MANUAL_DATA_TIMEOUT_MS = 60000;
 
 function cleanCSVValue(value) {
     if (value === undefined || value === null) return '';
@@ -551,7 +553,7 @@ function startManualDataSyncStatus() {
 
     dataSyncStatusTimers.push(setTimeout(() => {
         becameVisible = true;
-        setDataSyncStatus('Updating map from Google Sheets. New rows may take a little while because Longitude, Latitude, and Site ID need to finish filling.', 'neutral');
+        setDataSyncStatus('Updating the map from Google Sheets. A new venue may take a little longer while its address is geocoded.', 'neutral');
         dataSyncStatusInterval = setInterval(() => {
             const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
             setDataSyncStatus(`Still checking spreadsheet updates... ${seconds}s. You can keep using the map while Google finishes the new row.`, 'neutral');
@@ -563,7 +565,7 @@ function startManualDataSyncStatus() {
         if (!becameVisible) return;
 
         if (ok) {
-            setDataSyncStatus('Map update check complete. If a brand-new row is still missing, wait for columns R, S, and T to fill, then check again.', 'success');
+            setDataSyncStatus('Map update check complete. If a brand-new venue has no pin yet, confirm that its address or coordinates are complete, then check again.', 'success');
             dataSyncStatusTimers.push(setTimeout(() => setDataSyncStatus('', 'success'), 4200));
         } else {
             setDataSyncStatus('Spreadsheet update is still taking too long. The map is using cached data and will retry in the background.', 'error');
@@ -655,7 +657,7 @@ function pollForUpdates(options = {}) {
     const csvUrl = getVenueCsvUrl(options);
 
     const controller = new AbortController();
-    const timeoutMs = options.userInitiated ? 30000 : 6000;
+    const timeoutMs = options.userInitiated ? MANUAL_DATA_TIMEOUT_MS : BACKGROUND_DATA_TIMEOUT_MS;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     const cacheBustSeparator = csvUrl.includes('?') ? '&' : '?';
@@ -738,7 +740,7 @@ async function runDataPollCycle(options = {}) {
         }
         dataPollErrorCount++;
         if (err.name === 'AbortError') {
-            console.warn(`Data poll timed out after ${options.userInitiated ? 30 : 6}s; backing off...`);
+            console.warn(`Data poll timed out after ${Math.round((options.userInitiated ? MANUAL_DATA_TIMEOUT_MS : BACKGROUND_DATA_TIMEOUT_MS) / 1000)}s; backing off...`);
         } else {
             console.error("Data poll failed, backing off...", err);
         }

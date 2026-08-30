@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-05-08-simplified-crm-statuses',
+        schemaVersion: '2026-08-30-reliable-writes',
         generatedColumns: [
             { header: 'Place Name' },
             { header: 'Address' },

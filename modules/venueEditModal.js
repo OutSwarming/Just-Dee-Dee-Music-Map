@@ -429,65 +429,78 @@
         };
     }
 
-    function applyLocalVenueUpdate(id, fields) {
+    function buildLocalVenuePoint(point = {}, fields = {}) {
+        const venueType = fields.venueType || point.venueType || point.category || 'Other Venue';
+        const nextPoint = {
+            ...point,
+            id: fields.id || point.id,
+            name: fields.name || point.name,
+            address: fields.address,
+            city: fields.city,
+            state: fields.state || 'OH',
+            zip: fields.zip,
+            lat: fields.lat,
+            lng: fields.lng,
+            venueType,
+            category: venueType,
+            swagType: venueType,
+            parkCategory: venueType,
+            website: fields.website,
+            pics: fields.website,
+            notes: fields.notes,
+            bookingContact: fields.bookingContact,
+            contactName: fields.contactName,
+            contactEmail: fields.contactEmail,
+            contactPhone: fields.contactPhone,
+            contactType: fields.contactType,
+            eventDate: fields.eventDate,
+            eventTime: fields.eventTime,
+            privateEvent: Boolean(fields.privateEvent),
+            contactStatus: fields.contactStatus,
+            draftStatus: fields.draftStatus,
+            lastContactedDate: fields.lastContactedDate,
+            nextFollowUpDate: fields.nextFollowUpDate,
+            priority: fields.priority,
+            bestFitScore: fields.bestFitScore,
+            websiteBookingEvents: fields.websiteBookingEvents,
+            calendarGigEvents: fields.calendarGigEvents,
+            calendarPastGigEvents: fields.calendarPastGigEvents,
+            calendarFutureGigEvents: fields.calendarFutureGigEvents,
+            calendarLastGigDate: fields.calendarLastGigDate,
+            calendarNextGigDate: fields.calendarNextGigDate,
+            calendarPastGigCount: fields.calendarPastGigCount,
+            calendarFutureGigCount: fields.calendarFutureGigCount,
+            calendarTotalGigsPlayed: fields.calendarTotalGigsPlayed,
+            calendarLastSyncedAt: fields.calendarLastSyncedAt,
+            doNotContact: Boolean(fields.doNotContact),
+            info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
+        };
+        nextPoint.booking = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.normalizeVenue === 'function'
+            ? window.BARK.bookingSchema.normalizeVenue(nextPoint)
+            : { ...(point.booking || {}) };
+        return nextPoint;
+    }
+
+    function upsertLocalVenue(fields) {
         const parkRepo = window.BARK.repos && window.BARK.repos.ParkRepo;
-        if (!parkRepo || typeof parkRepo.getAll !== 'function' || typeof parkRepo.replaceAll !== 'function') return;
+        if (!fields || !fields.id || !parkRepo || typeof parkRepo.getAll !== 'function' || typeof parkRepo.replaceAll !== 'function') return;
 
         const points = parkRepo.getAll();
-        const nextPoints = points.map(point => {
-            if (!point || point.id !== id) return point;
-            const venueType = fields.venueType || point.venueType || point.category || 'Other Venue';
-            const nextPoint = {
-                ...point,
-                name: fields.name || point.name,
-                address: fields.address,
-                city: fields.city,
-                state: fields.state || 'OH',
-                zip: fields.zip,
-                lat: fields.lat,
-                lng: fields.lng,
-                venueType,
-                category: venueType,
-                swagType: venueType,
-                parkCategory: venueType,
-                website: fields.website,
-                pics: fields.website,
-                notes: fields.notes,
-                bookingContact: fields.bookingContact,
-                contactName: fields.contactName,
-                contactEmail: fields.contactEmail,
-                contactPhone: fields.contactPhone,
-                contactType: fields.contactType,
-                eventDate: fields.eventDate,
-                eventTime: fields.eventTime,
-                privateEvent: Boolean(fields.privateEvent),
-                contactStatus: fields.contactStatus,
-                draftStatus: fields.draftStatus,
-                lastContactedDate: fields.lastContactedDate,
-                nextFollowUpDate: fields.nextFollowUpDate,
-                priority: fields.priority,
-                bestFitScore: fields.bestFitScore,
-                websiteBookingEvents: fields.websiteBookingEvents,
-                calendarGigEvents: fields.calendarGigEvents,
-                calendarPastGigEvents: fields.calendarPastGigEvents,
-                calendarFutureGigEvents: fields.calendarFutureGigEvents,
-                calendarLastGigDate: fields.calendarLastGigDate,
-                calendarNextGigDate: fields.calendarNextGigDate,
-                calendarPastGigCount: fields.calendarPastGigCount,
-                calendarFutureGigCount: fields.calendarFutureGigCount,
-                calendarTotalGigsPlayed: fields.calendarTotalGigsPlayed,
-                calendarLastSyncedAt: fields.calendarLastSyncedAt,
-                doNotContact: Boolean(fields.doNotContact),
-                info: [fields.notes, fields.bookingContact ? `Booking/contact: ${fields.bookingContact}` : ''].filter(Boolean).join('\n')
-            };
-            nextPoint.booking = window.BARK.bookingSchema && typeof window.BARK.bookingSchema.normalizeVenue === 'function'
-                ? window.BARK.bookingSchema.normalizeVenue(nextPoint)
-                : { ...(point.booking || {}) };
-            return nextPoint;
-        });
+        const existingIndex = points.findIndex(point => point && point.id === fields.id);
+        const nextPoint = buildLocalVenuePoint(existingIndex >= 0 ? points[existingIndex] : {}, fields);
+        const nextPoints = existingIndex >= 0
+            ? points.map((point, index) => index === existingIndex ? nextPoint : point)
+            : [...points, nextPoint];
 
         parkRepo.replaceAll(nextPoints, { debug: true });
         if (typeof window.syncState === 'function') window.syncState();
+    }
+
+    function refreshSpreadsheetMapInBackground() {
+        if (!window.JDDM_VENUE_CSV_URL || typeof window.BARK.refreshSpreadsheetMap !== 'function') return;
+        Promise.resolve(window.BARK.refreshSpreadsheetMap()).catch(error => {
+            console.warn('[venueEditModal] background map refresh failed after a successful write:', error);
+        });
     }
 
     async function loadSourceRow() {
@@ -553,20 +566,29 @@
             if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
                 window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
             } else {
-                if (!isCreatingVenue) applyLocalVenueUpdate(activeVenue.id, fields);
-                if (window.JDDM_VENUE_CSV_URL && typeof window.BARK.refreshSpreadsheetMap === 'function') {
-                    await window.BARK.refreshSpreadsheetMap();
-                }
+                const resultFields = buildVenueFromRawFields(
+                    (result && result.rawFields) || rawFields,
+                    {
+                        ...fields,
+                        id: (result && result.venue && result.venue['Place ID']) || fields.id || (activeVenue && activeVenue.id)
+                    }
+                );
+                if (!isCreatingVenue || (result && result.hasCoordinates !== false)) upsertLocalVenue(resultFields);
+                activeVenue = resultFields;
+                refreshSpreadsheetMapInBackground();
+            }
+
+            if (isCreatingVenue && result && result.venue && (!activeVenue || !activeVenue.id)) {
+                activeVenue = buildVenueFromRawFields(result.rawFields || result.venue, fields);
             }
 
             const coordinateNote = isCreatingVenue && result && result.hasCoordinates === false
                 ? ' The row was added, but it needs a complete address or coordinates before a pin can appear.'
                 : '';
             const syncMessage = window.JDDM_VENUE_CSV_URL
-                ? `${isCreatingVenue ? 'Place added' : 'Saved'} to spreadsheet and refreshed on the map.${coordinateNote}`
+                ? `${isCreatingVenue ? 'Place added' : 'Saved'} to spreadsheet. The map is refreshing in the background.${coordinateNote}`
                 : 'Saved to spreadsheet. This pin is updated locally; full sheet sync can be enabled after the live sheet has coordinates.';
             setStatus(syncMessage, 'success');
-            if (isCreatingVenue && result && result.venue) activeVenue = { ...result.venue };
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
             setStatus(error.message || 'Save failed. Check the Apps Script deployment and try again.', 'error');
@@ -647,7 +669,8 @@
         getRenderableHeaders,
         collectRawFields,
         buildNewVenueRawFields,
-        toDateInputValue
+        toDateInputValue,
+        buildLocalVenuePoint
     };
 
     document.addEventListener('DOMContentLoaded', bindAddVenueButtons);
