@@ -1,5 +1,5 @@
 /**
- * deeDeeReminders.js - automatic SMS reminder controls for Dee Dee.
+ * deeDeeReminders.js - queue reminder controls for the local Messages worker.
  */
 (function () {
     window.BARK = window.BARK || {};
@@ -26,6 +26,8 @@
             title: 'Calendar tidy-up'
         }
     ]);
+    const DEE_DEE_PHONE = '+12168499292';
+    const APP_URL = 'https://outswarming.github.io/Just-Dee-Dee-Music-Map/';
 
     function setStatus(message, tone = 'neutral') {
         const status = document.getElementById('dee-dee-reminder-status');
@@ -34,17 +36,21 @@
         status.dataset.tone = tone;
     }
 
-    function getCallable(name) {
-        if (typeof firebase === 'undefined' || typeof firebase.functions !== 'function') {
-            throw new Error('Firebase Functions is not available yet.');
-        }
-        return firebase.functions().httpsCallable(name);
-    }
-
     async function sendReminder(reminder) {
-        const callable = getCallable('sendDeeDeeReminder');
-        const result = await callable({ reminderId: reminder.id });
-        return result && result.data ? result.data : {};
+        const spreadsheet = window.BARK
+            && window.BARK.services
+            && window.BARK.services.spreadsheet;
+        if (!spreadsheet || typeof spreadsheet.queueReminder !== 'function') {
+            throw new Error('The reminder bridge is not ready yet. Refresh the app and try again.');
+        }
+        try {
+            return await spreadsheet.queueReminder(reminder.id);
+        } catch (error) {
+            if (!error || error.code !== 'UNKNOWN_ACTION') throw error;
+            const body = `Hey Dee Dee! ${reminder.title}: open the booking app and take care of ${reminder.label.toLowerCase()}.\n\n${APP_URL}`;
+            window.location.href = `sms:${DEE_DEE_PHONE}&body=${encodeURIComponent(body)}`;
+            return { ok: true, status: 'manual', manual: true };
+        }
     }
 
     function renderReminderButtons() {
@@ -78,9 +84,16 @@
             if (!reminder) return;
 
             setButtonBusy(button, true);
-            setStatus(`Sending ${reminder.label} reminder...`, 'neutral');
+            setStatus(`Queueing ${reminder.label} reminder...`, 'neutral');
             sendReminder(reminder)
-                .then(() => setStatus(`Sent ${reminder.label} reminder to Dee Dee.`, 'success'))
+                .then(result => setStatus(
+                    result && result.manual
+                        ? `Opened Messages with the ${reminder.label} reminder ready to send.`
+                        : result && result.status === 'sent'
+                            ? `Sent ${reminder.label} reminder to Dee Dee.`
+                            : `${reminder.label} is queued and will send within five minutes.`,
+                    'success'
+                ))
                 .catch(error => {
                     console.error('[deeDeeReminders] send failed:', error);
                     setStatus(error && error.message ? error.message : 'Automatic reminder sending is not configured yet.', 'error');

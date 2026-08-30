@@ -8,9 +8,10 @@
  * - Purge/setup is explicit. Health/csv never delete columns.
  */
 
-var JDDM_SCHEMA_VERSION = '2026-08-30-reliable-writes';
+var JDDM_SCHEMA_VERSION = '2026-08-30-shared-bridge-reminders';
 var EDIT_TOKEN = '';
 var JDDM_TIMEZONE = 'America/New_York';
+var JDDM_SPREADSHEET_ID = '16Sp11KboYq1dyL5e4tlFKxZEc9VnPaa0eCffyG2_xBk';
 var JDDM_CALENDAR_IDS = [
   'justdeedeemusic@gmail.com',
   '051b2fd8ffc9844eed9867801c9a348f546e282a484f7a33f47543273162a7ba@group.calendar.google.com'
@@ -27,6 +28,9 @@ var JDDM_ARTIST_TRACKER_SHEETS = [
   'Venue_Artist_History',
   'Review_Queue'
 ];
+var JDDM_REMINDER_QUEUE_SHEET = 'ReminderQueue';
+var JDDM_REMINDER_IDS = ['today-plan', 'available-dates', 'follow-ups', 'calendar-cleanup'];
+var JDDM_REMINDER_QUEUE_HEADERS = ['Request ID', 'Requested At', 'Reminder ID', 'Status', 'Sent At', 'Result'];
 
 var JDDM_CRM_STATUS_OPTIONS = [
   'Not Set',
@@ -170,8 +174,12 @@ function routeRequest_(payload) {
     if (action === 'schema') return jsonOutput_(getSchema_());
     if (action === 'csv') return csvOutput_(buildCsv_());
     if (action === 'syncArtistSourceAudit') return jsonOutput_(syncArtistSourceAudit_(payload));
+    if (action === 'getArtistTrackerTable') return jsonOutput_(getArtistTrackerTable_(payload));
     if (action === 'syncArtistTrackerTable') return jsonOutput_(syncArtistTrackerTable_(payload));
     if (action === 'syncArtistTrackerTables') return jsonOutput_(syncArtistTrackerTables_(payload));
+    if (action === 'queueReminder') return jsonOutput_(queueReminder_(payload));
+    if (action === 'getPendingReminders') return jsonOutput_(getPendingReminders_(payload));
+    if (action === 'completeReminder') return jsonOutput_(completeReminder_(payload));
     if (action === 'syncWebsiteGigEvents') return jsonOutput_(syncWebsiteGigEvents_(payload));
     if (action === 'setupComputerSection' || action === 'syncComputerSection') return jsonOutput_(setupComputerSection_(payload));
     if (action === 'purgeAndSetup' || action === 'purgeSheet') return jsonOutput_(purgeAndSetup_(payload));
@@ -214,7 +222,8 @@ function csvOutput_(value) {
 }
 
 function getSpreadsheet_() {
-  return SpreadsheetApp.getActiveSpreadsheet();
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  return active || SpreadsheetApp.openById(JDDM_SPREADSHEET_ID);
 }
 
 function getSheet_() {
@@ -744,6 +753,41 @@ function syncArtistSourceAudit_(payload) {
   };
 }
 
+function validateArtistTrackerSheetName_(sheetName) {
+  var cleaned = clean_(sheetName);
+  if (JDDM_ARTIST_TRACKER_SHEETS.indexOf(cleaned) < 0) {
+    var error = new Error('That tracker sheet is not allowed.');
+    error.code = 'INVALID_ARTIST_TRACKER_SHEET';
+    throw error;
+  }
+  return cleaned;
+}
+
+function sheetValuesToCsv_(values) {
+  return (values || []).map(function(row) {
+    return row.map(escapeCsv_).join(',');
+  }).join('\n');
+}
+
+function getArtistTrackerTable_(payload) {
+  var sheetName = validateArtistTrackerSheetName_((payload || {}).sheetName);
+  var sheet = getSpreadsheet_().getSheetByName(sheetName);
+  if (!sheet) {
+    return { ok: false, code: 'MISSING_ARTIST_TRACKER_SHEET', message: 'Tracker sheet does not exist: ' + sheetName };
+  }
+  var rowCount = Math.max(sheet.getLastRow(), 1);
+  var columnCount = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, rowCount, columnCount).getValues();
+  return {
+    ok: true,
+    action: 'getArtistTrackerTable',
+    sheetName: sheetName,
+    rowCount: Math.max(rowCount - 1, 0),
+    columnCount: columnCount,
+    csv: sheetValuesToCsv_(values)
+  };
+}
+
 function syncArtistTrackerTables_(payload) {
   payload = payload || {};
   var tables = payload.tables || {};
@@ -790,9 +834,11 @@ function syncArtistTrackerTables_(payload) {
 
 function syncArtistTrackerTable_(payload) {
   payload = payload || {};
-  var sheetName = clean_(payload.sheetName);
-  if (JDDM_ARTIST_TRACKER_SHEETS.indexOf(sheetName) < 0) {
-    return { ok: false, code: 'INVALID_ARTIST_TRACKER_SHEET', message: 'That tracker sheet is not allowed.' };
+  var sheetName;
+  try {
+    sheetName = validateArtistTrackerSheetName_(payload.sheetName);
+  } catch (error) {
+    return { ok: false, code: error.code || 'INVALID_ARTIST_TRACKER_SHEET', message: error.message };
   }
   var csv = String(payload.csv || '');
   var values = csv ? Utilities.parseCsv(csv) : null;
@@ -825,6 +871,96 @@ function syncArtistTrackerTable_(payload) {
   } finally {
     if (lock) lock.releaseLock();
   }
+}
+
+function getReminderQueueSheet_() {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(JDDM_REMINDER_QUEUE_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(JDDM_REMINDER_QUEUE_SHEET);
+    sheet.getRange(1, 1, 1, JDDM_REMINDER_QUEUE_HEADERS.length).setValues([JDDM_REMINDER_QUEUE_HEADERS]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, JDDM_REMINDER_QUEUE_HEADERS.length)
+      .setFontWeight('bold')
+      .setBackground('#134f5c')
+      .setFontColor('#ffffff');
+  }
+  return sheet;
+}
+
+function getReminderQueueRows_(sheet) {
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, JDDM_REMINDER_QUEUE_HEADERS.length).getValues();
+}
+
+function queueReminder_(payload) {
+  payload = payload || {};
+  var reminderId = clean_(payload.reminderId);
+  var requestId = clean_(payload.requestId);
+  if (JDDM_REMINDER_IDS.indexOf(reminderId) < 0) {
+    return { ok: false, code: 'INVALID_REMINDER', message: 'That reminder is not allowed.' };
+  }
+  if (!requestId || requestId.length > 160) {
+    return { ok: false, code: 'INVALID_REQUEST_ID', message: 'A stable reminder request ID is required.' };
+  }
+
+  return withScriptLock_(function() {
+    var sheet = getReminderQueueSheet_();
+    var rows = getReminderQueueRows_(sheet);
+    for (var i = 0; i < rows.length; i++) {
+      if (clean_(rows[i][0]) === requestId) {
+        return { ok: true, action: 'queueReminder', queued: false, duplicate: true, requestId: requestId, status: clean_(rows[i][3]) };
+      }
+    }
+    for (var j = rows.length - 1; j >= 0; j--) {
+      if (clean_(rows[j][2]) === reminderId && clean_(rows[j][3]) === 'pending') {
+        return { ok: true, action: 'queueReminder', queued: false, duplicate: true, requestId: clean_(rows[j][0]), status: 'pending' };
+      }
+    }
+    sheet.appendRow([requestId, new Date().toISOString(), reminderId, 'pending', '', '']);
+    return { ok: true, action: 'queueReminder', queued: true, requestId: requestId, status: 'pending' };
+  });
+}
+
+function getPendingReminders_(payload) {
+  var limit = Math.max(1, Math.min(Number((payload || {}).limit || 20), 50));
+  var sheet = getReminderQueueSheet_();
+  var rows = getReminderQueueRows_(sheet);
+  var reminders = [];
+  for (var i = 0; i < rows.length && reminders.length < limit; i++) {
+    if (clean_(rows[i][3]) !== 'pending') continue;
+    reminders.push({
+      requestId: clean_(rows[i][0]),
+      requestedAt: clean_(rows[i][1]),
+      reminderId: clean_(rows[i][2])
+    });
+  }
+  return { ok: true, action: 'getPendingReminders', reminders: reminders };
+}
+
+function completeReminder_(payload) {
+  payload = payload || {};
+  var requestId = clean_(payload.requestId);
+  var status = clean_(payload.status).toLowerCase();
+  if (!requestId || ['sent', 'failed'].indexOf(status) < 0) {
+    return { ok: false, code: 'INVALID_REMINDER_COMPLETION', message: 'Request ID and sent/failed status are required.' };
+  }
+  return withScriptLock_(function() {
+    var sheet = getReminderQueueSheet_();
+    var rows = getReminderQueueRows_(sheet);
+    for (var i = 0; i < rows.length; i++) {
+      if (clean_(rows[i][0]) !== requestId) continue;
+      var rowNumber = i + 2;
+      sheet.getRange(rowNumber, 4, 1, 3).setValues([[
+        status,
+        status === 'sent' ? new Date().toISOString() : '',
+        clean_(payload.result).slice(0, 500)
+      ]]);
+      return { ok: true, action: 'completeReminder', requestId: requestId, status: status };
+    }
+    return { ok: false, code: 'REMINDER_NOT_FOUND', message: 'Queued reminder was not found.' };
+  });
 }
 
 function normalizeWebsiteGigPayloadEvent_(event, index) {
@@ -964,7 +1100,12 @@ function getHealth_() {
   schema.generatedColumns = JDDM_COLUMN_SPECS.map(function(column) { return { header: column.header }; });
   return Object.assign(schema, {
     ok: true,
-    sheetName: sheet.getName()
+    sheetName: sheet.getName(),
+    capabilities: {
+      artistTrackerReadWrite: true,
+      reminderQueue: true,
+      reliableVenueWrites: true
+    }
   });
 }
 

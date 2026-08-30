@@ -9,6 +9,8 @@ const nodePath = process.execPath;
 const reminderScript = path.join(repoRoot, "scripts", "dee-dee-local-text-reminders.mjs");
 const label = "com.justdeedeemusic.local-text-reminders";
 const launchAgentPath = path.join(homedir(), "Library", "LaunchAgents", `${label}.plist`);
+const queueLabel = "com.justdeedeemusic.reminder-queue";
+const queueLaunchAgentPath = path.join(homedir(), "Library", "LaunchAgents", `${queueLabel}.plist`);
 const logPath = path.join(homedir(), "Library", "Logs", "jddm-dee-dee-reminders.log");
 
 function xmlEscape(value) {
@@ -49,11 +51,43 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `;
 
+const queueCalendarIntervals = Array.from({ length: 12 }, (_, index) => index * 5).map(minute => `
+        <dict>
+            <key>Minute</key>
+            <integer>${minute}</integer>
+        </dict>`).join("");
+
+const queuePlist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${queueLabel}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${xmlEscape(nodePath)}</string>
+        <string>${xmlEscape(reminderScript)}</string>
+        <string>--process-queue</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <array>${queueCalendarIntervals}
+    </array>
+    <key>StandardOutPath</key>
+    <string>${xmlEscape(logPath)}</string>
+    <key>StandardErrorPath</key>
+    <string>${xmlEscape(logPath)}</string>
+</dict>
+</plist>
+`;
+
 await mkdir(path.dirname(launchAgentPath), { recursive: true });
 await writeFile(launchAgentPath, plist);
+await writeFile(queueLaunchAgentPath, queuePlist);
 
 console.log(`Wrote ${launchAgentPath}`);
+console.log(`Wrote ${queueLaunchAgentPath}`);
 console.log("Load it with:");
 console.log(`launchctl bootstrap gui/$(id -u) ${launchAgentPath}`);
+console.log(`launchctl bootstrap gui/$(id -u) ${queueLaunchAgentPath}`);
 console.log("Run once now with:");
 console.log(`node ${reminderScript} --send available-dates`);

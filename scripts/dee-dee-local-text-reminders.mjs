@@ -18,6 +18,10 @@ const MESSAGES_DB_PATH = path.join(homedir(), "Library", "Messages", "chat.db");
 const VENUES_CSV_PATH = path.join(REPO_ROOT, "assets", "data", "jddm-venues.csv");
 const CALENDAR_GIGS_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-calendar-gigs.json");
 const WEBSITE_FUTURE_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-website-bookings-future.json");
+const ARTIST_SYNC_HEALTH_PATH = path.join(homedir(), "Library", "Application Support", "Just Dee Dee Music Map", "artist-gig-tracker-health.json");
+const ARTIST_SYNC_STALE_AFTER_MS = 7 * 60 * 60 * 1000;
+const BRIDGE_API_URL = process.env.JDDM_SPREADSHEET_BRIDGE_URL
+    || "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec";
 const LIVE_MAP_CSV_URL = process.env.JDDM_VENUE_CSV_URL
     || "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec?action=csv";
 const SERVICE_PRIORITY = ["iMessage", "SMS"];
@@ -325,6 +329,9 @@ export async function loadPlannerSnapshot(options = {}) {
     const websiteSnapshot = options.websitePayload
         ? { value: options.websitePayload, fresh: true, modifiedAt: new Date().toISOString(), ageMs: 0 }
         : await readFreshJsonFile(WEBSITE_FUTURE_PATH, { bookings: [] });
+    const artistHealthSnapshot = options.artistHealthPayload
+        ? { value: options.artistHealthPayload, fresh: options.artistHealthFresh !== false, modifiedAt: new Date().toISOString(), ageMs: 0 }
+        : await readFreshJsonFile(ARTIST_SYNC_HEALTH_PATH, { status: "missing" }, { maxAgeMs: ARTIST_SYNC_STALE_AFTER_MS });
     const calendar = calendarSnapshot.value;
     const website = websiteSnapshot.value;
     const today = new Date();
@@ -380,6 +387,9 @@ export async function loadPlannerSnapshot(options = {}) {
         calendarDataModifiedAt: calendarSnapshot.modifiedAt,
         websiteDataFresh: websiteSnapshot.fresh,
         websiteDataModifiedAt: websiteSnapshot.modifiedAt,
+        artistSyncFresh: artistHealthSnapshot.fresh && clean(artistHealthSnapshot.value.status).toLowerCase() === "ok",
+        artistSyncStatus: clean(artistHealthSnapshot.value.status) || "missing",
+        artistSyncUpdatedAt: clean(artistHealthSnapshot.value.updatedAt) || artistHealthSnapshot.modifiedAt,
         freshnessWarnings: [
             calendarSnapshot.fresh ? "" : "Calendar snapshot is more than two days old or unavailable.",
             websiteSnapshot.fresh ? "" : "Website booking snapshot is more than two days old or unavailable."
@@ -402,6 +412,12 @@ export async function loadPlannerSnapshot(options = {}) {
             })
         }
     };
+}
+
+export function appendArtistSyncWarning(body, snapshot) {
+    if (!snapshot || snapshot.artistSyncFresh !== false) return body;
+    const lastUpdate = snapshot.artistSyncUpdatedAt ? ` Last update: ${snapshot.artistSyncUpdatedAt}.` : "";
+    return `${body}\n⚠️ Artist events and Who Plays There are stale or failed.${lastUpdate}`;
 }
 
 function addBusyRange(busyDates, startValue, endValue, reason, isAllDay) {
@@ -714,7 +730,7 @@ async function sendReminder(reminder, options = {}) {
     let snapshot = null;
     try {
         snapshot = await loadPlannerSnapshot();
-        body = buildReminderBody(reminder, snapshot);
+        body = appendArtistSyncWarning(buildReminderBody(reminder, snapshot), snapshot);
     } catch (error) {
         await appendLog(`smart-body-fallback ${reminder.id} ${error && error.message ? error.message : String(error)}`);
     }
@@ -756,6 +772,75 @@ async function runScheduled() {
     await writeState(state);
 }
 
+export async function postReminderBridge(action, payload = {}, options = {}) {
+    const fetchImpl = options.fetchImpl || fetch;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), Number(options.timeoutMs || 30000));
+    try {
+        const response = await fetchImpl(options.bridgeUrl || BRIDGE_API_URL, {
+            method: "POST",
+            redirect: "follow",
+            cache: "no-store",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ action, ...payload }),
+            signal: controller.signal
+        });
+        const text = await response.text();
+        const result = text ? JSON.parse(text) : null;
+        if (!response.ok || !result || result.ok === false) {
+            throw new Error((result && result.message) || `Reminder bridge returned HTTP ${response.status}.`);
+        }
+        return result;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+export async function processReminderQueue(options = {}) {
+    const bridgeOptions = {
+        fetchImpl: options.fetchImpl,
+        bridgeUrl: options.bridgeUrl,
+        timeoutMs: options.timeoutMs
+    };
+    const result = await postReminderBridge("getPendingReminders", { limit: 20 }, bridgeOptions);
+    const reminders = Array.isArray(result.reminders) ? result.reminders : [];
+    const state = options.state || await readState();
+    state._processedReminderRequests = state._processedReminderRequests || {};
+    const sendImpl = options.sendReminderImpl || sendReminder;
+    let sent = 0;
+    let failed = 0;
+
+    for (const queued of reminders) {
+        const requestId = clean(queued.requestId);
+        const reminder = REMINDERS.find(item => item.id === clean(queued.reminderId));
+        try {
+            if (!requestId || !reminder) throw new Error(`Unknown queued reminder: ${clean(queued.reminderId) || "missing"}`);
+            if (!state._processedReminderRequests[requestId]) {
+                await sendImpl(reminder);
+                state._processedReminderRequests[requestId] = new Date().toISOString();
+                const entries = Object.entries(state._processedReminderRequests).slice(-200);
+                state._processedReminderRequests = Object.fromEntries(entries);
+                if (!options.state) await writeState(state);
+            }
+            await postReminderBridge("completeReminder", { requestId, status: "sent", result: "Messages worker sent the reminder." }, bridgeOptions);
+            sent += 1;
+        } catch (error) {
+            failed += 1;
+            const message = error && error.message ? error.message : String(error);
+            await appendLog(`queue-failed ${requestId || "missing"} ${message}`);
+            if (requestId) {
+                try {
+                    await postReminderBridge("completeReminder", { requestId, status: "failed", result: message }, bridgeOptions);
+                } catch (completionError) {
+                    await appendLog(`queue-completion-failed ${requestId} ${completionError && completionError.message ? completionError.message : completionError}`);
+                }
+            }
+        }
+    }
+    await appendLog(`queue-processed pending ${reminders.length} sent ${sent} failed ${failed}`);
+    return { pending: reminders.length, sent, failed };
+}
+
 async function main() {
     if (hasFlag("--help")) {
         console.log([
@@ -763,6 +848,7 @@ async function main() {
             "  node scripts/dee-dee-local-text-reminders.mjs --check",
             "  node scripts/dee-dee-local-text-reminders.mjs --send available-dates",
             "  node scripts/dee-dee-local-text-reminders.mjs --scheduled",
+            "  node scripts/dee-dee-local-text-reminders.mjs --process-queue",
             "  node scripts/dee-dee-local-text-reminders.mjs --dry-run --send follow-ups"
         ].join("\n"));
         return;
@@ -790,6 +876,11 @@ async function main() {
             return;
         }
         await runScheduled();
+        return;
+    }
+
+    if (hasFlag("--process-queue")) {
+        await processReminderQueue();
         return;
     }
 

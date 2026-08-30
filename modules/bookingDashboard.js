@@ -36,7 +36,7 @@
         { id: 'dataReview', label: 'Data Review' }
     ]);
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-08-30-reliable-writes';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-08-30-shared-bridge-reminders';
     const REQUIRED_BOOKING_HEADERS = [
         'Place Name',
         'Address',

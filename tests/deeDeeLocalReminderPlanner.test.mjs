@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     buildReminderBody,
+    appendArtistSyncWarning,
     extractGigDates,
     getServicePriorityForHealth,
     isDataFresh,
     isVerifiedMessageStatus,
     loadPlannerSnapshot,
     parseCsv,
+    processReminderQueue,
     updateDeliveryHealth
 } from '../scripts/dee-dee-local-text-reminders.mjs';
 
@@ -96,4 +98,45 @@ test('scheduled delivery switches from iMessage-first to SMS-first after the fal
 
     assert.deepEqual(getServicePriorityForHealth(first), ['iMessage', 'SMS']);
     assert.deepEqual(getServicePriorityForHealth(stale), ['SMS', 'iMessage']);
+});
+
+test('stale artist sync is visibly added to reminder text', () => {
+    const body = appendArtistSyncWarning('Normal reminder', {
+        artistSyncFresh: false,
+        artistSyncUpdatedAt: '2026-08-30T00:00:00Z'
+    });
+    assert.match(body, /Who Plays There are stale or failed/i);
+    assert.match(body, /2026-08-30/);
+});
+
+test('queued web reminder crosses the bridge and local Messages worker connection', async () => {
+    const requests = [];
+    const sent = [];
+    const fetchImpl = async (_url, options) => {
+        const body = JSON.parse(options.body);
+        requests.push(body);
+        if (body.action === 'getPendingReminders') {
+            return {
+                ok: true,
+                text: async () => JSON.stringify({
+                    ok: true,
+                    reminders: [{ requestId: 'queue-1', reminderId: 'follow-ups' }]
+                })
+            };
+        }
+        return { ok: true, text: async () => JSON.stringify({ ok: true, status: 'sent' }) };
+    };
+
+    const result = await processReminderQueue({
+        fetchImpl,
+        bridgeUrl: 'https://example.test/bridge',
+        state: {},
+        sendReminderImpl: async reminder => sent.push(reminder.id)
+    });
+
+    assert.deepEqual(sent, ['follow-ups']);
+    assert.deepEqual(requests.map(request => request.action), ['getPendingReminders', 'completeReminder']);
+    assert.equal(requests[1].requestId, 'queue-1');
+    assert.equal(result.sent, 1);
+    assert.equal(result.failed, 0);
 });

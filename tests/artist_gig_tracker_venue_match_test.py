@@ -1237,6 +1237,76 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertTrue(all("id,name" in payload["csv"] for payload in captured["payloads"]))
         self.assertTrue(all(timeout >= 180 for timeout in captured["timeouts"]))
 
+    def test_shared_bridge_reads_all_six_tracker_tables_from_the_write_endpoint(self):
+        captured = []
+
+        class FakeResponse:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps(self.payload).encode()
+
+        def fake_open(request, timeout=0):
+            payload = json.loads(request.data.decode())
+            captured.append((request.full_url, payload, timeout))
+            return FakeResponse({
+                "ok": True,
+                "action": "getArtistTrackerTable",
+                "sheetName": payload["sheetName"],
+                "csv": "id,name\n1,Example\n",
+            })
+
+        tables = artist_gig_tracker.read_tracker_tables_via_bridge(
+            "https://example.test/shared-bridge",
+            logging.getLogger("test"),
+            opener=fake_open,
+        )
+
+        self.assertEqual(len(captured), 6)
+        self.assertEqual({url for url, _payload, _timeout in captured}, {"https://example.test/shared-bridge"})
+        self.assertEqual({payload["action"] for _url, payload, _timeout in captured}, {"getArtistTrackerTable"})
+        self.assertEqual(set(tables), {"Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"})
+        self.assertTrue(all(rows == [{"id": "1", "name": "Example"}] for rows in tables.values()))
+
+    def test_who_plays_there_is_rebuilt_and_drops_a_stale_old_venue_link(self):
+        history = artist_gig_tracker.rebuild_venue_artist_history(
+            {
+                "venue-old": {"venue_id": "venue-old", "place_name": "Old Wrong Room"},
+                "venue-new": {"venue_id": "venue-new", "place_name": "Correct Room"},
+            },
+            {
+                "event-1": {
+                    "event_id": "event-1",
+                    "event_date": "2099-08-01",
+                    "start_time": "20:00",
+                    "venue_id": "venue-new",
+                    "venue_name_snapshot": "Correct Room",
+                    "status": "confirmed",
+                    "source_url": "https://example.test/event-1",
+                }
+            },
+            {
+                "link-1": {
+                    "event_artist_id": "link-1",
+                    "event_id": "event-1",
+                    "artist_id": "artist-furious",
+                    "artist_name_snapshot": "Furious George",
+                }
+            },
+        )
+
+        self.assertNotIn("venue-old|artist-furious", history)
+        self.assertIn("venue-new|artist-furious", history)
+        self.assertEqual(history["venue-new|artist-furious"]["venue_name"], "Correct Room")
+        self.assertEqual(history["venue-new|artist-furious"]["times_played"], "1")
+
     def test_artist_change_text_reports_additions_removals_and_date_changes(self):
         body = artist_gig_tracker.build_artist_change_text({
             "added_events": [{"artist_name": "Furious George", "venue_name": "New Room", "event_date": "2099-08-01"}],
@@ -1250,13 +1320,14 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("DATE CHANGED:", body)
         self.assertIn("https://example.test/app/", body)
 
-    def test_artist_sync_installer_runs_at_load_and_every_five_hours(self):
+    def test_artist_sync_installer_runs_at_fixed_calendar_times(self):
         installer = (ROOT / "scripts" / "install-artist-gig-tracker-sync.mjs").read_text(encoding="utf-8")
 
-        self.assertIn("<key>RunAtLoad</key>", installer)
-        self.assertIn("<key>StartInterval</key>", installer)
-        self.assertIn("<integer>18000</integer>", installer)
-        self.assertNotIn("<key>StartCalendarInterval</key>", installer)
+        self.assertNotIn("<key>RunAtLoad</key>", installer)
+        self.assertIn("<key>StartCalendarInterval</key>", installer)
+        self.assertNotIn("<key>StartInterval</key>", installer)
+        self.assertIn("[1, 6, 11, 16, 21]", installer)
+        self.assertIn("<integer>17</integer>", installer)
 
     def test_primal_rhythm_official_tour_calendar_is_discovered_and_parsed(self):
         calendar_url = artist_gig_tracker.primal_rhythm_calendar_url(

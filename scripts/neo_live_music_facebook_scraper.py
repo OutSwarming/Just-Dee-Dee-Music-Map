@@ -196,14 +196,18 @@ def parse_facebook_post_datetime(value: object, now: datetime | None = None) -> 
     return text
 
 
-def parse_facebook_event_datetime(text: str) -> tuple[str, str]:
+def parse_facebook_event_datetime(text: str, today: date | None = None) -> tuple[str, str]:
+    reference_day = today or date.today()
     event_date, event_time = parse_event_datetime(text)
+    if today is not None and re.search(r"\btomorrow\b", text, re.I):
+        return (reference_day + timedelta(days=1)).isoformat(), event_time
+    if today is not None and TODAY_TERMS.search(text):
+        return reference_day.isoformat(), event_time
     if event_date or event_time:
         return event_date, event_time
-    today = date.today()
     if re.search(r"\btomorrow\b", text, re.I):
         _, event_time = parse_event_datetime("today " + text)
-        return (today + timedelta(days=1)).isoformat(), event_time
+        return (reference_day + timedelta(days=1)).isoformat(), event_time
     weekdays = {
         "monday": 0,
         "tuesday": 1,
@@ -215,11 +219,11 @@ def parse_facebook_event_datetime(text: str) -> tuple[str, str]:
     }
     for name, weekday in weekdays.items():
         if re.search(rf"\bthis\s+{name}\b|\b{name}\b", text, re.I):
-            days_ahead = (weekday - today.weekday()) % 7
+            days_ahead = (weekday - reference_day.weekday()) % 7
             if days_ahead == 0 and not TODAY_TERMS.search(text):
                 days_ahead = 7
             _, event_time = parse_event_datetime("today " + text)
-            return (today + timedelta(days=days_ahead)).isoformat(), event_time
+            return (reference_day + timedelta(days=days_ahead)).isoformat(), event_time
     return "", ""
 
 
@@ -249,8 +253,8 @@ def extract_venue_and_bands(text: str) -> tuple[str, str]:
     return venue, bands
 
 
-def extract_event_details(text: str) -> dict[str, object]:
-    event_date, event_time = parse_facebook_event_datetime(text)
+def extract_event_details(text: str, today: date | None = None) -> dict[str, object]:
+    event_date, event_time = parse_facebook_event_datetime(text, today=today)
     venue, bands = extract_venue_and_bands(text)
     local_venue, venue_city, venue_distance = find_local_venue(" ".join([venue, text]))
     if local_venue and not venue:

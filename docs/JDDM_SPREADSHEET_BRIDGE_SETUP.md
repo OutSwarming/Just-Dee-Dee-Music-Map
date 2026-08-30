@@ -43,9 +43,9 @@ window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autof
 
 The current `Code.gs` uses the active bound spreadsheet. Open the Apps Script editor from the spreadsheet itself with `Extensions` > `Apps Script`, then paste/deploy the bridge there.
 
-`JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. Reliable-write bridge `2026-08-30-reliable-writes` returns only the changed venue after a save; the app updates that venue locally and refreshes the full map feed in the background.
+`JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. Shared bridge `2026-08-30-shared-bridge-reminders` returns only the changed venue after a save, reads and writes the artist tracker tabs, and owns the web reminder queue.
 
-When updating an existing deployment, choose `Deploy` > `Manage deployments` > the pencil icon, select `New version`, and deploy. Replacing code without creating a new deployment version does not update the live `/exec` endpoint. The Booking Planner health card must report schema `2026-08-30-reliable-writes` before live editing is considered ready.
+When updating an existing deployment, choose `Deploy` > `Manage deployments` > the pencil icon, select `New version`, and deploy. Replacing code without creating a new deployment version does not update the live `/exec` endpoint. The Booking Planner health card must report schema `2026-08-30-shared-bridge-reminders` before every connection is considered ready.
 
 Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has usable `Place ID`, `Longitude`, and `Latitude` values. Until then, keep the checked-in CSV as the map fallback.
 

@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-08-30-reliable-writes',
+        schemaVersion: '2026-08-30-shared-bridge-reminders',
         generatedColumns: [
             { header: 'Place Name' },
             { header: 'Address' },

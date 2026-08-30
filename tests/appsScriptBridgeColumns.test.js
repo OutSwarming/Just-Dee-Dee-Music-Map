@@ -387,7 +387,7 @@ test('purge keeps accurate scattered contact and gig data in canonical columns',
 
     assert.equal(result.archivedSheetName, null);
     assert.equal(result.replacedSheet, true);
-    assert.equal(result.schemaVersion, '2026-08-30-reliable-writes');
+    assert.equal(result.schemaVersion, '2026-08-30-shared-bridge-reminders');
     assert.deepEqual(plain(headers), plain(bridge.JDDM_CANONICAL_HEADERS));
     assert.equal(row[headerIndex(headers, 'Place Name')], 'Bait House Brewery');
     assert.equal(row[headerIndex(headers, 'Address')], '223 Meigs St');
@@ -831,6 +831,45 @@ test('artist tracker bridge can import one allowed sheet per request', () => {
     assert.equal(eventSheet.values[2][0], '');
 });
 
+test('artist tracker bridge reads back the same tab it writes', () => {
+    const sheet = createFakeSheet(['Place Name'], [['Map Row']]);
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    bridge.syncArtistTrackerTable_({
+        sheetName: 'Events',
+        csv: 'event_id,title\nevent-1,"Furious George, Live"'
+    });
+    const result = bridge.getArtistTrackerTable_({ sheetName: 'Events' });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.sheetName, 'Events');
+    assert.equal(result.rowCount, 1);
+    assert.match(result.csv, /event-1,"Furious George, Live"/);
+});
+
+test('reminder queue is idempotent and can be completed by the Messages worker', () => {
+    const sheet = createFakeSheet(['Place Name'], [['Map Row']]);
+    sheet.setName('Sheet1');
+    const bridge = loadBridge(sheet);
+
+    const queued = bridge.queueReminder_({ reminderId: 'follow-ups', requestId: 'request-1' });
+    const duplicate = bridge.queueReminder_({ reminderId: 'follow-ups', requestId: 'request-1' });
+    const pending = bridge.getPendingReminders_({ limit: 10 });
+    const completed = bridge.completeReminder_({ requestId: 'request-1', status: 'sent', result: 'verified' });
+    const after = bridge.getPendingReminders_({ limit: 10 });
+
+    assert.equal(queued.queued, true);
+    assert.equal(duplicate.duplicate, true);
+    assert.deepEqual(JSON.parse(JSON.stringify(pending.reminders)), [{
+        requestId: 'request-1',
+        requestedAt: pending.reminders[0].requestedAt,
+        reminderId: 'follow-ups'
+    }]);
+    assert.equal(completed.status, 'sent');
+    assert.equal(after.reminders.length, 0);
+});
+
 test('setPlayed writes Status instead of legacy Played columns', () => {
     const sheet = createFakeSheet(
         ['Place Name', 'Place ID', 'Status'],
@@ -936,7 +975,7 @@ test('health advertises the lean storage schema', () => {
     const bridge = loadBridge(sheet);
     const health = bridge.getHealth_();
 
-    assert.equal(health.schemaVersion, '2026-08-30-reliable-writes');
+    assert.equal(health.schemaVersion, '2026-08-30-shared-bridge-reminders');
     assert.ok(health.storageColumns.includes('Place Name'));
     assert.ok(health.sections.status.includes('Status'));
     assert.ok(health.statusOptions.includes('Played in the Past - Awaiting Reply'));

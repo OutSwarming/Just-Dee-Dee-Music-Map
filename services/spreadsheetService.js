@@ -45,7 +45,7 @@
     }
 
     function getTimeoutMs(action) {
-        return action === 'createVenue' || action === 'saveVenue' || action === 'setPlayed'
+        return action === 'createVenue' || action === 'saveVenue' || action === 'setPlayed' || action === 'queueReminder'
             ? WRITE_TIMEOUT_MS
             : READ_TIMEOUT_MS;
     }
@@ -153,6 +153,13 @@
         return request('setPlayed', { id, played: Boolean(played) });
     }
 
+    async function queueReminder(reminderId, requestId) {
+        return request('queueReminder', {
+            reminderId: clean(reminderId),
+            requestId: clean(requestId) || createRequestId('queueReminder')
+        });
+    }
+
     window.BARK.services.spreadsheet = {
         isConfigured,
         getConfigStatus,
@@ -161,6 +168,7 @@
         getVenue,
         saveVenue,
         createVenue,
-        setPlayed
+        setPlayed,
+        queueReminder
     };
 })();

@@ -1,7 +1,7 @@
 import importlib.util
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -21,7 +21,8 @@ class FacebookLiveMusicScraperTest(unittest.TestCase):
 
     def test_extract_event_details_boosts_gig_and_local_venue(self):
         details = facebook_scraper.extract_event_details(
-            "Tonight! Furious George live at Beachland Ballroom 8pm Cleveland"
+            "Tonight! Furious George live at Beachland Ballroom 8pm Cleveland",
+            today=date(2026, 5, 18),
         )
 
         self.assertEqual(details["event_date"], "2026-05-18")

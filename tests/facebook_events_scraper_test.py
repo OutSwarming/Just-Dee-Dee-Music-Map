@@ -1,8 +1,11 @@
 import importlib.util
+import asyncio
+import json
 import sqlite3
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -242,6 +245,54 @@ class FacebookEventsScraperTest(unittest.TestCase):
         self.assertIn("CRITICAL: possible new place not on the spreadsheet:", body)
         self.assertIn("Brand New Tavern", body)
         self.assertIn("https://example.test/app", body)
+
+    def test_zero_result_with_login_walls_is_an_outage(self):
+        scraper = mock.Mock(
+            attempted_entities=10,
+            successful_entities=0,
+            outage_entities=10,
+            failed_entities=0,
+        )
+        self.assertTrue(facebook_events.is_source_outage_result(0, scraper))
+        self.assertFalse(facebook_events.is_source_outage_result(1, scraper))
+
+    def test_source_outage_preserves_last_good_database_and_exports(self):
+        class FakeOutageScraper:
+            def __init__(self, _args):
+                self.attempted_entities = 1
+                self.successful_entities = 0
+                self.outage_entities = 1
+                self.failed_entities = 0
+
+            async def run(self, _entities):
+                return []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            input_path = root / "input.csv"
+            db_path = root / "events.sqlite3"
+            output_dir = root / "outputs"
+            latest_csv = output_dir / "facebook_events_latest.csv"
+            latest_json = output_dir / "facebook_events_latest.json"
+            input_path.write_text("name,facebook_url\nFurious George,https://www.facebook.com/furious\n", encoding="utf-8")
+            db_path.write_bytes(b"last-good-database")
+            output_dir.mkdir()
+            latest_csv.write_text("last-good-csv\n", encoding="utf-8")
+            latest_json.write_text('[{"last":"good"}]\n', encoding="utf-8")
+
+            with mock.patch.object(facebook_events, "FacebookEventsScraper", FakeOutageScraper):
+                exit_code = asyncio.run(facebook_events.async_main([
+                    "--input", str(input_path),
+                    "--db-path", str(db_path),
+                    "--output-dir", str(output_dir),
+                ]))
+
+            self.assertEqual(exit_code, 2)
+            self.assertEqual(db_path.read_bytes(), b"last-good-database")
+            self.assertEqual(latest_csv.read_text(encoding="utf-8"), "last-good-csv\n")
+            self.assertEqual(latest_json.read_text(encoding="utf-8"), '[{"last":"good"}]\n')
+            status = json.loads((output_dir / "facebook_events_status.json").read_text(encoding="utf-8"))
+            self.assertEqual(status["status"], "source_outage")
 
 
 if __name__ == "__main__":

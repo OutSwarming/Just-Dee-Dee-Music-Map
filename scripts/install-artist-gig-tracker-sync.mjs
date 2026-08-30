@@ -20,6 +20,14 @@ function xmlEscape(value) {
         .replace(/>/g, "&gt;");
 }
 
+const calendarIntervals = [1, 6, 11, 16, 21].map(hour => `
+        <dict>
+            <key>Hour</key>
+            <integer>${hour}</integer>
+            <key>Minute</key>
+            <integer>17</integer>
+        </dict>`).join("");
+
 const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -41,10 +49,9 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
         <key>PATH</key>
         <string>${xmlEscape(`${path.dirname(nodePath)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`)}</string>
     </dict>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>StartInterval</key>
-    <integer>18000</integer>
+    <key>StartCalendarInterval</key>
+    <array>${calendarIntervals}
+    </array>
     <key>StandardOutPath</key>
     <string>${xmlEscape(logPath)}</string>
     <key>StandardErrorPath</key>
@@ -59,5 +66,5 @@ await writeFile(launchAgentPath, plist);
 console.log(`Wrote ${launchAgentPath}`);
 console.log("Load it with:");
 console.log(`launchctl bootstrap gui/$(id -u) ${launchAgentPath}`);
-console.log("The job runs at load and every five hours. Run it manually with:");
+console.log("The job runs at 1:17, 6:17, 11:17, 16:17, and 21:17 every day. Run it manually with:");
 console.log(`${pythonPath} ${syncScript} --import-google-sheet`);

@@ -3,7 +3,7 @@
 Daily artist-site sync for the master Google Sheets gig tracker.
 
 Workflow:
-- Read the current cloud tracker tabs through Google Sheets CSV export.
+- Read the current cloud tracker tabs through the same Apps Script bridge used for writes.
 - Check every artist website that has a supported public calendar.
 - Upsert future gigs into Events / Event_Artists / Venue_Artist_History.
 - Preserve every past event.
@@ -52,9 +52,10 @@ except Exception:  # pragma: no cover
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SPREADSHEET_ID = "1UBuHO1MSwYTuSobheGFyt-b05HTxHVbKrr_u7M8q2Sw"
+DEFAULT_SPREADSHEET_ID = "16Sp11KboYq1dyL5e4tlFKxZEc9VnPaa0eCffyG2_xBk"
 DEFAULT_OUT_DIR = REPO_ROOT / "data" / "scraped" / "artist_site_sync"
 LOG_PATH = Path.home() / "Library" / "Logs" / "jddm-artist-gig-tracker-sync.log"
+ARTIST_SYNC_HEALTH_PATH = Path.home() / "Library" / "Application Support" / "Just Dee Dee Music Map" / "artist-gig-tracker-health.json"
 CHROME_DEBUG_URL = "http://127.0.0.1:9222"
 DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
 DEFAULT_BRIDGE_URL = (
@@ -927,6 +928,13 @@ def read_sheet_csv(spreadsheet_id: str, sheet: str) -> list[dict[str, str]]:
     with urllib.request.urlopen(url, timeout=40) as response:
         data = response.read().decode("utf-8")
     return list(csv.DictReader(io.StringIO(data)))
+
+
+def parse_tracker_csv(data: str) -> list[dict[str, str]]:
+    return [
+        {clean(key): clean(value) for key, value in row.items() if key is not None}
+        for row in csv.DictReader(io.StringIO(data or ""))
+    ]
 
 
 def write_csv(path: Path, headers: list[str], rows: Iterable[dict[str, object]]) -> None:
@@ -4037,6 +4045,56 @@ def upsert_review(reviews_by_id: dict[str, dict[str, str]], event: ScrapedArtist
     }
 
 
+def rebuild_venue_artist_history(
+    venues_by_id: dict[str, dict[str, str]],
+    events_by_id: dict[str, dict[str, str]],
+    event_artists_by_id: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    """Derive Who Plays There only from the current Events and Event_Artists tables."""
+    excluded_statuses = {"canceled_or_removed", "rescheduled_or_date_changed", "duplicate", "ignore"}
+    links_by_event: dict[str, list[dict[str, str]]] = {}
+    for link in event_artists_by_id.values():
+        event_id = clean(link.get("event_id"))
+        artist_id = clean(link.get("artist_id"))
+        if event_id and artist_id:
+            links_by_event.setdefault(event_id, []).append(link)
+
+    occurrences: dict[str, list[tuple[dict[str, str], dict[str, str]]]] = {}
+    for event_id, event in events_by_id.items():
+        venue_id = clean(event.get("venue_id"))
+        event_date = clean(event.get("event_date"))
+        if not venue_id or not event_date or clean(event.get("status")).lower() in excluded_statuses:
+            continue
+        for link in links_by_event.get(event_id, []):
+            artist_id = clean(link.get("artist_id"))
+            occurrences.setdefault(f"{venue_id}|{artist_id}", []).append((event, link))
+
+    rebuilt: dict[str, dict[str, str]] = {}
+    for key, linked_events in occurrences.items():
+        linked_events.sort(key=lambda item: (
+            clean(item[0].get("event_date")),
+            clean(item[0].get("start_time")),
+            clean(item[0].get("event_id")),
+        ))
+        first_event, first_link = linked_events[0]
+        last_event, last_link = linked_events[-1]
+        venue_id, artist_id = key.split("|", 1)
+        rebuilt[key] = {
+            "venue_id": venue_id,
+            "venue_name": clean(venues_by_id.get(venue_id, {}).get("place_name"))
+            or clean(last_event.get("venue_name_snapshot")),
+            "artist_id": artist_id,
+            "artist_name": clean(last_link.get("artist_name_snapshot"))
+            or clean(first_link.get("artist_name_snapshot")),
+            "times_played": str(len({clean(event.get("event_id")) for event, _link in linked_events})),
+            "first_seen": clean(first_event.get("event_date")),
+            "last_seen": clean(last_event.get("event_date")),
+            "last_event_id": clean(last_event.get("event_id")),
+            "last_source_url": clean(last_event.get("source_url")),
+        }
+    return rebuilt
+
+
 def merge_tracker(
     venues: list[dict[str, str]],
     artists: list[dict[str, str]],
@@ -4056,17 +4114,9 @@ def merge_tracker(
         if venue_id in venue_aliases:
             row["venue_id"] = venue_aliases[venue_id]
     event_artists_by_id = row_by_key(event_artists, "event_artist_id")
-    history_by_key: dict[str, dict[str, str]] = {}
-    for row in history:
-        venue_id = venue_aliases.get(clean(row.get("venue_id")), clean(row.get("venue_id")))
-        artist_id = clean(row.get("artist_id"))
-        if not venue_id or not artist_id:
-            continue
-        history_by_key[f"{venue_id}|{artist_id}"] = {
-            **row,
-            "venue_id": venue_id,
-            "venue_name": clean(venues_by_id.get(venue_id, {}).get("place_name")) or clean(row.get("venue_name")),
-        }
+    # Existing history is intentionally ignored. It is a generated view and is
+    # rebuilt after event reconciliation so stale venue/artist links disappear.
+    _ = history
     reviews_by_id = row_by_key(reviews, "review_id")
 
     scraped = scrape.events
@@ -4156,43 +4206,6 @@ def merge_tracker(
             "source": item.source,
         }
 
-        if venue_id:
-            hkey = f"{venue_id}|{item.artist_id}"
-            hrow = history_by_key.setdefault(
-                hkey,
-                {
-                    "venue_id": venue_id,
-                    "venue_name": clean(venues_by_id.get(venue_id, {}).get("place_name")) or item.venue_name,
-                    "artist_id": item.artist_id,
-                    "artist_name": item.artist_name,
-                    "times_played": "0",
-                    "first_seen": item.event_date,
-                    "last_seen": item.event_date,
-                    "last_event_id": item.event_id,
-                    "last_source_url": item.source_url,
-                },
-            )
-            known_event_ids = {
-                clean(row.get("event_id"))
-                for row in events_by_id.values()
-                if clean(row.get("venue_id")) == venue_id
-                and clean(row.get("source", "")).startswith("artist_site:")
-                and clean(row.get("status")) not in {"canceled_or_removed", "duplicate", "ignore"}
-            }
-            dates = [
-                clean(row.get("event_date"))
-                for row in events_by_id.values()
-                if clean(row.get("event_id")) in known_event_ids
-                and any(clean(link.get("event_id")) == clean(row.get("event_id")) and clean(link.get("artist_id")) == item.artist_id for link in event_artists_by_id.values())
-            ]
-            if dates:
-                dates = sorted(set(dates))
-                hrow["times_played"] = str(len(dates))
-                hrow["first_seen"] = dates[0]
-                hrow["last_seen"] = dates[-1]
-                hrow["last_event_id"] = item.event_id
-                hrow["last_source_url"] = item.source_url
-
     scraped_artist_sources = scrape.checked_sources
     scraped_artist_ids = scrape.checked_artist_ids
     scraped_semantic = {(event.artist_id, norm(event.title), norm(event.venue_name)) for event in scraped}
@@ -4255,6 +4268,8 @@ def merge_tracker(
         venue_source = clean(venue.get("source")).lower()
         if venue_source not in {"artist_site_sync", "furious_george_website"}:
             del reviews_by_id[review_id]
+
+    history_by_key = rebuild_venue_artist_history(venues_by_id, events_by_id, event_artists_by_id)
 
     return {
         "Venues": sorted(venues_by_id.values(), key=lambda row: clean(row.get("place_name")).lower()),
@@ -4367,6 +4382,33 @@ def post_bridge_json(
         message = clean(result.get("message")) if isinstance(result, dict) else "Invalid bridge response."
         raise RuntimeError(message or "The spreadsheet bridge rejected the artist-site update.")
     return result
+
+
+def read_tracker_table_via_bridge(
+    bridge_url: str,
+    sheet_name: str,
+    opener: object | None = None,
+) -> list[dict[str, str]]:
+    result = post_bridge_json(
+        bridge_url,
+        {"action": "getArtistTrackerTable", "sheetName": sheet_name},
+        timeout=180,
+        opener=opener,
+    )
+    csv_payload = result.get("csv")
+    return parse_tracker_csv(csv_payload if isinstance(csv_payload, str) else "")
+
+
+def read_tracker_tables_via_bridge(
+    bridge_url: str,
+    logger: logging.Logger,
+    opener: object | None = None,
+) -> dict[str, list[dict[str, str]]]:
+    tables: dict[str, list[dict[str, str]]] = {}
+    for sheet_name in ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]:
+        logger.info("Reading artist tracker tab %s through the shared sheet bridge", sheet_name)
+        tables[sheet_name] = read_tracker_table_via_bridge(bridge_url, sheet_name, opener=opener)
+    return tables
 
 
 def import_outputs_via_bridge(
@@ -4582,6 +4624,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--import-google-sheet", action="store_true", help="Replace live tracker tabs through the non-interactive spreadsheet bridge.")
     parser.add_argument("--browser-import", action="store_true", help="Use the legacy interactive Chrome import instead of the sheet bridge.")
     parser.add_argument("--bridge-url", default=os.environ.get("JDDM_SPREADSHEET_BRIDGE_URL", DEFAULT_BRIDGE_URL))
+    parser.add_argument("--legacy-spreadsheet-read", action="store_true", help="Read tracker tabs from the old public spreadsheet export instead of the shared bridge (diagnostics only).")
+    parser.add_argument("--strict-bridge-read", action="store_true", help="Fail instead of using a same-spreadsheet CSV export when an older deployed bridge lacks tracker reads.")
     parser.add_argument("--dry-run", action="store_true", help="Build output files but do not import into Google Sheets.")
     parser.add_argument("--no-new-venue-text", action="store_true", help="Do not text the official-site gig change digest.")
     parser.add_argument("--text-recipient", action="append", default=[], help="Phone number to text when new venues are found. Defaults to Carter and Dee Dee.")
@@ -4603,18 +4647,48 @@ def configure_logging(level: str) -> None:
     )
 
 
+def write_artist_sync_health(status: str, summary: dict[str, object] | None = None, error: str = "") -> None:
+    payload = {
+        "status": status,
+        "updatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "summary": summary or {},
+        "error": clean(error),
+    }
+    ARTIST_SYNC_HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = ARTIST_SYNC_HEALTH_PATH.with_suffix(".tmp")
+    temporary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary_path.replace(ARTIST_SYNC_HEALTH_PATH)
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     configure_logging(args.log_level)
     logger = logging.getLogger("artist_site_sync")
 
-    logger.info("Reading tracker tabs from %s", args.spreadsheet_id)
-    venues = read_sheet_csv(args.spreadsheet_id, "Venues")
-    artists = read_sheet_csv(args.spreadsheet_id, "Artists")
-    events = read_sheet_csv(args.spreadsheet_id, "Events")
-    event_artists = read_sheet_csv(args.spreadsheet_id, "Event_Artists")
-    history = read_sheet_csv(args.spreadsheet_id, "Venue_Artist_History")
-    reviews = read_sheet_csv(args.spreadsheet_id, "Review_Queue")
+    if args.legacy_spreadsheet_read:
+        logger.warning("Reading tracker tabs from the legacy public spreadsheet export")
+        tables = {
+            sheet_name: read_sheet_csv(args.spreadsheet_id, sheet_name)
+            for sheet_name in ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]
+        }
+    else:
+        logger.info("Reading every tracker tab through the same bridge used for writes")
+        try:
+            tables = read_tracker_tables_via_bridge(args.bridge_url, logger)
+        except RuntimeError as exc:
+            if args.strict_bridge_read or "Unknown action" not in str(exc):
+                raise
+            logger.warning("The deployed bridge does not support tracker reads yet; using CSV exports from the same live spreadsheet until the replacement deployment is authorized")
+            tables = {
+                sheet_name: read_sheet_csv(args.spreadsheet_id, sheet_name)
+                for sheet_name in ["Venues", "Artists", "Events", "Event_Artists", "Venue_Artist_History", "Review_Queue"]
+            }
+    venues = tables["Venues"]
+    artists = tables["Artists"]
+    events = tables["Events"]
+    event_artists = tables["Event_Artists"]
+    history = tables["Venue_Artist_History"]
+    reviews = tables["Review_Queue"]
 
     scrape = scrape_supported_artist_sites(artists, logger)
     merged = merge_tracker(venues, artists, events, event_artists, history, reviews, scrape)
@@ -4649,8 +4723,17 @@ def main(argv: list[str]) -> int:
         logger.info("Imported repaired tracker tabs into Google Sheets")
         sync_official_website_gigs_to_map(scrape, args.bridge_url, logger)
         maybe_send_artist_change_alert(summary, args, logger)
+        write_artist_sync_health("ok", summary)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    command_args = sys.argv[1:]
+    try:
+        raise SystemExit(main(command_args))
+    except SystemExit:
+        raise
+    except Exception as exc:
+        if "--import-google-sheet" in command_args and "--dry-run" not in command_args:
+            write_artist_sync_health("failed", error=str(exc))
+        raise

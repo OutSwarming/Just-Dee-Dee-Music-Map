@@ -137,3 +137,22 @@ test('spreadsheet create preserves a caller request id across retries', async ()
     assert.equal(bodies[0].requestId, 'stable-create-request');
     assert.equal(bodies[1].requestId, 'stable-create-request');
 });
+
+test('spreadsheet service queues reminder delivery through the shared bridge', async () => {
+    let requestOptions = null;
+    const service = loadSpreadsheetService({
+        apiUrl: 'https://script.google.com/macros/s/test-deployment/exec',
+        fetchImpl: async (_url, options) => {
+            requestOptions = options;
+            return { ok: true, text: async () => '{"ok":true,"action":"queueReminder","status":"pending"}' };
+        }
+    });
+
+    const result = await service.queueReminder('follow-ups', 'web-request-1');
+    const body = JSON.parse(requestOptions.body);
+
+    assert.equal(body.action, 'queueReminder');
+    assert.equal(body.reminderId, 'follow-ups');
+    assert.equal(body.requestId, 'web-request-1');
+    assert.equal(result.status, 'pending');
+});

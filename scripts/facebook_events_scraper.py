@@ -129,6 +129,10 @@ class FacebookEvent:
         return stable_hash(normalize_key(self.event_title), self.start_datetime, normalize_key(self.organizer_name or self.page_name), length=24)
 
 
+class FacebookSourceOutage(RuntimeError):
+    """Facebook returned a login/restriction wall or no usable source page."""
+
+
 def stable_hash(*parts: object, length: int = 16) -> str:
     return hashlib.sha256("|".join(clean(part) for part in parts).encode("utf-8")).hexdigest()[:length]
 
@@ -858,6 +862,10 @@ class FacebookEventsScraper:
         self.args = args
         self.logger = logging.getLogger("facebook_events")
         self.page: Page | None = None
+        self.attempted_entities = 0
+        self.successful_entities = 0
+        self.outage_entities = 0
+        self.failed_entities = 0
 
     async def run(self, entities: list[InputEntity]) -> list[FacebookEvent]:
         if async_playwright is None:
@@ -871,13 +879,19 @@ class FacebookEventsScraper:
                 context = browser.contexts[0] if browser.contexts else await browser.new_context()
                 self.page = await context.new_page()
                 for entity in entities:
+                    self.attempted_entities += 1
                     self.logger.info("Processing %s", entity.source_name)
                     try:
                         entity_events = await self.process_entity(entity)
+                        self.successful_entities += 1
                         self.logger.info("Processing %s - %d events found", entity.source_name, len(entity_events))
                         self.save_incremental(entity_events)
                         all_events.extend(entity_events)
+                    except FacebookSourceOutage as exc:
+                        self.outage_entities += 1
+                        self.logger.error("Facebook source outage for %s row %s: %s", entity.source_name, entity.row_number, exc)
                     except Exception as exc:
+                        self.failed_entities += 1
                         self.logger.exception("Skipping failed entity %s row %s: %s", entity.source_name, entity.row_number, exc)
                     await random_delay(2.0, 6.0)
                 await self.page.close()
@@ -906,13 +920,19 @@ class FacebookEventsScraper:
             context = await browser.new_context(**context_options)
             self.page = await context.new_page()
             for entity in entities:
+                self.attempted_entities += 1
                 self.logger.info("Processing %s", entity.source_name)
                 try:
                     entity_events = await self.process_entity(entity)
+                    self.successful_entities += 1
                     self.logger.info("Processing %s - %d events found", entity.source_name, len(entity_events))
                     self.save_incremental(entity_events)
                     all_events.extend(entity_events)
+                except FacebookSourceOutage as exc:
+                    self.outage_entities += 1
+                    self.logger.error("Facebook source outage for %s row %s: %s", entity.source_name, entity.row_number, exc)
                 except Exception as exc:
+                    self.failed_entities += 1
                     self.logger.exception("Skipping failed entity %s row %s: %s", entity.source_name, entity.row_number, exc)
                 await random_delay(2.0, 6.0)
             await context.close()
@@ -952,8 +972,10 @@ class FacebookEventsScraper:
         for search_kind in search_kinds:
             search_url = f"https://www.facebook.com/search/{search_kind}/?q={quote_plus(name)}"
             ok = await robust_goto(self.page, search_url, self.args.timeout_ms, self.logger)
-            if not ok or await self.is_login_wall():
+            if not ok:
                 return ""
+            if await self.is_login_wall():
+                raise FacebookSourceOutage("Facebook search returned a login/restriction wall.")
             await slow_mouse_wiggle(self.page)
             links = await self.page.evaluate(
                 """
@@ -1002,6 +1024,8 @@ class FacebookEventsScraper:
             return [event] if event else []
         candidate_urls = self.events_tab_urls(page_url)
         event_links: dict[str, str] = {}
+        accessible_pages = 0
+        blocked_pages = 0
         for index, url in enumerate(candidate_urls, start=1):
             self.logger.info("Checking events tab %d/%d for %s: %s", index, len(candidate_urls), source_name, url)
             ok = await robust_goto(self.page, url, self.args.timeout_ms, self.logger)
@@ -1009,7 +1033,9 @@ class FacebookEventsScraper:
                 continue
             if await self.is_login_wall():
                 self.logger.warning("Login/restriction wall on %s", url)
+                blocked_pages += 1
                 continue
+            accessible_pages += 1
             await self.try_events_tabs()
             mode_scrolls = self.args.max_scrolls if self.args.mode == "all" else max(3, self.args.max_scrolls // 2)
             for scroll_index in range(mode_scrolls):
@@ -1035,6 +1061,9 @@ class FacebookEventsScraper:
                     break
             if len(event_links) >= self.args.max_events_per_entity:
                 break
+        if accessible_pages == 0:
+            reason = "login/restriction walls" if blocked_pages else "navigation failures"
+            raise FacebookSourceOutage(f"Every Facebook Events URL failed because of {reason}.")
         self.logger.info("Collected %d event links for %s", len(event_links), source_name)
         events: list[FacebookEvent] = []
         for event_index, event_url in enumerate(list(event_links.keys())[: self.args.max_events_per_entity], start=1):
@@ -1453,6 +1482,25 @@ def save_events(db_path: Path, events: list[FacebookEvent]) -> None:
     conn.close()
 
 
+def is_source_outage_result(event_count: int, scraper: FacebookEventsScraper) -> bool:
+    if event_count > 0:
+        return False
+    return scraper.outage_entities > 0 or (
+        scraper.attempted_entities > 0
+        and scraper.successful_entities == 0
+        and scraper.failed_entities > 0
+    )
+
+
+def write_facebook_run_status(output_dir: Path, payload: dict[str, Any]) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "facebook_events_status.json"
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temporary.replace(path)
+    return path
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Scrape Facebook Events for a spreadsheet of musicians, bands, venues, or pages.")
     parser.add_argument("--input", type=Path, help="CSV/XLSX with one source per row and optional facebook_url/type columns.")
@@ -1508,8 +1556,25 @@ async def async_main(argv: list[str]) -> int:
     scraper = FacebookEventsScraper(args)
     events = await scraper.run(entities)
     events = dedupe_events(events)
+    run_health = {
+        "checkedAt": datetime.now().isoformat(timespec="seconds"),
+        "attemptedEntities": scraper.attempted_entities,
+        "successfulEntities": scraper.successful_entities,
+        "outageEntities": scraper.outage_entities,
+        "failedEntities": scraper.failed_entities,
+        "events": len(events),
+    }
+    if is_source_outage_result(len(events), scraper):
+        run_health["status"] = "source_outage"
+        run_health["message"] = "Facebook returned login/restriction walls or no usable source pages. Last good data was preserved."
+        status_path = write_facebook_run_status(args.output_dir, run_health)
+        logger.error("Facebook source outage: preserving the last good database and latest exports. Status: %s", status_path)
+        print(json.dumps({"summary": run_health}, indent=2, ensure_ascii=False))
+        return 2
     save_events(args.db_path, events)
     paths = export_outputs(events, args.output_dir)
+    run_health["status"] = "ok"
+    write_facebook_run_status(args.output_dir, run_health)
     possible_new_venues: list[dict[str, object]] = []
     text_sent: list[str] = []
     if args.text and events:
