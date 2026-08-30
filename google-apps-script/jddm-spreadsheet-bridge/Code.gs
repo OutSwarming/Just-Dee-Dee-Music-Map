@@ -226,6 +226,13 @@ function getSpreadsheet_() {
   return active || SpreadsheetApp.openById(JDDM_SPREADSHEET_ID);
 }
 
+// Run this once from the Apps Script editor after a new standalone deployment.
+// It asks the deploying account to authorize the shared spreadsheet services.
+function authorizeBridge() {
+  var spreadsheet = getSpreadsheet_();
+  return { ok: true, spreadsheetId: spreadsheet.getId(), spreadsheetName: spreadsheet.getName() };
+}
+
 function getSheet_() {
   var ss = getSpreadsheet_();
   var sheets = ss.getSheets();
