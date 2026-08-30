@@ -215,6 +215,14 @@ function sortVenuePriority(a, b) {
     return clean(a["Place Name"]).localeCompare(clean(b["Place Name"]));
 }
 
+function sortFollowUps(a, b) {
+    const aDate = parseLocalDate(a["Next Follow Up"]);
+    const bDate = parseLocalDate(b["Next Follow Up"]);
+    const dateDiff = (aDate ? aDate.getTime() : Number.POSITIVE_INFINITY)
+        - (bDate ? bDate.getTime() : Number.POSITIVE_INFINITY);
+    return dateDiff || sortVenuePriority(a, b);
+}
+
 async function readFreshJsonFile(filePath, fallback, options = {}) {
     try {
         const [contents, fileStats] = await Promise.all([
@@ -344,7 +352,7 @@ export async function loadPlannerSnapshot(options = {}) {
     const activeVenues = normalizedVenues.filter(venue => !isClosedOrDone(venue.status));
     const followUps = activeVenues
         .filter(venue => /follow up|responded|waiting/.test(normalizeLoose(venue.status)) || isDueDate(venue["Next Follow Up"], today))
-        .sort((a, b) => clean(a["Next Follow Up"]).localeCompare(clean(b["Next Follow Up"])) || sortVenuePriority(a, b));
+        .sort(sortFollowUps);
     const newPlaces = activeVenues
         .filter(venue => ["not contacted yet", "draft ready"].includes(normalizeLoose(venue.status)) && hasContactInfo(venue))
         .sort(sortVenuePriority);
@@ -644,14 +652,17 @@ export function updateDeliveryHealth(previousHealth = {}, results = [], now = ne
         if (!recipient) return;
         const previous = nextHealth.recipients[recipient] || {};
         const verified = Boolean(result.verified);
+        const verificationUnavailable = Boolean(result.verificationUnavailable);
         nextHealth.recipients[recipient] = {
             ...previous,
             lastAttemptAt: nowIso,
             lastService: clean(result.service),
             lastVerified: verified,
+            lastVerificationUnavailable: verificationUnavailable,
             lastVerificationReason: verified ? "" : clean(result.verificationReason || (result.status && result.status.reason)),
             lastVerifiedAt: verified ? nowIso : (previous.lastVerifiedAt || null),
-            unverifiedSince: verified ? null : (previous.unverifiedSince || nowIso)
+            lastAcceptedAt: (verified || verificationUnavailable) ? nowIso : (previous.lastAcceptedAt || null),
+            unverifiedSince: (verified || verificationUnavailable) ? null : (previous.unverifiedSince || nowIso)
         };
     });
 
@@ -697,6 +708,7 @@ async function sendToRecipient({ body, recipient, servicePriority = SERVICE_PRIO
                     service,
                     status,
                     verified: false,
+                    verificationUnavailable: true,
                     verificationReason: status.reason || "Delivery could not be verified."
                 };
             }
@@ -743,9 +755,10 @@ async function sendReminder(reminder, options = {}) {
     const results = await sendMessages({ body, recipients, servicePriority });
     const serviceSummary = results.map(result => `${result.recipient}:${result.service}`).join(",");
     const verifiedCount = results.filter(result => result.verified).length;
+    const acceptedCount = results.filter(result => result.verified || result.verificationUnavailable).length;
     const source = snapshot ? snapshot.venueDataSource : "static-body";
-    await appendLog(`${reminder.id} sent ${results.length} verified ${verifiedCount} source ${source} via ${serviceSummary}`);
-    console.log(`${reminder.label}: sent ${results.length}, verified ${verifiedCount}, source ${source}, via ${serviceSummary}`);
+    await appendLog(`${reminder.id} sent ${results.length} accepted ${acceptedCount} verified ${verifiedCount} source ${source} via ${serviceSummary}`);
+    console.log(`${reminder.label}: sent ${results.length}, accepted ${acceptedCount}, verified ${verifiedCount}, source ${source}, via ${serviceSummary}`);
     return { results, snapshot, body, dryRun: false };
 }
 

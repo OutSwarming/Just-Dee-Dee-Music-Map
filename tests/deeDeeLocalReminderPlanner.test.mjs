@@ -37,6 +37,22 @@ test('reminder planner extracts current future gigs from the live map CSV snapsh
     assert.deepEqual(extractGigDates('2099-08-15; Sun Sep 20 2099'), ['2099-08-15', '2099-09-20']);
 });
 
+test('follow-up reminders sort real dates before undated rows regardless of display format', async () => {
+    const liveCsv = [
+        'Place Name,Status,Next Follow Up,Priority',
+        'Undated Priority Room,Follow Up Needed,,10',
+        'Newer Due Room,Follow Up Needed,01/02/2024,2',
+        'Oldest Due Room,Follow Up Needed,Wed Jan 01 2020 00:00:00 GMT-0500 (Eastern Standard Time),1'
+    ].join('\n');
+
+    const snapshot = await loadPlannerSnapshot({ venueCsvText: liveCsv });
+
+    assert.deepEqual(
+        snapshot.followUps.map(venue => venue.name),
+        ['Oldest Due Room', 'Newer Due Room', 'Undated Priority Room']
+    );
+});
+
 test('reminder freshness rejects data older than the two-day safety window', () => {
     const now = Date.parse('2026-08-30T12:00:00Z');
     assert.equal(isDataFresh(now - (47 * 60 * 60 * 1000), now), true);
@@ -87,6 +103,24 @@ test('delivery health recommends a provider fallback after 48 unverified hours',
     assert.deepEqual(stale.staleRecipients, [recipient]);
     assert.equal(recovered.fallbackRecommended, false);
     assert.equal(recovered.recipients[recipient].unverifiedSince, null);
+});
+
+test('delivery verification permission gaps do not trigger a false provider failure', () => {
+    const recipient = '+15555550123';
+    const firstAttempt = new Date('2026-08-28T10:00:00Z');
+    const afterWindow = new Date('2026-08-30T10:00:01Z');
+    const first = updateDeliveryHealth({}, [{
+        recipient,
+        service: 'iMessage',
+        verified: false,
+        verificationUnavailable: true,
+        verificationReason: 'Messages database access denied.'
+    }], firstAttempt);
+    const later = updateDeliveryHealth(first, [], afterWindow);
+
+    assert.equal(first.recipients[recipient].lastVerificationUnavailable, true);
+    assert.equal(first.recipients[recipient].unverifiedSince, null);
+    assert.equal(later.fallbackRecommended, false);
 });
 
 test('scheduled delivery switches from iMessage-first to SMS-first after the fallback window', () => {
