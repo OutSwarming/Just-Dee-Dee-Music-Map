@@ -970,6 +970,31 @@ test('saveVenue writes only changed cell groups and does not rebuild the full CS
     assert.equal(cleanSheet.values[1][headerIndex(cleanSheet.values[0], 'Notes')], 'Keep this note');
 });
 
+test('end-to-end cleanup deletes only explicitly marked test venues', () => {
+    const sheet = createFakeSheet(
+        ['Place Name', 'Place ID', 'Status', 'Notes'],
+        [
+            ['Live Venue', 'live-venue', 'Booked', 'Keep'],
+            ['Test Venue', 'jddm-e2e-test-1', 'Needs Review', '[JDDM E2E TEST] safe temporary row'],
+            ['Unmarked Test-Like Venue', 'jddm-e2e-unmarked', 'Needs Review', 'Keep this too']
+        ]
+    );
+    const bridge = loadBridge(sheet);
+    bridge.setupComputerSection_({ applyFormatting: false });
+    const cleanSheet = bridge.getSheet_();
+
+    const protectedResult = bridge.deleteTestVenue_({ id: 'live-venue' });
+    const unmarkedResult = bridge.deleteTestVenue_({ id: 'jddm-e2e-unmarked' });
+    const deletedResult = bridge.deleteTestVenue_({ id: 'jddm-e2e-test-1' });
+
+    assert.equal(protectedResult.code, 'TEST_VENUE_REQUIRED');
+    assert.equal(unmarkedResult.code, 'TEST_MARKER_REQUIRED');
+    assert.equal(deletedResult.ok, true);
+    assert.equal(cleanSheet.values.some(row => row.includes('jddm-e2e-test-1')), false);
+    assert.equal(cleanSheet.values.some(row => row.includes('live-venue')), true);
+    assert.equal(cleanSheet.values.some(row => row.includes('jddm-e2e-unmarked')), true);
+});
+
 test('health advertises the lean storage schema', () => {
     const sheet = createFakeSheet(['Venue Name', 'CRM Status']);
     const bridge = loadBridge(sheet);
@@ -978,6 +1003,7 @@ test('health advertises the lean storage schema', () => {
     assert.equal(health.schemaVersion, '2026-08-30-shared-bridge-reminders');
     assert.ok(health.storageColumns.includes('Place Name'));
     assert.ok(health.sections.status.includes('Status'));
+    assert.equal(health.capabilities.guardedEndToEndCleanup, true);
     assert.ok(health.statusOptions.includes('Played in the Past - Awaiting Reply'));
     assert.ok(health.statusOptions.includes('Told No / Closed / No Music'));
     assert.equal(health.statusOptions.includes('Closed and Not Booking'), false);

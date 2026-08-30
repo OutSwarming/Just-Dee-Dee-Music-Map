@@ -5,6 +5,7 @@
     "test": "npm run test:booking && npm run test:music:artist-sync",
     "test:booking": "node --test tests/bookingSchema.test.js tests/bookingEmailTemplates.test.js tests/bookingAvailability.test.js tests/bookingActions.test.js tests/appsScriptBridgeColumns.test.js tests/venueEditModal.test.js tests/spreadsheetService.test.js tests/bookingDashboardHealth.test.js tests/dataServiceSyncStatus.test.js tests/versionAndLegacyCopy.test.js tests/websiteBookingsParser.test.mjs tests/websiteBookingsService.test.js tests/calendarIcsParser.test.mjs tests/deeDeeLocalReminderPlanner.test.mjs tests/deeDeeReminderBridge.test.js",
     "test:smoke:jddm": "node scripts/jddm-smoke-check.mjs",
+    "test:e2e:jddm-live": "node scripts/jddm-live-e2e.mjs --execute",
     "bookings:website:preview": "node scripts/pull-jddm-website-bookings.mjs",
     "bookings:website:history": "node scripts/stage-jddm-website-booking-history.mjs",
     "bookings:calendar:stage": "node scripts/stage-jddm-calendar-gigs.mjs",

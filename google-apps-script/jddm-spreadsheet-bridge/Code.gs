@@ -191,6 +191,7 @@ function routeRequest_(payload) {
     if (action === 'getVenue') return jsonOutput_(getVenue_(payload));
     if (action === 'createVenue') return jsonOutput_(createVenue_(payload));
     if (action === 'saveVenue') return jsonOutput_(saveVenue_(payload));
+    if (action === 'deleteTestVenue') return jsonOutput_(deleteTestVenue_(payload));
     if (action === 'setPlayed') return jsonOutput_(setPlayed_(payload));
     if (action === 'syncCalendarGigEvents' || action === 'runCalendarAutomation') return jsonOutput_(syncCalendarGigEvents_(payload));
     if (action === 'installCalendarAutomation' || action === 'setupCalendarAutomation') return jsonOutput_(installCalendarAutomation_());
@@ -1111,7 +1112,8 @@ function getHealth_() {
     capabilities: {
       artistTrackerReadWrite: true,
       reminderQueue: true,
-      reliableVenueWrites: true
+      reliableVenueWrites: true,
+      guardedEndToEndCleanup: true
     }
   });
 }
@@ -1532,6 +1534,26 @@ function saveVenue_(payload) {
       venue: rowObject_(row, data.headerMap),
       rawFields: rawFieldsFromRow_(row, data.headerMap)
     };
+  });
+}
+
+function deleteTestVenue_(payload) {
+  payload = payload || {};
+  return withScriptLock_(function() {
+    var id = clean_(payload.id);
+    if (id.indexOf('jddm-e2e-') !== 0) {
+      return { ok: false, code: 'TEST_VENUE_REQUIRED', message: 'Only guarded JDDM end-to-end test rows can be deleted.' };
+    }
+    var data = getData_();
+    var rowNumber = findRowById_(data, id);
+    if (rowNumber < 0) return { ok: false, code: 'NOT_FOUND', message: 'Test venue was not found.' };
+    var row = data.rows[rowNumber - 2];
+    var notes = clean_(getByHeader_(row, data.headerMap, 'Notes'));
+    if (notes.indexOf('[JDDM E2E TEST]') !== 0) {
+      return { ok: false, code: 'TEST_MARKER_REQUIRED', message: 'The row is missing the protected end-to-end test marker.' };
+    }
+    data.sheet.deleteRows(rowNumber, 1);
+    return { ok: true, action: 'deleteTestVenue', id: id, rowNumber: rowNumber };
   });
 }
 
