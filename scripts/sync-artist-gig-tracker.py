@@ -3,7 +3,7 @@
 Daily artist-site sync for the master Google Sheets gig tracker.
 
 Workflow:
-- Read the current cloud tracker tabs through the same Apps Script bridge used for writes.
+- Read the current cloud tracker tabs through the same Firebase bridge used for writes.
 - Check every artist website that has a supported public calendar.
 - Upsert future gigs into Events / Event_Artists / Venue_Artist_History.
 - Preserve every past event.
@@ -58,10 +58,7 @@ LOG_PATH = Path.home() / "Library" / "Logs" / "jddm-artist-gig-tracker-sync.log"
 ARTIST_SYNC_HEALTH_PATH = Path.home() / "Library" / "Application Support" / "Just Dee Dee Music Map" / "artist-gig-tracker-health.json"
 CHROME_DEBUG_URL = "http://127.0.0.1:9222"
 DEFAULT_APP_URL = "https://outswarming.github.io/Just-Dee-Dee-Music-Map/"
-DEFAULT_BRIDGE_URL = (
-    "https://script.google.com/macros/s/"
-    "AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec"
-)
+DEFAULT_BRIDGE_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge"
 DEFAULT_TEXT_RECIPIENTS = ["+14403054062", "+12168499292"]
 SERVICE_PRIORITY = ["iMessage", "SMS"]
 FETCH_FAILURE_COUNT = 0

@@ -37,7 +37,8 @@ const bookingDashboard = read('modules/bookingDashboard.js');
 const bookingActions = read('modules/bookingActions.js');
 const bookingSchema = read('modules/bookingSchema.js');
 const websiteBookingsService = read('modules/websiteBookingsService.js');
-const bridge = read('google-apps-script/jddm-spreadsheet-bridge/Code.gs');
+const bridge = read('functions/jddmSpreadsheetBridge.js');
+const calendarBridge = read('google-apps-script/jddm-spreadsheet-bridge/Code.gs');
 
 const runtimeText = [
     indexHtml,
@@ -70,8 +71,8 @@ assertCheck('Priority score save action exists', /SET_PRIORITY_SCORE/.test(booki
 assertCheck('Priority planner tab exists', /priorityLeads/.test(bookingDashboard));
 assertCheck('Planner View Map shows and selects clustered pins', /zoomToShowLayer/.test(bookingDashboard) && /active-pin/.test(bookingDashboard));
 assertCheck('Website booking service reads staged event files', /loadWebsiteBookings/.test(websiteBookingsService) && /getWebsiteBookingGroups/.test(websiteBookingsService));
-assertCheck('Apps Script calendar gig sync action exists', /syncCalendarGigEvents/.test(bridge) && /CalendarGigs/.test(bridge));
-assertCheck('Apps Script artist source audit sync action exists', /syncArtistSourceAudit/.test(bridge) && /Artist_Source_Audit/.test(bridge));
+assertCheck('Legacy calendar sync source remains available', /syncCalendarGigEvents/.test(calendarBridge) && /CalendarGigs/.test(calendarBridge));
+assertCheck('Firebase bridge exposes artist source audit sync', /syncArtistSourceAudit/.test(bridge) && /Artist_Source_Audit/.test(bridge));
 
 const dashboardVersion = matchVersion(
     bookingDashboard,
@@ -80,11 +81,11 @@ const dashboardVersion = matchVersion(
 );
 const bridgeVersion = matchVersion(
     bridge,
-    /JDDM_SCHEMA_VERSION\s*=\s*'([^']+)'/,
-    'Apps Script bridge schema'
+    /SCHEMA_VERSION\s*=\s*'([^']+)'/,
+    'Firebase bridge schema'
 );
 assertCheck(
-    'Dashboard and Apps Script schema versions match',
+    'Dashboard and Firebase bridge schema versions match',
     dashboardVersion === bridgeVersion,
     `${dashboardVersion} !== ${bridgeVersion}`
 );

@@ -4,9 +4,56 @@ const axios = require("axios");
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { google } = require('googleapis');
 const { createHash, createHmac, randomUUID, timingSafeEqual } = require("crypto");
+const {
+    createFirestoreIdempotencyStore,
+    createGoogleSheetsGateway,
+    createJddmSpreadsheetBridgeHandler,
+    createJddmSpreadsheetBridgeService
+} = require('./jddmSpreadsheetBridge');
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
+
+const jddmSpreadsheetGateway = createGoogleSheetsGateway({ google });
+const jddmSpreadsheetIdempotency = createFirestoreIdempotencyStore({
+    firestore: admin.firestore(),
+    Timestamp: admin.firestore.Timestamp
+});
+
+async function geocodeJddmSpreadsheetAddress(text) {
+    const apiKey = process.env.ORS_API_KEY;
+    if (!apiKey || !text) return null;
+    const params = new URLSearchParams({
+        api_key: apiKey,
+        text: String(text),
+        size: '1',
+        'boundary.country': 'US'
+    });
+    const response = await axios.get(`https://api.openrouteservice.org/geocode/search?${params.toString()}`);
+    const coordinates = response && response.data && response.data.features && response.data.features[0]
+        ? response.data.features[0].geometry.coordinates
+        : null;
+    return Array.isArray(coordinates) && coordinates.length >= 2
+        ? { lng: Number(coordinates[0]), lat: Number(coordinates[1]) }
+        : null;
+}
+
+const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
+    gateway: jddmSpreadsheetGateway,
+    idempotency: jddmSpreadsheetIdempotency,
+    geocode: geocodeJddmSpreadsheetAddress
+});
+
+const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
+    service: jddmSpreadsheetBridgeService,
+    allowedOrigins: [
+        'https://outswarming.github.io',
+        'https://just-dee-dee-music-map.web.app',
+        'https://just-dee-dee-music-map.firebaseapp.com',
+        'http://localhost:4173',
+        'http://127.0.0.1:4173'
+    ]
+});
 
 // Keep admin callables compatible with the current admin page. The backend
 // still enforces signed-in admin status plus per-admin rate limits.
@@ -862,6 +909,10 @@ async function handlePremiumGeocode(requestOrData, context, options = {}) {
         throw new functions.https.HttpsError("internal", "Failed to perform geocode.");
     }
 }
+
+exports.jddmSpreadsheetBridge = functions
+    .runWith({ secrets: ["ORS_API_KEY"], timeoutSeconds: 120, memory: "512MB" })
+    .https.onRequest(jddmSpreadsheetBridgeHandler);
 
 exports.getPremiumRoute = functions
     .runWith({ secrets: ["ORS_API_KEY"] })

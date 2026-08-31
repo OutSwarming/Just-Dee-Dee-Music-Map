@@ -56,7 +56,7 @@ function safeHealth(overrides = {}) {
     return {
         ok: true,
         sheetName: 'Venues',
-        schemaVersion: '2026-08-30-shared-bridge-reminders',
+        schemaVersion: '2026-08-31-firebase-shared-bridge',
         generatedColumns: [
             { header: 'Place Name' },
             { header: 'Address' },
@@ -96,7 +96,7 @@ test('booking dashboard reports safe sheet bridge as ready', () => {
     assert.match(summary.detail, /clean storage bridge/i);
 });
 
-test('booking dashboard warns when Apps Script is still on an old schema version', () => {
+test('booking dashboard warns when the spreadsheet bridge is still on an old schema version', () => {
     const dashboard = loadBookingDashboard();
     const summary = dashboard.getBridgeHealthSummary(
         { configured: true },
@@ -108,8 +108,8 @@ test('booking dashboard warns when Apps Script is still on an old schema version
     );
 
     assert.equal(summary.tone, 'warning');
-    assert.equal(summary.label, 'Apps Script redeploy needed');
-    assert.match(summary.detail, /Deploy the clean storage bridge/i);
+    assert.equal(summary.label, 'Spreadsheet bridge update needed');
+    assert.match(summary.detail, /Deploy the current Firebase bridge/i);
 });
 
 test('booking dashboard identifies missing CRM headers from bridge health', () => {

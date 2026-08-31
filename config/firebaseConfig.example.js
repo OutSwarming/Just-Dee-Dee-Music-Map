@@ -11,8 +11,8 @@ window.JDDM_FIREBASE_CONFIG = {
     measurementId: "G-KHN5ZF1G54"
 };
 
-// Google Apps Script bridge for editing spreadsheet rows from marker cards.
+// Firebase bridge for editing spreadsheet rows from marker cards.
 // Clean storage bridge: one Status column controls row colors and map played state.
-window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec";
+window.JDDM_SPREADSHEET_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 // window.JDDM_SPREADSHEET_EDIT_TOKEN = "";

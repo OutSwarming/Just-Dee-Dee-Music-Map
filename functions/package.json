@@ -9,11 +9,11 @@
     "googleapis": "^171.4.0"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "private": true,
   "scripts": {
-    "test": "NODE_ENV=test node --test tests/ors-entitlement.test.js tests/checkout-session.test.js tests/lemonsqueezy-webhook.test.js tests/dee-dee-reminders.test.js"
+    "test": "NODE_ENV=test node --test tests/ors-entitlement.test.js tests/checkout-session.test.js tests/lemonsqueezy-webhook.test.js tests/dee-dee-reminders.test.js tests/jddm-spreadsheet-bridge.test.js"
   }
 }

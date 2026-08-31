@@ -508,13 +508,13 @@
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
             renderRawFields(buildInitialRawFields(activeVenue));
-            setStatus('Spreadsheet save is not connected yet. Deploy the Apps Script bridge and paste its URL into config/firebaseConfig.example.js.', 'warning');
+            setStatus('Spreadsheet save is not connected yet. Deploy the Firebase spreadsheet bridge and paste its URL into config/firebaseConfig.example.js.', 'warning');
             return;
         }
 
         setStatus('Loading source spreadsheet row...', 'neutral');
         const slowTimer = setTimeout(() => {
-            setStatus('Still checking Google Sheets. New rows and cold Apps Script starts can take a little while.', 'neutral');
+            setStatus('Still checking Google Sheets. A cold cloud connection can take a little while.', 'neutral');
         }, 1800);
         const longTimer = setTimeout(() => {
             setStatus('Still loading the spreadsheet row. You can wait here; the map will keep using the current data until Sheets responds.', 'neutral');
@@ -544,7 +544,7 @@
         const service = getSpreadsheetService();
         if (!activeVenue) return;
         if (!service || !service.isConfigured()) {
-            setStatus('Spreadsheet bridge is not configured yet. Deploy the Apps Script bridge first.', 'warning');
+            setStatus('Spreadsheet bridge is not configured yet. Deploy the Firebase spreadsheet bridge first.', 'warning');
             return;
         }
 

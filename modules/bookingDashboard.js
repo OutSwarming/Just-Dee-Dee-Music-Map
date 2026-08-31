@@ -36,7 +36,7 @@
         { id: 'dataReview', label: 'Data Review' }
     ]);
 
-    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-08-30-shared-bridge-reminders';
+    const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-08-31-firebase-shared-bridge';
     const REQUIRED_BOOKING_HEADERS = [
         'Place Name',
         'Address',
@@ -372,8 +372,8 @@
         if (health.schemaVersion !== EXPECTED_SPREADSHEET_SCHEMA_VERSION) {
             return {
                 tone: 'warning',
-                label: 'Apps Script redeploy needed',
-                detail: `Connected to ${health.sheetName || 'the sheet'}, but the bridge version is ${health.schemaVersion || 'unknown'}. Deploy the clean storage bridge before live edits.`,
+                label: 'Spreadsheet bridge update needed',
+                detail: `Connected to ${health.sheetName || 'the sheet'}, but the bridge version is ${health.schemaVersion || 'unknown'}. Deploy the current Firebase bridge before live edits.`,
                 actionLabel: 'Recheck',
                 actionDisabled: false
             };
@@ -383,7 +383,7 @@
             return {
                 tone: 'warning',
                 label: 'Booking columns missing',
-                detail: `Missing: ${missingHeaders.join(', ')}. Reopen the Apps Script bridge after deployment and run purge/setup.`,
+                detail: `Missing: ${missingHeaders.join(', ')}. Check the master sheet headers and redeploy the Firebase bridge.`,
                 actionLabel: 'Recheck',
                 actionDisabled: false
             };

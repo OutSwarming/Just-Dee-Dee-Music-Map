@@ -12,10 +12,7 @@ import urllib.request
 from pathlib import Path
 
 
-DEFAULT_API_URL = (
-    "https://script.google.com/macros/s/"
-    "AKfycbyeskUlFOAAfBKjhVtHpDHfjKn_SOfzaN0CIorRvyRirS_hTzTjjwf5w5gB2qs9yiw8/exec"
-)
+DEFAULT_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge"
 DEFAULT_CSV = Path("data/artist_sources/artist_source_audit_sheet_ready.csv")
 
 
@@ -116,7 +113,7 @@ def main() -> int:
     if status != 200 or not response.get("ok"):
         if response.get("code") == "UNKNOWN_ACTION":
             print(
-                "\nThe live Apps Script bridge has not been redeployed with "
+                "\nThe live Firebase bridge has not been redeployed with "
                 "syncArtistSourceAudit yet.",
                 file=sys.stderr,
             )

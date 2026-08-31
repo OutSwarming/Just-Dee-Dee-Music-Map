@@ -71,6 +71,14 @@ test('spreadsheet service rejects health checks when bridge URL is missing', asy
     );
 });
 
+test('spreadsheet service accepts the Firebase-hosted bridge URL', async () => {
+    const service = loadSpreadsheetService({
+        apiUrl: 'https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge'
+    });
+
+    assert.equal(service.isConfigured(), true);
+});
+
 test('spreadsheet service exposes the create venue bridge action', async () => {
     let requestOptions = null;
     const service = loadSpreadsheetService({

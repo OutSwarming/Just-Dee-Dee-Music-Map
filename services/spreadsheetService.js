@@ -26,7 +26,10 @@
 
     function isConfigured() {
         const url = getApiUrl();
-        return Boolean(url && /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/i.test(url));
+        return Boolean(url && (
+            /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/i.test(url) ||
+            /^https:\/\/[a-z0-9-]+-[a-z0-9-]+\.cloudfunctions\.net\/jddmSpreadsheetBridge\/?$/i.test(url)
+        ));
     }
 
     function getConfigStatus() {

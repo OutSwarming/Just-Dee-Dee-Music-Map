@@ -1,53 +1,35 @@
 # Just Dee Dee Spreadsheet Bridge Setup
 
-This app is hosted on GitHub Pages, so it cannot write to Google Sheets by itself. The bridge is a tiny Google Apps Script web app that runs inside the spreadsheet and updates rows for the map.
+The production bridge is a Firebase HTTPS function. It replaces the inaccessible Apps Script project and does not require Carter or Dee Dee to click an Apps Script authorization button.
 
-## 1. Install the Bridge
-
-1. Open the original working Just Dee Dee Music spreadsheet.
-2. Click `Extensions` > `Apps Script`.
-3. Delete any starter code in `Code.gs`.
-4. Paste the contents of:
-
-   `google-apps-script/jddm-spreadsheet-bridge/Code.gs`
-
-5. Click `Save`.
-
-## 2. Deploy the Web App
-
-1. Click `Deploy` > `New deployment`.
-2. Click the gear icon and choose `Web app`.
-3. Set:
-   - Description: `Just Dee Dee Music Map bridge`
-   - Execute as: `Me`
-   - Who has access: `Anyone with the link`
-4. Click `Deploy`.
-5. Authorize the requested Google Sheets permissions.
-6. Copy the Web app URL. It should end with `/exec`.
-
-## 3. Connect the Map
-
-The app is currently wired back to the original working bridge:
+## Production connection
 
 ```js
-window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu/exec";
-window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
+window.JDDM_SPREADSHEET_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
+window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
 ```
 
-If you deploy a replacement bridge later, paste the new `/exec` URL into `config/firebaseConfig.example.js`:
+The function runs as `barkrangermap-auth@appspot.gserviceaccount.com`, which has editor access only to the Just Dee Dee master spreadsheet. The app, reminder worker, artist sync, and test runner all use this same endpoint for reads and writes.
 
-```js
-window.JDDM_SPREADSHEET_API_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
-window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
+The health response must report schema `2026-08-31-firebase-shared-bridge` and advertise venue writes, reminder queue, artist tracker read/write, guarded cleanup, and geocoding before a deployment is considered ready.
+
+## Deploy or update
+
+From the repository root:
+
+```bash
+npx firebase-tools deploy --only functions:jddmSpreadsheetBridge --project barkrangermap-auth
 ```
 
-The current `Code.gs` uses the active bound spreadsheet. Open the Apps Script editor from the spreadsheet itself with `Extensions` > `Apps Script`, then paste/deploy the bridge there.
+This command updates only the Just Dee Dee bridge. It does not redeploy the other BARK Ranger functions in that Firebase project.
 
-`JDDM_VENUE_CSV_URL` makes spreadsheet edits flow back into the map data feed. Shared bridge `2026-08-30-shared-bridge-reminders` returns only the changed venue after a save, reads and writes the artist tracker tabs, and owns the web reminder queue.
+## Production end-to-end test
 
-When updating an existing deployment, choose `Deploy` > `Manage deployments` > the pencil icon, select `New version`, and deploy. Replacing code without creating a new deployment version does not update the live `/exec` endpoint. The Booking Planner health card must report schema `2026-08-30-shared-bridge-reminders` before every connection is considered ready.
+```bash
+node scripts/jddm-live-e2e.mjs --execute --exercise-artist-write
+```
 
-Only turn on `JDDM_VENUE_CSV_URL` after the live sheet has usable `Place ID`, `Longitude`, and `Latitude` values. Until then, keep the checked-in CSV as the map fallback.
+Add `--send-reminder` only when a real reminder text should be delivered. The test creates a marked temporary venue, edits and reads it back, validates the artist/event connections, optionally performs an artist-table read/write round trip, and removes the temporary venue in a guarded cleanup step.
 
 ## 4. Generated Map Columns
 

@@ -1,0 +1,350 @@
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const {
+    ARTIST_TRACKER_SHEETS,
+    CANONICAL_HEADERS,
+    REMINDER_HEADERS,
+    SCHEMA_VERSION,
+    WEBSITE_GIG_HEADERS,
+    createJddmSpreadsheetBridgeHandler,
+    createJddmSpreadsheetBridgeService,
+    parseCsv,
+    valuesToCsv
+} = require('../jddmSpreadsheetBridge');
+
+function columnIndex(name) {
+    return String(name).split('').reduce((value, char) => value * 26 + char.charCodeAt(0) - 64, 0) - 1;
+}
+
+function createFakeGateway(initial = {}) {
+    const sheets = {};
+    Object.entries(initial).forEach(([name, values]) => {
+        sheets[name] = values.map(row => row.slice());
+    });
+    const calls = [];
+
+    function getSheetRange(range) {
+        const match = String(range).match(/^([^!]+)!([A-Z]+)(\d*)?(?::([A-Z]+)?(\d*)?)?$/);
+        if (!match) throw new Error(`Unsupported test range: ${range}`);
+        return {
+            sheetName: match[1],
+            startColumn: columnIndex(match[2]),
+            startRow: match[3] ? Number(match[3]) - 1 : 0,
+            endColumn: match[4] ? columnIndex(match[4]) : null,
+            endRow: match[5] ? Number(match[5]) - 1 : null
+        };
+    }
+
+    async function metadata() {
+        return {
+            properties: { title: 'JustDeeDeeMusic Master Venue Spreadsheet', timeZone: 'America/New_York' },
+            sheets: Object.keys(sheets).map((title, index) => ({ properties: { title, sheetId: index + 100, index } }))
+        };
+    }
+
+    async function getValues(range) {
+        calls.push({ action: 'getValues', range });
+        const parsed = getSheetRange(range);
+        const values = sheets[parsed.sheetName] || [];
+        const endRow = parsed.endRow === null ? values.length - 1 : parsed.endRow;
+        return values.slice(parsed.startRow, endRow + 1).map(row => {
+            const endColumn = parsed.endColumn === null ? row.length - 1 : parsed.endColumn;
+            return row.slice(parsed.startColumn, endColumn + 1);
+        });
+    }
+
+    async function updateValues(range, values) {
+        calls.push({ action: 'updateValues', range, values });
+        const parsed = getSheetRange(range);
+        if (!sheets[parsed.sheetName]) sheets[parsed.sheetName] = [];
+        values.forEach((sourceRow, rowOffset) => {
+            const rowIndex = parsed.startRow + rowOffset;
+            while (sheets[parsed.sheetName].length <= rowIndex) sheets[parsed.sheetName].push([]);
+            sourceRow.forEach((value, columnOffset) => {
+                sheets[parsed.sheetName][rowIndex][parsed.startColumn + columnOffset] = value;
+            });
+        });
+        return { updatedRange: range };
+    }
+
+    async function appendValues(range, values) {
+        calls.push({ action: 'appendValues', range, values });
+        const parsed = getSheetRange(range);
+        if (!sheets[parsed.sheetName]) sheets[parsed.sheetName] = [];
+        const start = sheets[parsed.sheetName].length + 1;
+        values.forEach(row => sheets[parsed.sheetName].push(row.slice()));
+        return { updates: { updatedRange: `${parsed.sheetName}!A${start}:AB${start + values.length - 1}` } };
+    }
+
+    return {
+        calls,
+        sheets,
+        metadata,
+        getValues,
+        async getSheetValues(name) {
+            calls.push({ action: 'getSheetValues', name });
+            if (!sheets[name]) throw new Error(`Sheet not found: ${name}`);
+            return sheets[name].map(row => row.slice());
+        },
+        updateValues,
+        appendValues,
+        async ensureSheet(name, headers) {
+            calls.push({ action: 'ensureSheet', name, headers });
+            if (!sheets[name]) sheets[name] = headers ? [headers.slice()] : [];
+        },
+        async replaceSheetValues(name, values) {
+            calls.push({ action: 'replaceSheetValues', name, values });
+            sheets[name] = values.map(row => row.slice());
+        },
+        async formatVenueRow(rowNumber, status, width) {
+            calls.push({ action: 'formatVenueRow', rowNumber, status, width });
+        },
+        async deleteRow(name, rowNumber) {
+            calls.push({ action: 'deleteRow', name, rowNumber });
+            sheets[name].splice(rowNumber - 1, 1);
+        }
+    };
+}
+
+function makeVenueRow(overrides = {}) {
+    return CANONICAL_HEADERS.map(header => Object.prototype.hasOwnProperty.call(overrides, header) ? overrides[header] : '');
+}
+
+function createMemoryIdempotency() {
+    const results = new Map();
+    return {
+        async acquire(id) {
+            return results.has(id) ? { state: 'complete', result: results.get(id) } : { state: 'acquired' };
+        },
+        async complete(id, result) {
+            results.set(id, result);
+        },
+        async fail() {}
+    };
+}
+
+test('bridge reports the Firebase schema and live workbook capability', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+
+    const result = await service.route({ action: 'health' });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.schemaVersion, SCHEMA_VERSION);
+    assert.equal(result.sheetName, 'Sheet1');
+    assert.equal(result.capabilities.firebaseHosted, true);
+    assert.equal(result.capabilities.reminderQueue, true);
+});
+
+test('bridge reads and updates a venue by stable Place ID', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [
+            CANONICAL_HEADERS,
+            makeVenueRow({ 'Place Name': 'Test Room', 'Place ID': 'test-room', Status: 'Needs Review', Notes: 'before' })
+        ]
+    });
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+
+    const before = await service.route({ action: 'getVenue', id: 'test-room' });
+    const saved = await service.route({
+        action: 'saveVenue',
+        id: 'test-room',
+        requestId: 'save-1',
+        rawFields: { Status: 'Booked', Notes: 'after' }
+    });
+    const after = await service.route({ action: 'getVenue', id: 'test-room' });
+
+    assert.equal(before.rawFields.Notes, 'before');
+    assert.deepEqual(saved.changedHeaders, ['Status', 'Notes']);
+    assert.equal(after.rawFields.Status, 'Booked');
+    assert.equal(after.rawFields.Notes, 'after');
+    assert.ok(gateway.calls.some(call => call.action === 'formatVenueRow' && call.status === 'Booked'));
+});
+
+test('create venue geocodes, generates an id, and safely replays a request', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
+    const service = createJddmSpreadsheetBridgeService({
+        gateway,
+        idempotency: createMemoryIdempotency(),
+        geocode: async () => ({ lat: 41.5, lng: -81.7 }),
+        now: () => new Date('2026-08-31T01:00:00.000Z')
+    });
+    const payload = {
+        action: 'createVenue',
+        requestId: 'create-stable-1',
+        rawFields: {
+            'Place Name': 'New Test Stage',
+            Address: '1 Music Way',
+            City: 'Cleveland',
+            State: 'OH',
+            Notes: '[JDDM E2E TEST] temporary'
+        }
+    };
+
+    const created = await service.route(payload);
+    const replayed = await service.route(payload);
+
+    assert.equal(created.ok, true);
+    assert.equal(created.venue['Place ID'], 'new-test-stage-cleveland-oh');
+    assert.equal(created.venue.Latitude, 41.5);
+    assert.equal(created.venue.Longitude, -81.7);
+    assert.equal(created.hasCoordinates, true);
+    assert.equal(replayed.replayed, true);
+    assert.equal(gateway.sheets.Sheet1.length, 2);
+});
+
+test('create venue rejects a duplicate name and address', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [
+            CANONICAL_HEADERS,
+            makeVenueRow({ 'Place Name': 'Same Stage', Address: '1 Main St', City: 'Akron', State: 'OH', 'Place ID': 'same-stage' })
+        ]
+    });
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+
+    const result = await service.route({
+        action: 'createVenue',
+        requestId: 'duplicate-1',
+        rawFields: { 'Place Name': 'Same Stage', Address: '1 Main St', City: 'Akron', State: 'OH' }
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'DUPLICATE_VENUE');
+    assert.equal(gateway.sheets.Sheet1.length, 2);
+});
+
+test('reminder queue deduplicates pending work and records completion', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
+    const service = createJddmSpreadsheetBridgeService({
+        gateway,
+        now: () => new Date('2026-08-31T01:15:00.000Z')
+    });
+
+    const queued = await service.route({ action: 'queueReminder', reminderId: 'follow-ups', requestId: 'reminder-1' });
+    const duplicate = await service.route({ action: 'queueReminder', reminderId: 'follow-ups', requestId: 'reminder-2' });
+    const pending = await service.route({ action: 'getPendingReminders' });
+    const completed = await service.route({ action: 'completeReminder', requestId: 'reminder-1', status: 'sent', result: 'SM-test' });
+
+    assert.equal(queued.queued, true);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(pending.reminders.length, 1);
+    assert.equal(pending.reminders[0].requestId, 'reminder-1');
+    assert.equal(completed.status, 'sent');
+    assert.deepEqual(gateway.sheets.ReminderQueue[0], REMINDER_HEADERS);
+    assert.equal(gateway.sheets.ReminderQueue[1][3], 'sent');
+});
+
+test('official website gig sync preserves calendar dates and replaces only its own snapshot', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [
+            CANONICAL_HEADERS,
+            makeVenueRow({
+                'Place Name': 'Shared Source Room',
+                'Place ID': 'shared-source-room',
+                'Future Gigs': '2099-08-09; 2099-09-10',
+                'Future Gig Count': 2,
+                'Total Gig Count': 2
+            })
+        ],
+        WebsiteGigs: [
+            WEBSITE_GIG_HEADERS,
+            ['website-old', '2099-08-09', 'Old gig', 'Shared Source Room', '1 Main St, Akron, OH 44308', 'https://www.justdeedeemusic.com/calendar/', '2099-01-01']
+        ]
+    });
+    const service = createJddmSpreadsheetBridgeService({ gateway, now: () => new Date('2099-01-02T00:00:00.000Z') });
+
+    const refused = await service.route({ action: 'syncWebsiteGigEvents', sourceChecked: false, events: [] });
+    const synced = await service.route({
+        action: 'syncWebsiteGigEvents',
+        sourceChecked: true,
+        events: [
+            { id: 'website-new', date: '2099-08-10', venueName: 'Shared Source Room', title: 'New gig' },
+            { id: 'website-added', date: '2099-10-01', venueName: 'Brand New Room', location: '2 Main St, Cleveland, OH 44101', sourceUrl: 'https://www.justdeedeemusic.com/calendar/' }
+        ]
+    });
+
+    assert.equal(refused.code, 'UNCONFIRMED_WEBSITE_GIG_SOURCE');
+    assert.equal(synced.ok, true);
+    assert.equal(synced.websiteEventCount, 2);
+    assert.equal(synced.mapSync.addedRows.length, 1);
+    assert.equal(gateway.sheets.Sheet1[1][CANONICAL_HEADERS.indexOf('Future Gigs')], '2099-08-10; 2099-09-10');
+    assert.equal(gateway.sheets.Sheet1[2][CANONICAL_HEADERS.indexOf('Place Name')], 'Brand New Room');
+    assert.equal(gateway.sheets.WebsiteGigs.length, 3);
+});
+
+test('artist tracker tables read and write through the same gateway', async () => {
+    const initial = { Sheet1: [CANONICAL_HEADERS] };
+    ARTIST_TRACKER_SHEETS.forEach(name => {
+        initial[name] = [['id', 'name'], [`${name}-1`, `${name} One`]];
+    });
+    const gateway = createFakeGateway(initial);
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+
+    const before = await service.route({ action: 'getArtistTrackerTable', sheetName: 'Artists' });
+    const written = await service.route({
+        action: 'syncArtistTrackerTable',
+        sheetName: 'Artists',
+        csv: 'artist_id,canonical_name\nartist-2,"Two, Artist"'
+    });
+    const after = await service.route({ action: 'getArtistTrackerTable', sheetName: 'Artists' });
+
+    assert.match(before.csv, /Artists One/);
+    assert.equal(written.rowCount, 1);
+    assert.match(after.csv, /"Two, Artist"/);
+});
+
+test('CSV helpers preserve quotes, commas, and line breaks', () => {
+    const values = [['id', 'notes'], ['one', 'comma, quote " and\nline']];
+    const csv = valuesToCsv(values);
+    assert.deepEqual(parseCsv(csv), values);
+});
+
+test('HTTP handler serves CSV and blocks an unexpected browser origin', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [CANONICAL_HEADERS, makeVenueRow({ 'Place Name': 'CSV Room', 'Place ID': 'csv-room' })]
+    });
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+    const handler = createJddmSpreadsheetBridgeHandler({ service, allowedOrigins: ['https://outswarming.github.io'] });
+
+    function responseRecorder() {
+        return {
+            headers: {},
+            statusCode: 0,
+            body: null,
+            set(name, value) { this.headers[name] = value; return this; },
+            type(value) { this.headers['Content-Type'] = value; return this; },
+            status(value) { this.statusCode = value; return this; },
+            send(value) { this.body = value; return this; },
+            json(value) { this.body = value; return this; }
+        };
+    }
+
+    const csvResponse = responseRecorder();
+    await handler({ method: 'GET', query: { action: 'csv' }, headers: {}, get: () => '' }, csvResponse);
+    assert.equal(csvResponse.statusCode, 200);
+    assert.match(csvResponse.body, /CSV Room/);
+
+    const blocked = responseRecorder();
+    await handler({ method: 'POST', body: { action: 'health' }, headers: { origin: 'https://evil.example' }, get: () => 'https://evil.example' }, blocked);
+    assert.equal(blocked.statusCode, 403);
+    assert.equal(blocked.body.code, 'ORIGIN_NOT_ALLOWED');
+});
+
+test('guarded cleanup only deletes marked end-to-end test rows', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [
+            CANONICAL_HEADERS,
+            makeVenueRow({ 'Place Name': 'Protected', 'Place ID': 'normal-row', Notes: 'real data' }),
+            makeVenueRow({ 'Place Name': 'Temporary', 'Place ID': 'jddm-e2e-temp', Notes: '[JDDM E2E TEST] delete me' })
+        ]
+    });
+    const service = createJddmSpreadsheetBridgeService({ gateway });
+
+    const refused = await service.route({ action: 'deleteTestVenue', id: 'normal-row' });
+    const deleted = await service.route({ action: 'deleteTestVenue', id: 'jddm-e2e-temp' });
+
+    assert.equal(refused.code, 'TEST_VENUE_REQUIRED');
+    assert.equal(deleted.ok, true);
+    assert.equal(gateway.sheets.Sheet1.length, 2);
+});
