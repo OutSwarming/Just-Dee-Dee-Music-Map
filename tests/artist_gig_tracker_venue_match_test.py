@@ -1320,6 +1320,16 @@ class ArtistGigTrackerVenueMatchTest(unittest.TestCase):
         self.assertIn("DATE CHANGED:", body)
         self.assertIn("https://example.test/app/", body)
 
+    def test_artist_change_text_does_not_repeat_review_only_new_venues(self):
+        body = artist_gig_tracker.build_artist_change_text({
+            "added_events": [],
+            "canceled_events": [],
+            "rescheduled_events": [],
+            "new_venues": [{"venue_name": "Already queued for review"}],
+        })
+
+        self.assertEqual(body, "")
+
     def test_artist_sync_installer_runs_at_fixed_calendar_times(self):
         installer = (ROOT / "scripts" / "install-artist-gig-tracker-sync.mjs").read_text(encoding="utf-8")
 

@@ -4554,7 +4554,10 @@ def build_artist_change_text(summary: dict[str, object], app_url: str = DEFAULT_
     canceled = summary.get("canceled_events") if isinstance(summary.get("canceled_events"), list) else []
     rescheduled = summary.get("rescheduled_events") if isinstance(summary.get("rescheduled_events"), list) else []
     new_venues = summary.get("new_venues") if isinstance(summary.get("new_venues"), list) else []
-    if not added and not canceled and not rescheduled and not new_venues:
+    # A venue may remain in the review queue across multiple healthy runs. Only
+    # send a change digest when an event was actually added, removed, or moved;
+    # otherwise the same review-only venue would be texted every five hours.
+    if not added and not canceled and not rescheduled:
         return ""
 
     lines = ["Official musician website update:"]
