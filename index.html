@@ -89,6 +89,15 @@
                     </svg>
                 </button>
             </div>
+            <div class="place-search" id="place-search">
+                <label for="place-search-input">Search Ohio places (Google)</label>
+                <div class="place-search-input-row">
+                    <input id="place-search-input" type="search" autocomplete="off" placeholder="e.g. winery, brewery, coffee shop in Akron">
+                    <button id="place-search-clear" type="button" hidden>Clear</button>
+                </div>
+                <p id="place-search-status" aria-live="polite"></p>
+                <div id="place-search-results" class="place-search-results" hidden></div>
+            </div>
         </div>
 
         <div id="filter-content" class="filter-content">
@@ -501,15 +510,6 @@
                 </div>
                 <p id="booking-planner-search-status" aria-live="polite"></p>
             </div>
-            <div class="place-search" id="place-search">
-                <label for="place-search-input">Search Ohio places (Google)</label>
-                <div class="place-search-input-row">
-                    <input id="place-search-input" type="search" autocomplete="off" placeholder="e.g. winery, brewery, coffee shop in Akron">
-                    <button id="place-search-clear" type="button" hidden>Clear</button>
-                </div>
-                <p id="place-search-status" aria-live="polite"></p>
-                <div id="place-search-results" class="place-search-results" hidden></div>
-            </div>
             <div id="booking-planner-tabs" class="booking-tabs" role="tablist" aria-label="Booking CRM states"></div>
 
             <div id="booking-planner-empty" class="booking-empty" hidden></div>
@@ -747,7 +747,7 @@
 
                         <p
                             style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid #f1f5f9; padding-top: 15px; margin: 0;">
-                            Just Dee Dee Music Live Map v<span id="settings-app-version">15</span>
+                            Just Dee Dee Music Live Map v<span id="settings-app-version">16</span>
                         </p>
 
                     </div>
@@ -1389,7 +1389,7 @@
     <script src="modules/renderEngine.js?v=11" defer></script>
     <script src="renderers/panelRenderer.js?v=8" defer></script>
     <script src="modules/venueEditModal.js?v=8" defer></script>
-    <script src="modules/placeSearch.js?v=1" defer></script>
+    <script src="modules/placeSearch.js?v=2" defer></script>
     <script src="modules/searchEngine.js?v=6" defer></script>
     <script src="modules/bookingSchema.js?v=8" defer></script>
     <script src="modules/bookingEmailTemplates.js?v=3" defer></script>

@@ -67,20 +67,20 @@
         const style = document.createElement('style');
         style.id = 'place-search-styles';
         style.textContent = `
-            .place-search { margin: 10px 0 4px; }
-            .place-search > label { display:block; font-size:12px; font-weight:600; opacity:.8; margin-bottom:4px; }
+            .place-search { margin: 8px 0 2px; text-align:left; }
+            .place-search > label { display:block; font-size:12px; font-weight:700; margin-bottom:4px; color:#374151; }
             .place-search-input-row { display:flex; gap:6px; }
             .place-search-input-row input { flex:1; }
-            .place-search-results { margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:320px; overflow:auto; }
-            .place-search-result { border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:8px 10px; background:rgba(255,255,255,.05); }
-            .place-search-result h4 { margin:0 0 2px; font-size:13px; }
-            .place-search-result p { margin:0 0 6px; font-size:11px; opacity:.75; }
-            .place-search-result .place-search-meta { font-size:11px; opacity:.6; margin:0 0 6px; }
-            .place-search-add { font-size:12px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer; border:1px solid rgba(120,200,140,.5); background:rgba(90,190,120,.18); color:inherit; }
-            .place-search-add:hover { background:rgba(90,190,120,.32); }
-            #place-search-status[data-tone="error"] { color:#ff9a9a; }
-            #place-search-status[data-tone="success"] { color:#9ae6b4; }
-            #place-search-status { font-size:11px; margin:4px 0 0; min-height:14px; }
+            .place-search-results { margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:300px; overflow:auto; }
+            .place-search-result { border:1px solid rgba(0,0,0,.12); border-radius:10px; padding:8px 10px; background:rgba(0,0,0,.03); }
+            .place-search-result h4 { margin:0 0 2px; font-size:13px; color:#111827; }
+            .place-search-result p { margin:0 0 6px; font-size:11px; color:#4b5563; }
+            .place-search-result .place-search-meta { font-size:11px; color:#6b7280; margin:0 0 6px; }
+            .place-search-add { font-size:12px; font-weight:700; padding:6px 12px; border-radius:8px; cursor:pointer; border:1px solid #16a34a; background:#22c55e; color:#052e16; }
+            .place-search-add:hover { background:#16a34a; color:#fff; }
+            #place-search-status { font-size:11px; margin:4px 0 0; min-height:14px; color:#4b5563; }
+            #place-search-status[data-tone="error"] { color:#b91c1c; }
+            #place-search-status[data-tone="success"] { color:#15803d; }
         `;
         document.head.appendChild(style);
     }
