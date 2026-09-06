@@ -81,6 +81,15 @@
             #place-search-status { font-size:11px; margin:4px 0 0; min-height:14px; color:#4b5563; }
             #place-search-status[data-tone="error"] { color:#b91c1c; }
             #place-search-status[data-tone="success"] { color:#15803d; }
+            .temp-pin-popup { min-width:180px; }
+            .temp-pin-popup .temp-pin-name { display:block; font-size:13px; color:#111827; margin-bottom:2px; }
+            .temp-pin-popup .temp-pin-note { display:block; font-size:11px; color:#6b7280; margin-bottom:8px; }
+            .temp-pin-actions { display:flex; flex-direction:column; gap:6px; }
+            .temp-pin-actions button { font-size:12px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+            .temp-pin-add { border-color:#16a34a; background:#22c55e; color:#052e16; }
+            .temp-pin-add:hover { background:#16a34a; color:#fff; }
+            .temp-pin-remove { border-color:#d1d5db; background:#fff; color:#b91c1c; }
+            .temp-pin-remove:hover { background:#fee2e2; }
         `;
         document.head.appendChild(style);
     }
@@ -203,17 +212,50 @@
         }).join('');
     }
 
-    function dropTempPin(lat, lng, label) {
+    function clearTempPin() {
+        const map = window.map || (window.BARK && window.BARK.map);
+        if (tempMarker && map) {
+            try { map.removeLayer(tempMarker); } catch (e) { /* ignore */ }
+        }
+        tempMarker = null;
+    }
+
+    function openAddFormForPlace(place) {
+        if (typeof window.BARK.openNewVenueEditor === 'function') {
+            window.BARK.openNewVenueEditor(buildPrefill(place));
+        } else {
+            setStatus('The Add-a-Place editor is not ready yet. Refresh and try again.', 'error');
+        }
+    }
+
+    function dropTempPin(place) {
         const map = window.map || (window.BARK && window.BARK.map);
         if (!map || typeof map.setView !== 'function' || typeof window.L === 'undefined') return;
         const L = window.L;
-        if (tempMarker) {
-            try { map.removeLayer(tempMarker); } catch (e) { /* ignore */ }
-            tempMarker = null;
-        }
+        const loc = place.location || {};
+        const lat = Number(loc.latitude);
+        const lng = Number(loc.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const label = clean(place.displayName && place.displayName.text) || 'New place';
+
+        clearTempPin();
         map.setView([lat, lng], 15);
-        tempMarker = L.marker([lat, lng], { title: label || 'New place' }).addTo(map);
-        if (tempMarker.bindPopup) tempMarker.bindPopup(`<strong>${escapeHtml(label)}</strong><br><em>New place — fill the form to add it.</em>`).openPopup();
+        tempMarker = L.marker([lat, lng], { title: label }).addTo(map);
+
+        // The blue pin is a candidate, not yet on the sheet. Clicking it offers
+        // to add it (opens the prefilled form -> official JDDM pin) or remove it.
+        const popupEl = document.createElement('div');
+        popupEl.className = 'temp-pin-popup';
+        popupEl.innerHTML = `
+            <strong class="temp-pin-name">${escapeHtml(label)}</strong>
+            <span class="temp-pin-note">Not on the map yet</span>
+            <div class="temp-pin-actions">
+                <button type="button" class="temp-pin-add">+ Add to spreadsheet</button>
+                <button type="button" class="temp-pin-remove">Remove pin</button>
+            </div>`;
+        popupEl.querySelector('.temp-pin-add').addEventListener('click', () => openAddFormForPlace(place));
+        popupEl.querySelector('.temp-pin-remove').addEventListener('click', () => clearTempPin());
+        tempMarker.bindPopup(popupEl);
     }
 
     function buildPrefill(place) {
@@ -241,17 +283,8 @@
     function handleAddClick(index) {
         const place = lastResults[index];
         if (!place) return;
-        const loc = place.location || {};
-        const lat = Number(loc.latitude);
-        const lng = Number(loc.longitude);
-        const label = clean(place.displayName && place.displayName.text) || 'New place';
-        if (Number.isFinite(lat) && Number.isFinite(lng)) dropTempPin(lat, lng, label);
-
-        if (typeof window.BARK.openNewVenueEditor === 'function') {
-            window.BARK.openNewVenueEditor(buildPrefill(place));
-        } else {
-            setStatus('The Add-a-Place editor is not ready yet. Refresh and try again.', 'error');
-        }
+        dropTempPin(place);
+        openAddFormForPlace(place);
     }
 
     function init() {
@@ -259,6 +292,10 @@
         if (!input || init.bound) return;
         init.bound = true;
         injectStyles();
+
+        // When a place is officially added to the sheet (its JDDM pin appears),
+        // remove the blue candidate pin.
+        document.addEventListener('jddm:venue-created', clearTempPin);
 
         const clearBtn = qs('place-search-clear');
         const results = qs('place-search-results');
@@ -297,7 +334,7 @@
         }
     }
 
-    window.BARK.placeSearch = { init, runSearch, buildPrefill, addressFromPlace, venueTypeFromPlace, isOhioPlace };
+    window.BARK.placeSearch = { init, runSearch, buildPrefill, addressFromPlace, venueTypeFromPlace, isOhioPlace, clearTempPin };
 
     document.addEventListener('DOMContentLoaded', init);
 })();

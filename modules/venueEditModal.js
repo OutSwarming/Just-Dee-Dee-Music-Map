@@ -589,6 +589,14 @@
                 ? `${isCreatingVenue ? 'Place added' : 'Saved'} to spreadsheet. The map is refreshing in the background.${coordinateNote}`
                 : 'Saved to spreadsheet. This pin is updated locally; full sheet sync can be enabled after the live sheet has coordinates.';
             setStatus(syncMessage, 'success');
+
+            // Signal the map (e.g. Ohio place search) that a place is now official,
+            // so its blue candidate pin can be cleared.
+            if (isCreatingVenue) {
+                try {
+                    document.dispatchEvent(new CustomEvent('jddm:venue-created', { detail: { name: clean(fields.name) } }));
+                } catch (dispatchError) { /* ignore */ }
+            }
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
             setStatus(error.message || 'Save failed. Check the Apps Script deployment and try again.', 'error');
