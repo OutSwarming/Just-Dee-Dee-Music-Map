@@ -100,7 +100,10 @@
                 contactStatus: statuses.WAITING_REPLY,
                 draftStatus: draftStatuses.SENT,
                 lastContactedDate: today,
-                nextFollowUpDate: formatLocalDate(addDays(todayDate, 7)),
+                // Default follow-up: 3 days out from today. You can still set any
+                // date manually; this is only the fallback so a contacted venue
+                // never sits without a follow-up.
+                nextFollowUpDate: formatLocalDate(addDays(todayDate, 3)),
                 doNotContact: false
             };
         }

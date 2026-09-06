@@ -41,7 +41,7 @@ function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-test('mark sent sets waiting-reply status and schedules a seven day follow-up', () => {
+test('mark sent sets waiting-reply status and schedules a three day follow-up', () => {
     const bark = loadBookingModules();
     const patch = bark.bookingActions.buildStatusPatch(
         bark.bookingActions.ACTION_TYPES.MARK_SENT,
@@ -52,7 +52,7 @@ test('mark sent sets waiting-reply status and schedules a seven day follow-up', 
         contactStatus: bark.bookingSchema.CONTACT_STATUS.WAITING_REPLY,
         draftStatus: bark.bookingSchema.DRAFT_STATUS.SENT,
         lastContactedDate: '2026-05-04',
-        nextFollowUpDate: '2026-05-11',
+        nextFollowUpDate: '2026-05-07',
         doNotContact: false
     });
 });

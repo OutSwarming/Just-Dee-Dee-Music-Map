@@ -637,18 +637,27 @@
         await loadSourceRow();
     }
 
-    function openNewVenueEditor() {
+    function openNewVenueEditor(prefill) {
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
             alert('The spreadsheet bridge must be connected before adding a place.');
             return;
         }
+        // Only accept a plain object of prefill fields (button click handlers pass
+        // an Event, which we must ignore).
+        const isDomEvent = typeof Event !== 'undefined' && prefill instanceof Event;
+        const prefillFields = prefill && typeof prefill === 'object' && !isDomEvent
+            ? prefill
+            : {};
         isCreatingVenue = true;
         activeVenue = {};
         setEditorMode(true);
-        renderRawFields(buildNewVenueRawFields());
+        renderRawFields({ ...buildNewVenueRawFields(), ...prefillFields });
         bindModalEvents();
-        setStatus('Enter the place name and address. Latitude and longitude are optional; the bridge will geocode the address.', 'neutral');
+        const prefilled = Object.keys(prefillFields).length > 0;
+        setStatus(prefilled
+            ? 'Pre-filled from Google Places. Review the details, then add the place to the map.'
+            : 'Enter the place name and address. Latitude and longitude are optional; the bridge will geocode the address.', 'neutral');
         openModal();
     }
 
@@ -656,7 +665,7 @@
         document.querySelectorAll('[data-add-venue="true"]').forEach(button => {
             if (button.dataset.boundAddVenue === 'true') return;
             button.dataset.boundAddVenue = 'true';
-            button.addEventListener('click', openNewVenueEditor);
+            button.addEventListener('click', () => openNewVenueEditor());
         });
     }
 

@@ -16,3 +16,8 @@ window.JDDM_FIREBASE_CONFIG = {
 window.JDDM_SPREADSHEET_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 // window.JDDM_SPREADSHEET_EDIT_TOKEN = "";
+
+// Google Places API (New) browser key for Ohio place search. This key is
+// restricted to the Places API (New) and the outswarming.github.io HTTP
+// referrer, so it is safe to serve publicly (same posture as the Firebase key).
+window.JDDM_GOOGLE_PLACES_KEY = "AIzaSyD0BIZKNGSZFqWhMZpjIvv4qzOnMPeRCZE";
