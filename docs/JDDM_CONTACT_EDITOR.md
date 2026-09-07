@@ -15,3 +15,11 @@ The live map uses the jddmSpreadsheetBridge function in **barkrangermap-auth**. 
 - 118 booking/browser-service unit tests and 119 function tests passed.
 - `node tests/venueEditModal.browser.cjs` exercises Add and Edit, two emails and two phones, separate multiline notes, a date change, saving/reloading, and inline Add placement at desktop and phone sizes.
 - A temporary live sheet row verified two emails, three phones, note edits, and fresh reads from Sheets. Discord verification checks one new-place message, one added-date confirmation, one changed-date confirmation, and no duplicate for a same-date save. Temporary test rows are removed after verification.
+
+## Calendar collision repair, September 7, 2026
+
+The old Apps Script calendar sync called `setupComputerSection_` on each run. Its 28-column schema treated Contact Details as an extra column, replaced Sheet1, and discarded AC. A warm Firebase bridge could then retain the old tab ID and dimensions. The live error was `Range (Sheet1!AC1) exceeds grid limits`.
+
+Repair: the Firebase gateway re-reads tab identity and dimensions before every venue operation. Calendar sync no longer runs destructive setup. The bound script's legacy create path received the same narrow removal. The active Apps Script deployment `AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu` was updated from version 36 to 37; the five-minute trigger was verified to reference version 37. Saving Head alone was insufficient because the trigger used the deployed version.
+
+Regression checks cover a replaced tab during a warm gateway instance and repeated calendar syncs that update gig facts while preserving the same tab and contact notes. The live Contact Details header was restored without replacing venue data. Manual purge/setup remains an explicit legacy maintenance operation and must not be used as a routine sync step.

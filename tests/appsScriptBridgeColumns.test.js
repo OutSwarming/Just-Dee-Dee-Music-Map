@@ -622,6 +622,7 @@ test('calendar sync preserves Status while rebuilding future gig dates from curr
         }
     });
 
+    bridge.setupComputerSection_({ applyFormatting: false }); // Explicit one-time migration of this legacy fixture.
     bridge.syncCalendarGigEvents_({ addMissing: false });
     const cleanSheet = bridge.getSheet_();
     const headers = cleanSheet.values[0];
@@ -671,6 +672,7 @@ test('calendar sync fuzzy-matches venue names and adds missing future real gigs'
         }
     });
 
+    bridge.setupComputerSection_({ applyFormatting: false }); // Explicit one-time migration of this legacy fixture.
     const result = bridge.syncCalendarGigEvents_({});
     const cleanSheet = bridge.getSheet_();
     const headers = cleanSheet.values[0];
@@ -699,6 +701,7 @@ test('official website gig reconciliation adds late gigs and removes deleted gig
     sheet.setName('Sheet1');
     const bridge = loadBridge(sheet);
 
+    bridge.setupComputerSection_({ applyFormatting: false }); // Migrate the legacy fixture once, outside sync.
     const added = bridge.syncWebsiteGigEvents_({
         sourceChecked: true,
         events: [{
@@ -739,6 +742,7 @@ test('website deletion preserves calendar-only dates when calendar access is una
     sheet.setName('Sheet1');
     const bridge = loadBridge(sheet);
 
+    bridge.setupComputerSection_({ applyFormatting: false }); // Migrate the legacy fixture once, outside sync.
     const seeded = bridge.syncWebsiteGigEvents_({
         sourceChecked: true,
         events: [{
@@ -1076,4 +1080,19 @@ test('calendar cleanup removes no-coordinate calendar-only rows', () => {
         'Real Venue',
         'Missing Coordinates But Real Contact'
     ]);
+});
+
+test('calendar sync keeps the existing tab and extra contact columns across repeated runs', () => {
+    const headers = require('../functions/jddmSpreadsheetBridge').CANONICAL_HEADERS;
+    const details=JSON.stringify({version:1,emails:[{value:'booking@example.com',note:'Booking; evenings'},{value:'music@example.com',note:'Gig prep'}],phones:[]});
+    const values={'Place Name':'Dragonfly Winery','Place ID':'dragonfly','Status':'Needs Review','Contact Details':details};
+    const sheet=createFakeSheet(headers, [headers.map(h=>values[h]||'')]);
+    const bridge=loadBridge(sheet,{calendars:{'justdeedeemusic@gmail.com':[{title:'Dragonfly Winery',location:'',startTime:new Date('2099-02-01T12:00:00Z'),id:'contact-preservation-gig'}]}});
+    bridge.setupComputerSection_=()=>{throw Error('Calendar sync must not rebuild the sheet');};
+    bridge.syncCalendarGigEvents_({addMissing:false});
+    bridge.syncCalendarGigEvents_({addMissing:false});
+    assert.equal(bridge.getSheet_(),sheet);
+    assert.equal(sheet.values[0][28],'Contact Details');
+    assert.equal(sheet.values[1][28],details);
+    assert.equal(sheet.deletedColumns.length,0);
 });

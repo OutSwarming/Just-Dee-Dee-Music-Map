@@ -454,3 +454,22 @@ test('follow-up confirmations identify added, changed and removed dates with the
     assert.match(changed,/Previous date: 2026-09-20/);
     assert.match(followUpMessage({venue:{'Place Name':'Music Hall'},date:'',previousDate:'2026-09-20'}),/Follow-up removed/);
 });
+
+test('gateway expands the current tab after a warm instance cached a replaced Sheet1', async () => {
+    const {createGoogleSheetsGateway}=require('../jddmSpreadsheetBridge');
+    let properties={sheetId:101,title:'Sheet1',gridProperties:{columnCount:29,rowCount:1000}};
+    const updates=[];
+    const google={auth:{GoogleAuth:class{}},sheets:()=>({spreadsheets:{
+        get:async()=>({data:{sheets:[{properties:JSON.parse(JSON.stringify(properties))}]}}),
+        batchUpdate:async request=>{updates.push(request.requestBody.requests[0]);properties.gridProperties.columnCount=29;return{data:{}};}
+    }})};
+    const gateway=createGoogleSheetsGateway({google});
+    await gateway.ensureColumns('Sheet1',29);
+    properties={sheetId:202,title:'Sheet1',gridProperties:{columnCount:28,rowCount:1000}};
+    await gateway.ensureColumns('Sheet1',29);
+    assert.equal(updates.length,1);
+    assert.equal(updates[0].updateSheetProperties.properties.sheetId,202);
+    assert.equal(updates[0].updateSheetProperties.properties.gridProperties.columnCount,29);
+    await gateway.ensureColumns('Sheet1',29);
+    assert.equal(updates.length,1,'already expanded tab is not rewritten');
+});

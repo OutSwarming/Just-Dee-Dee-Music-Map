@@ -364,7 +364,11 @@ function createGoogleSheetsGateway({ google, spreadsheetId = SPREADSHEET_ID }) {
     }
 
     async function ensureColumns(title, width) {
-        const properties = await sheetProperties(title);
+        // A legacy setup or restore can replace the tab while this instance stays
+        // warm. Re-resolve both its ID and dimensions before every venue operation.
+        const workbook = await metadata(true);
+        const properties = (workbook.sheets || []).map(item => item.properties).find(item => item.title === title);
+        if (!properties) throw new Error(`Sheet not found: ${title}`);
         if (properties.gridProperties.columnCount < width) {
             await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [{
                 updateSheetProperties: { properties: { sheetId: properties.sheetId, gridProperties: { columnCount: width } }, fields: 'gridProperties.columnCount' }

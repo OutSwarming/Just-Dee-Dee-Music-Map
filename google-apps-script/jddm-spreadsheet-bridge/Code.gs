@@ -2015,7 +2015,7 @@ function todayIso_() {
 }
 
 function syncCalendarGigEvents_(payload) {
-  setupComputerSection_({ applyFormatting: false });
+  // Preserve the existing sheet and contact columns; do not run setup during sync or saves.
   var data = getData_();
   var today = todayIso_();
   var calendarResult = getCalendarEventsResult_();
