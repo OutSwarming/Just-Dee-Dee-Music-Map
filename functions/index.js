@@ -1370,6 +1370,7 @@ function buildJddmGmailGateway() {
 }
 
 const conversations = require('./discordConversations');
+const conversationVenueDirectory = require('./venueLinks').createVenueDirectory();
 const conversationSecrets = ['DISCORD_EMAIL_PUBLIC_KEY', 'JDDM_GMAIL_CLIENT_ID', 'JDDM_GMAIL_CLIENT_SECRET', 'JDDM_GMAIL_REFRESH_TOKEN', 'DISCORD_EMAIL_BOT_TOKEN'];
 function buildConversationRuntime() {
     const oauth = new google.auth.OAuth2(process.env.JDDM_GMAIL_CLIENT_ID, process.env.JDDM_GMAIL_CLIENT_SECRET);
@@ -1377,7 +1378,7 @@ function buildConversationRuntime() {
     const gmail = google.gmail({ version: 'v1', auth: oauth });
     const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
     const db = admin.firestore();
-    return { db, discord, service: conversations.createConversationService({ db, gmail, discord }) };
+    return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory }) };
 }
 exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
     const runtime = buildConversationRuntime();
@@ -1421,7 +1422,7 @@ exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_
     if(!expected.length||received.length!==expected.length||!timingSafeEqual(received,expected))return res.status(401).json({ok:false});
     if(req.method!=='GET')return res.status(405).json({ok:false});
     try{const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));const digest=await require('./followUpDigest').loadDigest({db:admin.firestore(),cache:hour>=8});const state=(await admin.firestore().doc('jddmCalendarMonitor/state').get()).data();const calendar=state?.baseline?calendarMonitor.unpack(state.baseline):null;const extra={};
-    if(req.query.summary==='1')extra.conversations=(await admin.firestore().collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
+    if(req.query.summary==='1')extra.conversations=(await admin.firestore().collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
     res.json({ok:true,...digest,...extra,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<20*60*1000?calendar:null});}
     catch(e){console.error('[jddmNotificationDigest]',e.message);res.status(503).json({ok:false,error:'Daily follow-ups are temporarily unavailable; retry shortly.'});}
 });
