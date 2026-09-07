@@ -17,7 +17,8 @@ var JDDM_PROPERTY_BOT_TOKEN = 'DISCORD_EMAIL_BOT_TOKEN';
 var JDDM_PROPERTY_CHANNEL_ID = 'DISCORD_EMAIL_CHANNEL_ID';
 var JDDM_PROPERTY_TAGS = 'DISCORD_EMAIL_TAGS_JSON';
 var JDDM_CUSTOM_ID_PREFIX = 'jddm';
-var JDDM_DISCORD_API_BASE = 'https://discord.com/api/v10';
+// Firebase supplies the bot User-Agent that Apps Script cannot reliably set.
+var JDDM_DISCORD_API_BASE = 'https://us-central1-just-dee-dee-music-map.cloudfunctions.net/discordEmailIntake';
 var JDDM_PROPERTY_QUERY = 'DISCORD_EMAIL_GMAIL_QUERY';
 var JDDM_PROPERTY_MAX_THREADS = 'DISCORD_EMAIL_MAX_THREADS';
 var JDDM_PROPERTY_LAST_SUCCESS = 'DISCORD_EMAIL_LAST_SUCCESS_AT';
@@ -172,17 +173,19 @@ function syncJddmEmailToDiscord() {
     for (var messageIndex = 0; messageIndex < messages.length; messageIndex++) {
       var message = messages[messageIndex];
       if (isMessageProcessed_(message)) continue;
+      var recentDays = /\bnewer_than:(\d+)d\b/.exec(query);
+      if (recentDays && message.getDate().getTime() < Date.now() - Number(recentDays[1]) * 86400000) continue;
       pending.push({ thread: thread, message: message });
     }
   }
 
   pending.sort(function(a, b) {
-    return a.message.getDate().getTime() - b.message.getDate().getTime();
+    return b.message.getDate().getTime() - a.message.getDate().getTime();
   });
 
   var result = { ok: true, scannedThreads: threads.length, pending: pending.length, posted: 0, failed: 0 };
   var errors = [];
-  for (var itemIndex = 0; itemIndex < pending.length; itemIndex++) {
+  for (var itemIndex = 0; itemIndex < Math.min(pending.length, 20); itemIndex++) {
     var item = pending[itemIndex];
     try {
       var record = readMessageRecord_(item.message, item.thread);
@@ -197,12 +200,17 @@ function syncJddmEmailToDiscord() {
       item.thread.removeLabel(errorLabel);
       result.posted += 1;
     } catch (error) {
+      if (/Discord returned HTTP 429:/.test(String(error && error.message || error))) {
+        result.rateLimited = true;
+        break;
+      }
       result.failed += 1;
       item.thread.addLabel(errorLabel);
       errors.push(String(error && error.message ? error.message : error));
     }
   }
 
+  result.deferred = pending.length - result.posted - result.failed;
   var nowIso = new Date().toISOString();
   if (errors.length) {
     result.ok = false;
@@ -406,14 +414,14 @@ function fetchForumTagMap_(botToken, channelId) {
   var url = JDDM_DISCORD_API_BASE + '/channels/' + encodeURIComponent(channelId);
   var response = UrlFetchApp.fetch(url, {
     method: 'get',
-    headers: { Authorization: 'Bot ' + botToken },
+    headers: { 'X-JDDM-Bot-Authorization': 'Bot ' + botToken },
     muteHttpExceptions: true
   });
   var code = response.getResponseCode();
   if (code < 200 || code >= 300) {
     throw new Error(
       'Could not read the forum channel from Discord (HTTP ' + code + '). ' +
-      'Check the bot token and channel ID, and that the bot can view the channel.'
+      truncate_(response.getContentText(), 500)
     );
   }
   var data;
@@ -438,7 +446,7 @@ function postToDiscordBotThread_(botToken, channelId, payload) {
   var response = UrlFetchApp.fetch(url, {
     method: 'post',
     contentType: 'application/json',
-    headers: { Authorization: 'Bot ' + botToken },
+    headers: { 'X-JDDM-Bot-Authorization': 'Bot ' + botToken },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   });
@@ -571,4 +579,19 @@ function clampInteger_(value, minimum, maximum) {
   var number = Math.round(Number(value));
   if (!isFinite(number)) number = minimum;
   return Math.max(minimum, Math.min(maximum, number));
+}
+
+/** Run-menu setup using the bot credentials already saved in Script Properties. */
+function startJddmEmail() {
+  var p = PropertiesService.getScriptProperties();
+  authorizeDiscordEmailBridge();
+  configureDiscordEmailBotBridge(
+    p.getProperty(JDDM_PROPERTY_BOT_TOKEN),
+    p.getProperty(JDDM_PROPERTY_CHANNEL_ID)
+  );
+  installDiscordEmailBridge();
+  var result = syncJddmEmailToDiscord();
+  console.log(JSON.stringify(result));
+  if (!result.ok) throw new Error('Forwarding failed. See the execution log above.');
+  console.log('SUCCESS: forwarding is running every 5 minutes.');
 }

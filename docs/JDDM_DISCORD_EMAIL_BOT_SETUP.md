@@ -86,10 +86,10 @@ firebase functions:secrets:set JDDM_GMAIL_CLIENT_SECRET     # OAuth client secre
 firebase functions:secrets:set JDDM_GMAIL_REFRESH_TOKEN     # from Part B
 ```
 
-Deploy just this function:
+Deploy the interaction handler and the intake transport:
 
 ```bash
-firebase deploy --only functions:discordEmailInteractions
+firebase deploy --only functions:discordEmailInteractions,functions:discordEmailIntake
 ```
 
 Copy the deployed **function URL** from the output (looks like
@@ -108,6 +108,20 @@ Copy the deployed **function URL** from the output (looks like
 ---
 
 ## Part D — Point Discord at the function, then switch intake to bot mode
+
+The Apps Script bot requests use `discordEmailIntake` in this Firebase project.
+Discord rejects Apps Script's default client identification with HTTP 403 / code
+40333 (`internal network error`), which is different from missing channel access.
+The Firebase transport supplies Discord's documented bot User-Agent. It accepts
+only forum metadata reads and post creation for channel `1543777722042679436` and
+passes the JDDM bot credential to Discord for authentication without storing it.
+Explicit short rate limits are retried; ambiguous network failures are not.
+
+For setup through the Apps Script Run menu, first save `DISCORD_EMAIL_BOT_TOKEN`
+and `DISCORD_EMAIL_CHANNEL_ID` as Script Properties, then run `startJddmEmail`.
+It discovers the tags, installs the five-minute trigger, and forwards recent email.
+Each poll posts up to 20 messages with the newest arrivals first. A Discord rate
+limit leaves the remaining messages queued for a later poll. No Apps Script web-app deployment is needed.
 
 1. Back in the Discord Developer Portal → your app → **General Information** →
    **Interactions Endpoint URL** → paste the function URL from Part C → **Save**.
@@ -146,7 +160,9 @@ Copy the deployed **function URL** from the output (looks like
 ## Scope
 
 Intake stays on the **30-day** rolling window (`in:anywhere newer_than:30d -in:trash`,
-50 threads/run) — every new email is caught; old mail is not backfilled. To change
+50 conversations checked per run, up to 20 messages posted per run). Individual
+messages older than 30 days are skipped even inside a recent conversation.
+Large backlogs take additional polls. To change
 that later, pass `{ gmailQuery: '...' }` as the 4th argument to
 `configureDiscordEmailBotBridge`.
 
@@ -158,3 +174,12 @@ that later, pass `{ gmailQuery: '...' }` as the 4th argument to
   `DISCORD_EMAIL_PUBLIC_KEY`, so only genuine Discord interactions can act on Gmail.
 - The Apps Script still refuses to run under any account other than
   `justdeedeemusic@gmail.com`.
+
+## Spreadsheet notification deployment
+
+The map's spreadsheet endpoint runs in **barkrangermap-auth**, not the email
+function's Firebase project. Set `DISCORD_NEW_PLACES_WEBHOOK_URL` and
+`DISCORD_FOLLOWUP_WEBHOOK_URL` in that project and deploy only
+`functions:jddmSpreadsheetBridge`. New-place alerts go to `#new-places`;
+new and changed nonempty follow-up dates go to `#follow-up`. Saving an unchanged
+date does not post another alert. Direct Google Sheets edits bypass this service.

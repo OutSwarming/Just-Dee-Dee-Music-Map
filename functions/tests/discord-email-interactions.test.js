@@ -66,6 +66,8 @@ test('planInteraction opens a modal for Reply', () => {
     assert.equal(plan.respond.type, bot.RESPONSE_TYPE.MODAL);
     assert.equal(plan.respond.data.custom_id, 'jddm:reply-submit:m1:t1');
     assert.equal(plan.respond.data.components[0].components[0].custom_id, bot.REPLY_INPUT_ID);
+    assert.ok(plan.respond.data.components[0].components[0].label.length <= 45,
+        'Discord rejects text input labels longer than 45 characters');
     assert.equal(plan.effect, undefined);
 });
 

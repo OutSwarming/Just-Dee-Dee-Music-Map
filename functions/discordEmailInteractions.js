@@ -108,7 +108,7 @@ function buildReplyModal(target) {
                     type: 4,
                     custom_id: REPLY_INPUT_ID,
                     style: 2,
-                    label: 'Your reply (sent from justdeedeemusic@gmail.com)',
+                    label: 'Your reply from Just Dee Dee',
                     placeholder: 'Type your reply. It is sent as a real email in the original thread.',
                     min_length: 1,
                     max_length: 3800,

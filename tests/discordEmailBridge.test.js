@@ -101,7 +101,7 @@ function makeThread(messages, options = {}) {
 }
 
 function makeMessage(overrides = {}) {
-    const date = overrides.date || new Date('2026-08-30T12:00:00.000Z');
+    const date = overrides.date || new Date();
     return {
         getId: () => overrides.id || 'message-123',
         getDate: () => date,
@@ -277,7 +277,7 @@ test('configureDiscordEmailBotBridge auto-discovers tag IDs from the forum', () 
     assert.equal(health.botConfigured, true);
     assert.match(bridge.requests[0].url, /\/channels\/999999999999999999$/);
     assert.equal(bridge.requests[0].options.method, 'get');
-    assert.equal(bridge.requests[0].options.headers.Authorization, 'Bot ' + BOT_TOKEN);
+    assert.equal(bridge.requests[0].options.headers['X-JDDM-Bot-Authorization'], 'Bot ' + BOT_TOKEN);
     const stored = JSON.parse(bridge.properties.get('DISCORD_EMAIL_TAGS_JSON'));
     assert.equal(stored.important, '111111111111111111');
     assert.equal(stored['action-needed'], '333333333333333333');
@@ -304,7 +304,8 @@ test('bot mode posts a forum thread with the four action buttons', () => {
     const request = bridge.requests[0];
     assert.match(request.url, /\/channels\/999999999999999999\/threads$/);
     assert.equal(request.options.method, 'post');
-    assert.equal(request.options.headers.Authorization, 'Bot ' + BOT_TOKEN);
+    assert.equal(request.options.headers['X-JDDM-Bot-Authorization'], 'Bot ' + BOT_TOKEN);
+    assert.equal(request.options.headers.Authorization, undefined);
     assert.equal(request.payload.name, 'Venue Booker — Are you available for a live music booking?');
     assert.deepEqual(request.payload.applied_tags, [TAGS.important, TAGS.booking, TAGS['action-needed']]);
     const row = request.payload.message.components[0];
@@ -326,4 +327,29 @@ test('bot mode takes priority when both bot and webhook are configured', () => {
 
     assert.match(bridge.requests[0].url, /\/channels\/.*\/threads$/);
     assert.ok(bridge.requests[0].payload.message.components);
+});
+
+ test('only recent messages in a matching conversation are forwarded once', () => {
+ const old = makeMessage({ id: 'old', date: new Date(Date.now() - 90 * 86400000) });
+ const recent = makeMessage({ id: 'recent' });
+ const bridge = loadBridge({ threads: [makeThread([old, recent])], properties: botConfiguredProperties() });
+ assert.equal(bridge.context.syncJddmEmailToDiscord().posted, 1);
+ assert.equal(bridge.context.syncJddmEmailToDiscord().posted, 0);
+ assert.equal(bridge.requests.length, 1);
+ });
+
+test('a large backlog is batched and drains without duplicate posts', () => {
+ const messages = Array.from({length: 25}, (_, i) => makeMessage({id: 'batch-'+i}));
+ const bridge = loadBridge({threads: [makeThread(messages)], properties: botConfiguredProperties()});
+ const first = bridge.context.syncJddmEmailToDiscord();
+ assert.equal(first.posted,20); assert.equal(first.deferred,5);
+ assert.equal(bridge.context.syncJddmEmailToDiscord().posted,5);
+ assert.equal(bridge.context.syncJddmEmailToDiscord().posted,0);
+});
+
+test('Discord rate limiting leaves the queue for the next poll and stops requests', () => {
+ const bridge = loadBridge({threads:[makeThread([makeMessage({id:'a'}),makeMessage({id:'b'})])],properties:botConfiguredProperties(),responseCodes:[429]});
+ const result=bridge.context.syncJddmEmailToDiscord();
+ assert.equal(result.rateLimited,true);assert.equal(result.failed,0);assert.equal(result.deferred,2);assert.equal(bridge.requests.length,1);
+ assert.equal(bridge.context.syncJddmEmailToDiscord().posted,2);
 });

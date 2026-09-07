@@ -11,6 +11,7 @@ const {
     createJddmSpreadsheetBridgeService
 } = require('./jddmSpreadsheetBridge');
 const discordEmailInteractions = require('./discordEmailInteractions');
+const { createDiscordEmailIntakeHandler } = require('./discordEmailIntake');
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -1397,3 +1398,7 @@ exports.discordEmailInteractions = functions
         buildGmailGateway: buildJddmGmailGateway,
         onError: (error) => console.error('[discordEmailInteractions] action failed:', error)
     }));
+
+exports.discordEmailIntake = functions
+    .runWith({ timeoutSeconds: 60, maxInstances: 2 })
+    .https.onRequest(createDiscordEmailIntakeHandler());
