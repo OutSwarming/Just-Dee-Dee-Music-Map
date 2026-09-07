@@ -146,6 +146,7 @@
     function buildInitialRawFields(venue = {}) {
         const booking = venue.booking || {};
         return {
+            'Booking Contact': venue.contactRecord || '',
             ...(venue.contactDetails ? { 'Contact Details': venue.contactDetails } : {}),
             Status: clean(booking.contactStatus || venue.contactStatus || venue.status),
             'Last Contacted': clean(booking.lastContactedDate || venue.lastContactedDate),
@@ -258,69 +259,39 @@
         return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="text" value="${escapeHtml(value)}">`;
     }
 
-    function legacyContacts(key, legacy) {
-        if (!legacy) return [];
-        if (key === 'emails') {
-            const pattern = /[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-            const emails = legacy.match(pattern) || [];
-            if (emails.length === 1) {
-                return [{ value: emails[0], note: legacy.replace(emails[0], '').replace(/^mailto:/i, '').replace(/^[\s,;<>]+|[\s,;<>]+$/g, '') }];
-            }
-            const pieces = legacy.split(/[,;\n]+/).map(clean).filter(Boolean);
-            if (emails.length > 1 && pieces.every(piece => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(piece))) {
-                return pieces.map(value => ({ value, note: '' }));
-            }
-            // Ambiguous legacy free text remains intact instead of guessing contacts.
-            return [{ value: legacy, note: '' }];
-        }
-        return legacy.split(/[;\n]+/).map(value => ({ value: clean(value), note: '' })).filter(item => item.value);
-    }
-
-    function readContacts(fields) {
-        let details = {};
-        if (clean(fields['Contact Details'])) {
-            try { details = JSON.parse(fields['Contact Details']); }
-            catch (_) { throw new Error('Contact notes could not be read. Reload the row before saving.'); }
-        }
-        const result = { version: 1 };
-        for (const [key, header] of [['emails', 'Email/Contact'], ['phones', 'Phone Number']]) {
-            const legacy = clean(fields[header]);
-            const stored = Array.isArray(details[key]) ? details[key].map(item => ({ value: clean(item.value), note: clean(item.note) })) : [];
-            // A direct spreadsheet edit to the primary contact takes precedence, while
-            // retaining every saved alternate and its notes.
-            if (stored.length && legacy !== stored[0].value) stored[0] = { ...stored[0], value: legacy };
-            const rows = stored.length ? stored : legacyContacts(key, legacy);
-            result[key] = rows.length ? rows : [{ value: '', note: '' }];
-        }
-        return result;
-    }
-
-    function contactRow(key, item, index) {
-        const kind = key === 'emails' ? 'Email' : 'Phone';
-        const id = `venue-contact-${key}-${index}`;
-        return `<div class="venue-contact-row" data-contact-row>
-            <span class="venue-contact-number">${index + 1}</span>
-            <input id="${id}" type="${key === 'emails' ? 'email' : 'tel'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index + 1}" placeholder="${key === 'emails' ? 'name@example.com' : '(330) 555-0100'}">
-            <details class="venue-contact-notes"><summary class="venue-contact-bubble" aria-label="Notes for ${kind.toLowerCase()} ${index + 1}">${item.note ? 'Notes •' : 'Notes'}</summary>
-                <div class="venue-contact-popover"><label for="${id}-note">Notes for ${kind.toLowerCase()} ${index + 1}</label><textarea id="${id}-note" data-contact-note rows="3" placeholder="Contact name, best time to call, or other details">${escapeHtml(item.note)}</textarea><button type="button" data-note-done>Done</button></div>
-            </details>
-            ${index === 0 ? `<button type="button" class="venue-contact-add" data-contact-add="${key}">Add</button>` : '<button type="button" class="venue-contact-remove" data-contact-remove aria-label="Remove this contact">×</button>'}
+    const contactCodec = window.JDDMContacts;
+    function readContacts(fields) { return contactCodec.read(fields); }
+    function contactRow(key, item, index, personIndex) {
+        const kind = key === 'emails' ? 'Email' : key === 'phones' ? 'Phone' : 'Other contact';
+        const id = `venue-contact-${personIndex}-${key}-${index}`;
+        return `<div class="venue-contact-row" data-contact-row data-method-index="${index}">
+            ${key === 'others' ? `<input class="venue-contact-kind" data-contact-kind aria-label="Contact type" placeholder="Type (Facebook, website…)" value="${escapeHtml(item.type || '')}">` : `<span class="venue-contact-number">${index+1}</span>`}
+            <input id="${id}" type="${key === 'emails' ? 'email' : key === 'phones' ? 'tel' : 'text'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index+1}" placeholder="${key === 'emails' ? 'name@example.com' : key === 'phones' ? 'Phone number' : 'Address, username, link, or instructions'}">
+            <details class="venue-contact-notes"><summary class="venue-contact-bubble" aria-label="Notes for ${kind.toLowerCase()} ${index+1}">${item.note ? 'Notes •' : 'Notes'}</summary><div class="venue-contact-popover"><label for="${id}-note">${kind} notes</label><textarea id="${id}-note" data-contact-note rows="3">${escapeHtml(item.note)}</textarea><button type="button" data-note-done>Done</button></div></details>
+            ${index === 0 ? `<button type="button" class="venue-contact-add" data-contact-add="${key}">Add</button>` : '<button type="button" class="venue-contact-remove" data-contact-remove aria-label="Remove this method">×</button>'}
         </div>`;
     }
-
-    function renderContacts(key, contacts) {
-        return `<div class="venue-edit-field venue-edit-field--wide venue-contact-group" data-contact-group="${key}"><label>${key === 'emails' ? 'Email addresses' : 'Phone numbers'}</label><div data-contact-rows>${contacts[key].map((item, index) => contactRow(key, item, index)).join('')}</div></div>`;
+    function personCard(person, index) {
+        return `<section class="venue-person-card" data-person-index="${index}">
+            <div class="venue-person-heading"><strong>Contact ${index+1}</strong><button type="button" data-person-remove class="venue-contact-remove">Remove contact</button></div>
+            <label>Name / person or venue<input data-person-name type="text" aria-label="Contact name" placeholder="Any name or description" value="${escapeHtml(person.name)}"></label>
+            <label>Preferred method / contact type<input data-person-preferred type="text" aria-label="Preferred contact method" placeholder="Email, text, call, stop in, or anything else" value="${escapeHtml(person.preferredMethod)}"></label>
+            <details class="venue-person-notes"><summary class="venue-contact-bubble">${person.notes ? 'Contact notes •' : 'Contact notes'}</summary><textarea data-person-notes aria-label="Contact notes" rows="3">${escapeHtml(person.notes)}</textarea></details>
+            ${['emails','phones','others'].map(key=>`<div class="venue-contact-group" data-contact-group="${key}"><label>${key === 'emails' ? 'Email addresses' : key === 'phones' ? 'Phone numbers' : 'Other ways to contact'}</label><div data-contact-rows>${(person[key].length ? person[key] : [{value:'',note:''}]).map((item,i)=>contactRow(key,item,i,index)).join('')}</div></div>`).join('')}
+        </section>`;
     }
-
+    function renderPeople(data) {
+        return `<div class="venue-edit-field--wide venue-people"><div data-people>${(data.contacts.length ? data.contacts : [contactCodec.empty()]).map(personCard).join('')}</div><button type="button" class="venue-contact-add" data-person-add>Add contact</button>${data.legacyBookingContact ? `<label>Previous booking notes<textarea data-legacy-booking rows="3">${escapeHtml(data.legacyBookingContact)}</textarea></label>` : ''}</div>`;
+    }
     function collectContacts(modal) {
-        const details = { version: 1, emails: [], phones: [] };
-        modal.querySelectorAll('[data-contact-group]').forEach(group => {
-            details[group.dataset.contactGroup] = Array.from(group.querySelectorAll('[data-contact-row]')).map(row => ({
-                value: clean(row.querySelector('[data-contact-value]').value),
-                note: clean(row.querySelector('[data-contact-note]').value)
-            })).filter(item => item.value || item.note);
+        const contacts = Array.from(modal.querySelectorAll('[data-person-index]')).map(card=>{
+            const person={name:clean(card.querySelector('[data-person-name]').value),preferredMethod:clean(card.querySelector('[data-person-preferred]').value),notes:clean(card.querySelector('[data-person-notes]').value)};
+            card.querySelectorAll('[data-contact-group]').forEach(group=>{
+                person[group.dataset.contactGroup]=Array.from(group.querySelectorAll('[data-contact-row]')).map(row=>({value:clean(row.querySelector('[data-contact-value]').value),note:clean(row.querySelector('[data-contact-note]').value),...(group.dataset.contactGroup === 'others' ? {type:clean(row.querySelector('[data-contact-kind]').value)} : {})})).filter(i=>i.value || i.note || i.type);
+            });
+            return person;
         });
-        return details;
+        return {version:2,contacts,legacyBookingContact:modal.querySelector('[data-legacy-booking]')?.value || ''};
     }
 
     function renderRawFields(rawFields) {
@@ -339,8 +310,8 @@
 
         const contacts = readContacts(activeRawFields);
         container.innerHTML = headers.map(header => {
-            if (header === 'Email/Contact') return renderContacts('emails', contacts);
-            if (header === 'Phone Number') return renderContacts('phones', contacts);
+            if (header === 'Contact Name') return renderPeople(contacts);
+            if (['Email/Contact','Phone Number','Contact Type'].includes(header)) return '';
             const id = `venue-edit-source-${header.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
             const value = getOptionalRawField(activeRawFields, [header], '');
             const fieldType = getFieldType(header);
@@ -361,9 +332,8 @@
             return fields;
         }, {});
         const details = collectContacts(modal);
-        fields['Contact Details'] = JSON.stringify(details);
-        fields['Email/Contact'] = details.emails[0]?.value || '';
-        fields['Phone Number'] = details.phones[0]?.value || '';
+        fields['Booking Contact'] = contactCodec.encode(details);
+        Object.assign(fields, contactCodec.summary(contactCodec.normalize(details)));
         return fields;
     }
 
@@ -473,7 +443,8 @@
             lng: getRawField(rawFields, ['Longitude', 'lng', 'long']) || venue.lng,
             venueType: getRawField(rawFields, ['Venue Type', 'venue type', 'type']) || venue.venueType || venue.category || 'Other Venue',
             website: getRawField(rawFields, ['Website', 'website/social link']) || venue.website,
-            bookingContact: getRawField(rawFields, ['Booking Contact', 'booking/contact info']) || contactBits.join(' | ') || venue.bookingContact,
+            contactRecord: getOptionalRawField(rawFields, ['Booking Contact'], venue.contactRecord),
+            bookingContact: contactCodec.display(getRawField(rawFields, ['Booking Contact', 'booking/contact info'])) || contactBits.join(' | ') || '',
             contactName: getOptionalRawField(rawFields, ['Contact Name'], venue.contactName),
             contactEmail: getOptionalRawField(rawFields, ['Email/Contact'], venue.contactEmail),
             contactPhone: getOptionalRawField(rawFields, ['Phone Number'], venue.contactPhone),
@@ -523,6 +494,7 @@
             website: fields.website,
             pics: fields.website,
             notes: fields.notes,
+            contactRecord: fields.contactRecord,
             bookingContact: fields.bookingContact,
             contactName: fields.contactName,
             contactEmail: fields.contactEmail,
@@ -633,12 +605,9 @@
         const modal = qs('venue-edit-modal');
         const invalid = Array.from(modal.querySelectorAll('input')).find(input => !input.checkValidity() && !(input.hasAttribute('data-contact-value') && input.value === input.dataset.originalValue));
         if (invalid) { invalid.reportValidity(); return; }
-        const contacts = collectContacts(modal);
-        if ([...contacts.emails, ...contacts.phones].some(item => !item.value && item.note)) {
-            setStatus('Enter an email or phone number for each contact note.', 'error');
-            return;
-        }
-        const rawFields = collectRawFields();
+        let rawFields;
+        try { rawFields = collectRawFields(); }
+        catch (error) { setStatus(error.message, 'error'); return; }
         const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name)) {
             setStatus('Place Name is required.', 'error');
@@ -706,18 +675,23 @@
 
         modal.addEventListener('click', event => {
             const target = event.target;
+            if (target.matches('[data-person-add]')) {
+                const people=modal.querySelector('[data-people]');
+                const next=Math.max(-1,...Array.from(people.children).map(p=>Number(p.dataset.personIndex)))+1;
+                people.insertAdjacentHTML('beforeend',personCard(contactCodec.empty(),next));
+                people.lastElementChild.querySelector('input').focus();
+            }
+            if (target.matches('[data-person-remove]')) target.closest('[data-person-index]').remove();
             if (target.matches('[data-contact-add]')) {
                 const group = target.closest('[data-contact-group]');
                 const rows = group.querySelector('[data-contact-rows]');
-                rows.insertAdjacentHTML('beforeend', contactRow(group.dataset.contactGroup, { value: '', note: '' }, rows.children.length));
+                rows.insertAdjacentHTML('beforeend', contactRow(group.dataset.contactGroup, { value: '', note: '' }, Math.max(-1,...Array.from(rows.children).map(r=>Number(r.dataset.methodIndex)))+1, group.closest('[data-person-index]').dataset.personIndex));
                 rows.lastElementChild.querySelector('input').focus();
             }
             if (target.matches('[data-contact-remove]')) {
                 const group = target.closest('[data-contact-group]');
                 target.closest('[data-contact-row]').remove();
-                const details = collectContacts(modal);
-                const key = group.dataset.contactGroup;
-                group.querySelector('[data-contact-rows]').innerHTML = details[key].map((item, index) => contactRow(key, item, index)).join('');
+
             }
             if (target.matches('[data-note-done]')) {
                 const notes = target.closest('details');

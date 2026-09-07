@@ -1,3 +1,4 @@
+const contacts = require('./contactRecords');
 const { calendarDate, contactDetails } = require('./venueFields');
 const { createHash } = require('crypto');
 
@@ -35,8 +36,7 @@ const CANONICAL_HEADERS = [
     'Last Synced',
     'Venue Type',
     'Website',
-    'Notes',
-    'Contact Details'
+    'Notes'
 ];
 
 const STATUS_OPTIONS = [
@@ -611,12 +611,6 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         if (gateway.ensureColumns) await gateway.ensureColumns(MAIN_SHEET, CANONICAL_HEADERS.length);
         const values = await gateway.getValues(`${MAIN_SHEET}!A:${columnName(CANONICAL_HEADERS.length - 1)}`);
         const headers = padRow(values[0] || [], CANONICAL_HEADERS.length).map(clean);
-        // Upgrade the old 28-column schema by appending only the new column.
-        // Existing columns, formulas, and notes are never replaced.
-        if (headers[28] === '' && headers.slice(0, 28).every((header, index) => header === CANONICAL_HEADERS[index])) {
-            await gateway.updateValues(`${MAIN_SHEET}!AC1`, [['Contact Details']]);
-            headers[28] = 'Contact Details';
-        }
         const headerMap = makeHeaderMap(headers);
         const rows = (values.slice(1) || []).map(source => {
             const row = padRow(source, headers.length);
@@ -645,14 +639,22 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
                 value = calendarDate(rawValue);
                 if (clean(rawValue) && !value) throw new Error(`${canonical} must be a valid calendar date.`);
             }
-            if (canonical === 'Contact Details') value = JSON.stringify(contactDetails(rawValue));
+            if (canonical === 'Contact Details') return;
+            if (canonical === 'Booking Contact' && String(rawValue).startsWith(contacts.PREFIX)) value = contacts.encode(contacts.decode(rawValue));
             setCell(row, headerMap, canonical, value);
         });
         const supplied = Object.keys(fields || {}).find(header => canonicalHeader(header) === 'Contact Details');
+        const current = getCell(row, headerMap, 'Booking Contact');
         if (supplied) {
-            const details = contactDetails(fields[supplied]);
-            setCell(row, headerMap, 'Email/Contact', details.emails[0]?.value || '');
-            setCell(row, headerMap, 'Phone Number', details.phones[0]?.value || '');
+            if (contacts.decode(current)) throw new Error('The contact editor has been updated. Refresh the map before saving so each person stays linked to their details.');
+            const legacy = Object.fromEntries([...headerMap].map(([h,i])=>[h,row[i]]));
+            legacy['Contact Details'] = JSON.stringify(contactDetails(fields[supplied]));
+            const migrated = contacts.read(legacy);
+            setCell(row, headerMap, 'Booking Contact', contacts.encode(migrated));
+            Object.entries(contacts.summary(migrated)).forEach(([h,v])=>setCell(row,headerMap,h,v));
+        } else if (Object.prototype.hasOwnProperty.call(fields || {}, 'Booking Contact') && contacts.decode(current)) {
+            const parsed = contacts.decode(current);
+            Object.entries(contacts.summary(parsed)).forEach(([h,v])=>setCell(row,headerMap,h,v));
         }
     }
 

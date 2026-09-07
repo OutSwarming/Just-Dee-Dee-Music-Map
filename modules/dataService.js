@@ -149,13 +149,15 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     const venueType = normalizeVenueType(getCSVValueFromAny(row, CSV_COLUMNS.VENUE_TYPE));
     const notes = getCSVValueFromAny(row, CSV_COLUMNS.NOTES);
     const website = getCSVValueFromAny(row, CSV_COLUMNS.WEBSITE);
-    const bookingContact = getCSVValueFromAny(row, CSV_COLUMNS.BOOKING_CONTACT);
+    const contactRecord = getCSVValueFromAny(row, CSV_COLUMNS.BOOKING_CONTACT);
+    const bookingContact = window.JDDMContacts ? window.JDDMContacts.display(contactRecord) : contactRecord;
     const eventDate = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_DATE);
     const eventTime = getCSVValueFromAny(row, CSV_COLUMNS.EVENT_TIME);
     const privateEvent = normalizePrivateEvent(getCSVValueFromAny(row, CSV_COLUMNS.PRIVATE_EVENT));
     const crmStatus = getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_STATUS);
     const played = isPlayedCrmStatus(crmStatus) || normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
     const bookingSeed = {
+        contactRecord,
         contactDetails: getCSVValueFromAny(row, ['Contact Details', 'contactDetails']),
         contactName: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_NAME),
         contactEmail: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_EMAIL),

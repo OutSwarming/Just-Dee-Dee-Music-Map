@@ -39,7 +39,7 @@ function loadVenueEditModal() {
     context.global = context;
 
     vm.createContext(context);
-    ['modules/bookingSchema.js', 'modules/venueEditModal.js'].forEach((relativePath) => {
+    ['functions/contactRecords.js', 'modules/bookingSchema.js', 'modules/venueEditModal.js'].forEach((relativePath) => {
         vm.runInContext(
             fs.readFileSync(path.join(ROOT, relativePath), 'utf8'),
             context,
@@ -214,6 +214,7 @@ test('venue editor seeds focused CRM fields from the current pin before Sheets l
     });
 
     assert.deepEqual(plain(rawFields), {
+        'Booking Contact': '',
         Status: 'Booked',
         'Last Contacted': '2026-05-01',
         'Contact Name': 'Jamie',
@@ -302,9 +303,9 @@ test('multiple contacts preserve individual punctuation and multiline notes', ()
     const modal = loadVenueEditModal();
     const details = { version: 1, emails: [{value:'one@example.com',note:'Jamie, booking; "manager"\nAfter 5'}, {value:'two@example.com',note:'Gig materials'}], phones:[{value:'+1 (330) 555-0123 ext 2',note:'Office'}, {value:'330-555-0124',note:'Mobile'}] };
     const fields = {'Contact Details':JSON.stringify(details), 'Email/Contact':'one@example.com', 'Phone Number':'+1 (330) 555-0123 ext 2'};
-    assert.deepEqual(plain(modal.readContacts(fields)), details);
+    assert.deepEqual(plain(modal.readContacts(fields)).contacts[0].emails, details.emails);
     fields['Email/Contact']='new@example.com';
-    const reread=plain(modal.readContacts(fields));
+    const reread=plain(modal.readContacts(fields)).contacts[0];
     assert.equal(reread.emails[0].value,'new@example.com');
     assert.equal(reread.emails[0].note,details.emails[0].note);
     assert.deepEqual(reread.emails[1],details.emails[1]);
@@ -313,9 +314,9 @@ test('multiple contacts preserve individual punctuation and multiline notes', ()
 
 test('legacy availability notes are attached to the email instead of creating a fake address', () => {
     const modal=loadVenueEditModal();
-    const read=plain(modal.readContacts({'Email/Contact':'kristin@example.com tues,wed 4pm'}));
+    const read=plain(modal.readContacts({'Email/Contact':'kristin@example.com tues,wed 4pm'})).contacts[0];
     assert.deepEqual(read.emails,[{value:'kristin@example.com',note:'tues,wed 4pm'}]);
-    const multiple=plain(modal.readContacts({'Email/Contact':'one@example.com, two@example.com'}));
+    const multiple=plain(modal.readContacts({'Email/Contact':'one@example.com, two@example.com'})).contacts[0];
     assert.deepEqual(multiple.emails,[{value:'one@example.com',note:''},{value:'two@example.com',note:''}]);
-    assert.equal(modal.readContacts({'Email/Contact':'Use website, booking page'}).emails[0].value,'Use website, booking page');
+    assert.equal(modal.readContacts({'Email/Contact':'Use website, booking page'}).contacts[0].others[0].value,'Use website, booking page');
 });

@@ -3,7 +3,7 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "test": "npm run test:booking && npm run test:discord-email && npm run test:music:artist-sync",
-    "test:booking": "node --test tests/bookingSchema.test.js tests/bookingEmailTemplates.test.js tests/bookingAvailability.test.js tests/bookingActions.test.js tests/appsScriptBridgeColumns.test.js tests/venueEditModal.test.js tests/spreadsheetService.test.js tests/bookingDashboardHealth.test.js tests/dataServiceSyncStatus.test.js tests/versionAndLegacyCopy.test.js tests/websiteBookingsParser.test.mjs tests/websiteBookingsService.test.js tests/calendarIcsParser.test.mjs tests/deeDeeLocalReminderPlanner.test.mjs tests/deeDeeReminderBridge.test.js",
+    "test:booking": "node --test tests/contactRecords.test.js tests/bookingSchema.test.js tests/bookingEmailTemplates.test.js tests/bookingAvailability.test.js tests/bookingActions.test.js tests/appsScriptBridgeColumns.test.js tests/venueEditModal.test.js tests/spreadsheetService.test.js tests/bookingDashboardHealth.test.js tests/dataServiceSyncStatus.test.js tests/versionAndLegacyCopy.test.js tests/websiteBookingsParser.test.mjs tests/websiteBookingsService.test.js tests/calendarIcsParser.test.mjs tests/deeDeeLocalReminderPlanner.test.mjs tests/deeDeeReminderBridge.test.js",
     "test:discord-email": "node --test tests/discordEmailBridge.test.js",
     "test:discord-bot": "node --test functions/tests/discord-email-interactions.test.js",
     "jddm:gmail-oauth": "node scripts/jddm-gmail-oauth-token.mjs",

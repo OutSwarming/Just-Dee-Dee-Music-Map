@@ -4720,3 +4720,18 @@ body.ultra-low .trip-overlay-bookend {
 .venue-contact-popover textarea { margin: 8px 0; }
 .venue-contact-popover button { float: right; }
 .venue-contact-popover::after { content: ''; display: block; clear: both; }
+
+/* Each person's contact methods stay together in Add Place and Edit Place. */
+.venue-person-card { border: 1px solid #bdd7d2; border-radius: 16px; padding: 16px; margin-bottom: 16px; background: #f8fcfb; display: grid; gap: 14px; }
+.venue-person-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.venue-person-heading .venue-contact-remove { font-size: 12px; width: auto; padding: 8px 12px; }
+.venue-person-card > label, .venue-people > label { display: grid; gap: 6px; }
+.venue-person-notes textarea { display: block; width: 100%; margin-top: 8px; }
+.venue-person-notes summary { display: inline-block; cursor: pointer; }
+.venue-contact-group[data-contact-group="others"] .venue-contact-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; }
+.venue-contact-kind { grid-column: 1 / -1; }
+.venue-person-card input, .venue-person-card textarea { min-width: 0; box-sizing: border-box; }
+@media(max-width: 520px) { .venue-person-card { padding: 10px; } }
+
+.venue-people { min-width: 0; }
+.venue-person-card input, .venue-person-card textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; background: #f8fafc; color: #17202f; }

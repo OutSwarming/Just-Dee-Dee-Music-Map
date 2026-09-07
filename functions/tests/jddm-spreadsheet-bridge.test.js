@@ -423,25 +423,22 @@ test('guarded cleanup only deletes marked end-to-end test rows', async () => {
     assert.equal(gateway.sheets.Sheet1.length, 2);
 });
 
-test('old sheet appends contact column, then creates and edits multiple contacts without losing notes', async () => {
-    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS.slice(0,28)] });
-    const notifier=createRecordingNotifier();
-    const service=createJddmSpreadsheetBridgeService({gateway,notifier});
-    const details={version:1, emails:[{value:'a@example.com',note:'First, "booking"\nEvenings'}, {value:'b@example.com',note:'Gig prep; songs'}], phones:[{value:'+1 (330) 555-0100 ext 2',note:'Office'}, {value:'330-555-0101',note:'Mobile'}]};
-    const made=await service.route({action:'createVenue',rawFields:{'Place Name':'Contact test','Place ID':'contact-test','Next Follow Up':'2026-09-20','Contact Details':JSON.stringify(details)}});
-    assert.equal(made.ok,true);
-    assert.equal(gateway.sheets.Sheet1[0][28],'Contact Details');
+test('original 28 columns support people, legacy clients, edits and follow-up confirmations', async () => {
+    const codec=require('../contactRecords');
+    const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS.slice()]});
+    const notifier=createRecordingNotifier();const service=createJddmSpreadsheetBridgeService({gateway,notifier});
+    const old={version:1,emails:[{value:'a@example.com',note:'Booking'}, {value:'b@example.com',note:'Gig prep'}],phones:[{value:'330-555-0100',note:'Office'}]};
+    const made=await service.route({action:'createVenue',rawFields:{'Place Name':'Contact test','Place ID':'contact-test','Next Follow Up':'2026-09-20','Contact Details':JSON.stringify(old)}});
+    assert.equal(made.ok,true);assert.equal(CANONICAL_HEADERS.length,28);assert.equal(gateway.sheets.Sheet1[0].length,28);
     assert.equal(made.rawFields['Email/Contact'],'a@example.com');
-    assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1);
-    details.phones[1].note='Updated mobile note';
-    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Contact Details':JSON.stringify(details),'Next Follow Up':'Sun Sep 20 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'}});
-    const read=await service.route({action:'getVenue',id:'contact-test'});
-    assert.deepEqual(JSON.parse(read.rawFields['Contact Details']),details);
-    assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1,'same Eastern calendar date does not notify');
-    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-09-22'}});
-    assert.equal(notifier.events.at(-1).previousDate,'2026-09-20');
-    const csv=await service.route({action:'csv'});
-    assert.deepEqual(JSON.parse(parseCsv(csv.csv)[1][28]),details);
+    const people=codec.read(made.rawFields);people.contacts[0].name='Jamie';people.contacts.push({...codec.empty(),name:'Venue office',preferredMethod:'Messenger',others:[{type:'Facebook',value:'@office',note:'After 4pm'}]});
+    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Booking Contact':codec.encode(people),'Next Follow Up':'Sun Sep 20 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'}});
+    const read=await service.route({action:'getVenue',id:'contact-test'});assert.deepEqual(codec.read(read.rawFields).contacts,people.contacts);
+    assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1,'same Eastern date does not notify');
+    await assert.rejects(service.route({action:'saveVenue',id:'contact-test',rawFields:{'Contact Details':JSON.stringify(old)}}),/Refresh the map/);
+    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-09-22'}});assert.equal(notifier.events.at(-1).previousDate,'2026-09-20');
+    const csv=await service.route({action:'csv'});assert.deepEqual(codec.decode(parseCsv(csv.csv)[1][13]).contacts,people.contacts);
+    assert.equal(gateway.sheets.Sheet1[1].length,28);
     await assert.rejects(service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-02-30'}}),/valid calendar date/);
 });
 

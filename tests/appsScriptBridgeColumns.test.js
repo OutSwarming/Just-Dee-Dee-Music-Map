@@ -1082,17 +1082,17 @@ test('calendar cleanup removes no-coordinate calendar-only rows', () => {
     ]);
 });
 
-test('calendar sync keeps the existing tab and extra contact columns across repeated runs', () => {
+test('calendar sync keeps the existing tab and contact groups in the original columns across repeated runs', () => {
     const headers = require('../functions/jddmSpreadsheetBridge').CANONICAL_HEADERS;
     const details=JSON.stringify({version:1,emails:[{value:'booking@example.com',note:'Booking; evenings'},{value:'music@example.com',note:'Gig prep'}],phones:[]});
-    const values={'Place Name':'Dragonfly Winery','Place ID':'dragonfly','Status':'Needs Review','Contact Details':details};
+    const values={'Place Name':'Dragonfly Winery','Place ID':'dragonfly','Status':'Needs Review','Booking Contact':details};
     const sheet=createFakeSheet(headers, [headers.map(h=>values[h]||'')]);
     const bridge=loadBridge(sheet,{calendars:{'justdeedeemusic@gmail.com':[{title:'Dragonfly Winery',location:'',startTime:new Date('2099-02-01T12:00:00Z'),id:'contact-preservation-gig'}]}});
     bridge.setupComputerSection_=()=>{throw Error('Calendar sync must not rebuild the sheet');};
     bridge.syncCalendarGigEvents_({addMissing:false});
     bridge.syncCalendarGigEvents_({addMissing:false});
     assert.equal(bridge.getSheet_(),sheet);
-    assert.equal(sheet.values[0][28],'Contact Details');
-    assert.equal(sheet.values[1][28],details);
+    assert.equal(sheet.values[0][13],'Booking Contact');
+    assert.equal(sheet.values[1][13],details);
     assert.equal(sheet.deletedColumns.length,0);
 });

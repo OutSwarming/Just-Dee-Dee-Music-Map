@@ -1,25 +1,25 @@
-# Venue contacts and follow-up dates
+# Venue contact groups and follow-up dates
 
-Both Add Place and pin → Edit use the same editor. Email addresses and phone numbers have numbered rows, an inline Add button, and a Notes bubble for each contact. Notes open in a small editor and save with the place. Extra contacts can be removed individually. The first remaining contact is the primary contact used by the existing email/call actions.
+Add Place and pin → Edit share one contact editor. Each person or venue has a free-form name, preferred method/contact type, contact notes, and multiple emails, phone numbers and other contact methods. Each method has its own Notes bubble. Add stays beside the method on phones. Removing a contact removes that person's methods; editing one person keeps the others intact.
 
-The existing Email/Contact and Phone Number columns retain the primary values so existing integrations continue to work. A new Contact Details column stores the full versioned lists, including each value and its note. JSON preserves commas, quotes, and line breaks. Existing rows load without migration of their contact values. A legacy cell with one email address and accompanying text loads the text into its note bubble. Ambiguous legacy contact text can remain unchanged while editing other fields. New email entries use email validation; phone numbers allow international formatting and extensions.
+## Original 28-column storage
 
-Next Follow Up and Last Contacted always use calendar inputs. Calendar-only dates retain their day; timestamp values are interpreted in America/New_York. New dates save as YYYY-MM-DD text. Invalid calendar dates are rejected. The spreadsheet bridge also normalizes existing date strings when returning rows and CSV to the map and reminder service.
+No new spreadsheet column is required. Booking Contact (N) stores a versioned `JDDM_CONTACTS_V2` envelope. It contains the contacts and any previous booking text. Contact Name (K), Email/Contact (L), Phone Number (M), and Contact Type (O) remain plain text summaries for existing email, call and notification integrations. Venue Notes (AB) remains separate. The first contact supplies the main name and preferred method; the first available email and phone across the contacts supply the primary action values.
 
-Monitoring / follow-up-added receives “Follow-up added — PLACE”, “Follow-up changed — PLACE”, or “Follow-up removed — PLACE”, with the new and previous dates as applicable. A new place with a follow-up sends both the new-place notification and the follow-up-added confirmation. Resaving the same calendar date sends no duplicate. Customer Communication / daily-follow-ups remains the separate 8 AM Eastern reminder channel.
+The shared browser/server codec is `functions/contactRecords.js`. Commas, quotes, newlines, phone extensions, free-text preferences and per-method notes round-trip without delimiter guessing. A baseline records the plain summary fields, allowing direct spreadsheet changes to those fields to appear in the editor without deleting alternate methods. Old free text in Email/Contact becomes an Other method when it cannot be safely interpreted as an email. Existing names are not split or assigned to invented people.
 
-The live map uses the jddmSpreadsheetBridge function in **barkrangermap-auth**. Deploying a bridge in the email bot's Firebase project does not update the map's connection.
+The migration backs up Sheet1 before writing only Booking Contact. It preserves the original 28 cells of each row except N, verifies every saved contact record, then removes the temporary Contact Details column AC. Both rows with saved AC notes are included. Existing legacy records continue to load without requiring migration. Old editor submissions using AC are translated when safe; after a row has grouped contacts, an old editor must refresh before saving, avoiding loss of person/method associations.
 
-## Verification, September 7, 2026
+## Dates and notifications
 
-- 118 booking/browser-service unit tests and 119 function tests passed.
-- `node tests/venueEditModal.browser.cjs` exercises Add and Edit, two emails and two phones, separate multiline notes, a date change, saving/reloading, and inline Add placement at desktop and phone sizes.
-- A temporary live sheet row verified two emails, three phones, note edits, and fresh reads from Sheets. Discord verification checks one new-place message, one added-date confirmation, one changed-date confirmation, and no duplicate for a same-date save. Temporary test rows are removed after verification.
+Next Follow Up and Last Contacted use calendar inputs. Timestamps are interpreted in America/New_York; new dates save as YYYY-MM-DD text. Invalid dates are rejected. Monitoring / follow-up-added receives added, changed or removed confirmations with the place name and dates. New places with a follow-up send both notifications. Resaving the same Eastern calendar date does not notify again. Customer Communication / daily-follow-ups remains the separate 8 AM Eastern reminder channel.
 
-## Calendar collision repair, September 7, 2026
+The live map uses jddmSpreadsheetBridge in **barkrangermap-auth**. The email bot is in a different Firebase project. GitHub Pages publishes the map from main.
 
-The old Apps Script calendar sync called `setupComputerSection_` on each run. Its 28-column schema treated Contact Details as an extra column, replaced Sheet1, and discarded AC. A warm Firebase bridge could then retain the old tab ID and dimensions. The live error was `Range (Sheet1!AC1) exceeds grid limits`.
+## Calendar preservation
 
-Repair: the Firebase gateway re-reads tab identity and dimensions before every venue operation. Calendar sync no longer runs destructive setup. The bound script's legacy create path received the same narrow removal. The active Apps Script deployment `AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu` was updated from version 36 to 37; the five-minute trigger was verified to reference version 37. Saving Head alone was insufficient because the trigger used the deployed version.
+The old Apps Script sync ran destructive spreadsheet setup every five minutes. That routine replaced Sheet1 and removed AC. The Firebase gateway now refreshes sheet identity and dimensions, and routine calendar sync no longer calls setup. Active Apps Script deployment `AKfycbyOems33yVzMEq_ucgoajSg3cYCq-68sM1ngKP2d0pdvA3OpJCG34ZAAM-cIeQouDKu` is version 37, including its scheduled trigger. Keep that deployment updated when changing the bound script; saving Head alone does not update the trigger. Manual purge/setup is not a routine sync step.
 
-Regression checks cover a replaced tab during a warm gateway instance and repeated calendar syncs that update gig facts while preserving the same tab and contact notes. The live Contact Details header was restored without replacing venue data. Manual purge/setup remains an explicit legacy maintenance operation and must not be used as a routine sync step.
+## Verification
+
+`npm run test:booking`, `npm test --prefix functions`, and `node tests/venueEditModal.browser.cjs` cover contact storage, legacy migration, Add/Edit, multiple people, notes, removal, calendars and desktop/mobile layout. Live verification creates a temporary marked venue, edits multiple people and notes, runs the deployed calendar sync, checks fresh spreadsheet reads and Discord new-place/follow-up confirmations, and removes the test row.
