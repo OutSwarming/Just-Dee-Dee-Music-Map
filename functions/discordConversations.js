@@ -165,7 +165,7 @@ function modal(id,kind,context=[],prefix='jddm2'){
 function createConversationInteractions({getConfig,service,discord,db,legacy,prefix='jddm2',readOnlySource=false}){return async(req,res)=>{
  const raw=req.rawBody||JSON.stringify(req.body);if(!verifyDiscordSignature({publicKey:getConfig().publicKey,signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:raw}))return res.status(401).send('invalid request signature');
  const i=req.body;if(i.type===1)return res.json({type:1});const custom=i.data?.custom_id||'';if(!custom.startsWith(prefix+':'))return legacy(req,res);const [,action,id,...context]=custom.split(':');if(i.guild_id!==GUILD_ID)return res.json({type:4,data:{content:'This control belongs to the JDDM server.',flags:64}});
- if(readOnlySource&&['reply','reply-submit'].includes(action))return res.json({type:4,data:{content:'Google Voice imports records only. Respond in Google Voice.',flags:64}});
+ if(readOnlySource&&['reply','reply-submit'].includes(action))return res.json({type:4,data:{content:typeof readOnlySource==='string'?readOnlySource:'Google Voice imports records only. Respond in Google Voice.',flags:64}});
  if(['reply','date','venue-query'].includes(action))return res.json(modal(id,action==='venue-query'?'venue-search':action,action==='date'?context:[],prefix));if(action==='status'&&i.data.values?.[0]==='followup')return res.json(modal(id,'date',context,prefix));
  const actor=i.member?.nick||i.member?.user?.global_name||i.member?.user?.username||'Dee Dee';
  await discord('POST',`/interactions/${i.id}/${i.token}/callback`,{type:5,data:{flags:64}});

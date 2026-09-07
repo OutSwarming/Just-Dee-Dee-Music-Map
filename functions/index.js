@@ -1429,6 +1429,7 @@ exports.discordEmailInteractions = functions.runWith({ secrets: [...conversation
         }
     }
     const runtime = buildConversationRuntime();
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmm:')) return conversations.createConversationInteractions({ ...runtime, service:require('./messengerInbox').createService({...runtime,venueDirectory:conversationVenueDirectory}), prefix:'jddmm', readOnlySource:'Reply using Open Messenger / Reply on this conversation.', getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Messenger control') })(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmv:')) return conversations.createConversationInteractions({ ...runtime, service:runtime.voiceService, prefix:'jddmv', readOnlySource:true, getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Voice control') })(req,res);
     const legacy = discordEmailInteractions.createInteractionsHandler({
         getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }),
@@ -1513,4 +1514,10 @@ exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_
     if(req.query.summary==='1')extra.conversations=(await admin.firestore().collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
     res.json({ok:true,...digest,...extra,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<20*60*1000?calendar:null});}
     catch(e){console.error('[jddmNotificationDigest]',e.message);res.status(503).json({ok:false,error:'Daily follow-ups are temporarily unavailable; retry shortly.'});}
+});
+
+exports.jddmMessengerPoll=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async()=>{
+ const messenger=require('./messengerInbox'),db=admin.firestore(),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+ try {console.log('[messenger]',await messenger.createService({db,discord,graph:messenger.createGraphClient(process.env.JDDM_MESSENGER_PAGE_TOKEN),venueDirectory:conversationVenueDirectory}).poll());}
+ catch(error){const ref=db.doc('jddmMessengerConfig/main'),cfg=(await ref.get()).data()||{};if(cfg.problemChannelId&&cfg.lastError!==error.message)await discord('POST',`/channels/${cfg.problemChannelId}/messages`,{content:'⚠️ Messenger sync needs attention: '+error.message+'\nOpen Meta Business Suite to check messages while the connection is repaired.',flags:4096,allowed_mentions:{parse:[]}});await ref.set({lastError:error.message,lastErrorAt:new Date().toISOString()},{merge:true});throw error;}
 });
