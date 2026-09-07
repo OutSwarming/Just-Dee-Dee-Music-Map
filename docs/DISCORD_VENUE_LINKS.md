@@ -1,6 +1,6 @@
 # Discord email venue links
 
-Each Gmail conversation has a Link venue / Change linked venue button. Search existing spreadsheet places by name, city, contact name or email, then choose the correct venue from a private dropdown. Searches show up to 24 venues plus Leave unlinked; refine the search for more results. Search choices expire after ten minutes and belong to the person and conversation that requested them.
+Each Gmail conversation has a Link venue / Change linked venue button. It opens a private venue dropdown immediately, with the current or suggested venue first and a Search venues button underneath. Search by part of a venue name, city, contact name or email; common spelling mistakes and transposed letters also produce suggestions. Exact results rank ahead of similar spellings. Searches show up to 24 venues plus Leave unlinked; use Search venues again to refine the results. Fuzzy suggestions are exclusively for manual selection and never change automatic linking rules. Search choices expire after ten minutes and belong to the person and conversation that requested them.
 
 Discord cannot create venues. New places are added through the map app. Links use the existing Place ID and are stored in Firestore; no spreadsheet columns are added. Duplicate Place IDs are excluded from selection and automatic linking until corrected in the app.
 
