@@ -68,7 +68,7 @@ export function renderTextSummary(summary,input,{preview=false}={}){
 }
 async function sendSummaryText(recipient,body){
  const file=path.join(SUPPORT,'summary-text-'+process.pid+'.txt');await writeFile(file,body,{mode:0o600});
- try{await promisify(execFile)(process.execPath,[path.join(path.dirname(fileURLToPath(import.meta.url)),'send-local-message.mjs'),'--phone',recipient,'--message-file',file,'--daily-ai-summary'],{timeout:120000});}finally{await rm(file,{force:true});}
+ try{await promisify(execFile)(process.execPath,[path.join(path.dirname(fileURLToPath(import.meta.url)),'send-local-message.mjs'),'--phone',recipient,'--message-file',file,'--daily-ai-summary'],{timeout:120000});}catch(e){throw Error(e.killed?'Messages automation timed out; check macOS Automation permission for the scheduled Node runtime.':String(e.stderr||e.message).trim());}finally{await rm(file,{force:true});}
 }
 export async function main(){
  const preview=process.argv.includes('--preview'),postPreview=process.argv.includes('--post-preview');

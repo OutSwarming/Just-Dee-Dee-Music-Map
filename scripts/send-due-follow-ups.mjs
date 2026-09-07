@@ -16,7 +16,7 @@ export function allowedRecipients(onlyMe=false,override=''){
 }
 export async function deliverDigest({digest,state={},recipients=RECIPIENTS,send,persist=async()=>{}}){
  allowedRecipients(false,recipients.join(','));const day=digest.today;state[day] ||= {};
- const failures=[];for(const recipient of recipients){if(state[day][recipient]?.sent)continue;try{await send(recipient,digest.body);state[day][recipient]={sent:true,sentAt:new Date().toISOString()};await persist(state);}catch(e){failures.push({recipient,error:e.message});}}
+ const failures=[];for(const recipient of recipients){if(state[day][recipient]?.sent)continue;try{await send(recipient,digest.body);state[day][recipient]={sent:true,sentAt:new Date().toISOString()};await persist(state);}catch(e){const error=e.killed?'Messages automation timed out; check macOS Automation permission for the scheduled Node runtime.':String(e.stderr||e.message).trim();state[day][recipient]={sent:false,lastAttemptAt:new Date().toISOString(),error};await persist(state);failures.push({recipient,error});}}
  return {state,failures};
 }
 async function main(){
@@ -35,7 +35,7 @@ async function main(){
    const file=path.join(tmpdir(),'jddm-daily-followup-'+process.pid+'.txt');await writeFile(file,body,{mode:0o600});
    try{await exec(process.execPath,[path.join(ROOT,'scripts/send-local-message.mjs'),'--phone',recipient,'--message-file',file,'--daily-follow-up'],{timeout:120000});}finally{await rm(file,{force:true});}
   }});
-  console.log(JSON.stringify({date:digest.today,recipients:targets.length,failures:result.failures.length}));if(result.failures.length)throw Error('Some follow-up texts failed; successful recipients are saved and failures will retry.');
+  console.log(JSON.stringify({date:digest.today,recipients:targets.length,failures:result.failures}));if(result.failures.length)throw Error('Some follow-up texts failed; successful recipients are saved and failures will retry.');
  }finally{await rm(LOCK,{recursive:true,force:true});}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(e=>{console.error(e.message);process.exitCode=1;});
