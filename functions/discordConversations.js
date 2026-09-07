@@ -39,8 +39,9 @@ function plainBody(payload) {
   if(node.mimeType==='text/html')text=text.replace(/<(script|style)[\s\S]*?<\/\1>/gi,'').replace(/<br\s*\/?>|<\/p>|<\/div>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
   // Remove only recognizable quoted history; the actual original messages are
   // posted separately in chronological order, without truncating their bodies.
-  text=text.replace(/\r\n/g,'\n');const cut=text.search(/\n(?:On [^\n]{3,220}wrote:|[- ]{2,}Original Message[- ]*)\s*\n/i);
-  if(cut>0)text=text.slice(0,cut);
+  text=text.replace(/\r\n/g,'\n');const cut=text.search(/\n(?:On [^\n]{3,220}(?:\n[^\n]{0,220}){0,3}wrote:|[- ]{2,}Original Message[- ]*)\s*\n/i);
+  const forwardedAt=text.search(/Begin forwarded message:|[- ]+Forwarded message[- ]+/i);
+  if(cut>0&&(forwardedAt<0||cut<forwardedAt))text=text.slice(0,cut);
   return text.trim()||'(See original email.)';
 }
 function attachments(payload){const names=[];function visit(p){if(p?.filename)names.push(p.filename);(p?.parts||[]).forEach(visit);}visit(payload);return names;}
