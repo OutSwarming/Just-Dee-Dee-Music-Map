@@ -1,0 +1,67 @@
+'use strict';
+const crypto=require('node:crypto');
+const {verifyDiscordSignature}=require('./discordEmailInteractions');
+const {searchVenues}=require('./venueLinks');
+const {emails,phones}=require('./venueIdentity');
+const GUILD='1543777084265070623', CHANNEL='1546552196991287377';
+const APP='https://outswarming.github.io/Just-Dee-Dee-Music-Map/';
+const SOURCES={calendar:{label:'Calendar / website',emoji:'📅',color:0x9b59b6},email:{label:'Email',emoji:'✉️',color:0x3498db},messenger:{label:'Facebook Messenger',emoji:'💬',color:0x1877f2},instagram:{label:'Instagram',emoji:'📷',color:0xe1306c},voice:{label:'Google Voice',emoji:'📱',color:0x2ecc71}};
+const NS={email:'jddmEmail',messenger:'jddmMessenger',instagram:'jddmInstagram',voice:'jddmVoice'};
+const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
+const key=(source,id)=>hash(source+':'+id).slice(0,32);
+const esc=s=>String(s||'').replace(/[*_`~|\\]/g,'\\$&');
+const clean=(s,n=300)=>String(s||'').trim().slice(0,n);
+function draftFields(r){
+ const f={'Place Name':r.source==='calendar'?clean(r.name,150):'',Address:r.source==='calendar'?clean(r.location,400):'',State:'OH','Contact Name':'','Email/Contact':'','Phone Number':'','Contact Type':'',Latitude:'',Longitude:'',Notes:'Added from '+SOURCES[r.source].label+' linking review. '+clean(r.name,250)};
+ if(r.source==='messenger'||r.source==='instagram'){f['Contact Name']=clean(r.name,120);f['Contact Type']=r.source==='instagram'?'Instagram':'Facebook Messenger';}
+ if(r.source==='email'){const es=emails(r.correspondent).filter(e=>!/no.?reply|notification|mailer-daemon/i.test(e));if(es.length===1)f['Email/Contact']=es[0];const name=clean(r.correspondent).replace(/<[^>]+>/g,'').replace(/"/g,'').trim();if(name&&!name.includes('@'))f['Contact Name']=name;f['Contact Type']='Email';}
+ if(r.source==='voice'){f['Phone Number']=phones(r.phone)[0]||'';f['Contact Type']='Google Voice';}
+ if(r.source==='instagram'&&r.username){f['Booking Contact']=require('./contactRecords').encode({version:2,contacts:[{name:f['Contact Name'],emails:[],phones:[],others:[{type:'Instagram',value:'https://www.instagram.com/'+encodeURIComponent(r.username)+'/'}],notes:'',preferredMethod:'Instagram'}]});}
+ return f;
+}
+function card(r){const s=SOURCES[r.source],pending=r.status==='pending',state=r.status==='linked'?'🟢 Linked':r.status==='ignored'?'⚪ Ignored':r.status==='inactive'?'⚪ No longer active':'🟠 Needs a venue';
+ const choices=(r.options||[]).slice(0,25),components=[];
+ components.push({type:1,components:[{type:3,custom_id:`jddmlink:select:${r.id}:${r.selectionVersion||0}`,placeholder:choices.length?'Choose an existing venue':'Search to find a venue',disabled:!choices.length||!['pending','linked'].includes(r.status),options:choices.length?choices.map(v=>({label:clean(v.name,100),value:hash(v.id).slice(0,24),description:clean(v.city||'Location not recorded',100)})):[{label:'Use Search venues',value:'__none__'}]}]});
+ components.push({type:1,components:[{type:2,style:1,label:'Search venues',custom_id:`jddmlink:search:${r.id}`,disabled:r.status==='inactive'},{type:2,style:5,label:'Add in app',url:APP+'#linkingReview='+r.id+'.'+r.draftToken,disabled:!pending},{type:2,style:2,label:r.status==='ignored'?'Review again':'Ignore',custom_id:`jddmlink:${r.status==='ignored'?'reopen':'ignore'}:${r.id}:${r.revision||0}`,disabled:r.status==='linked'||r.status==='inactive'},...(r.sourceUrl?[{type:2,style:5,label:'Open source',url:r.sourceUrl}]:[])]});
+ return {content:`${s.emoji} **${s.label}${r.kind?' · '+r.kind:''}** — ${state}`,embeds:[{title:clean(r.name||'Unknown contact',180),color:r.status==='linked'?0x2ecc71:r.status==='ignored'?0x95a5a6:s.color,description:[r.location?'📍 '+esc(r.location):'',r.dates?.length?'Dates: '+r.dates.slice(0,8).join(', '):'',r.status==='linked'?'Linked to **'+esc(r.venueName)+'**. Official follow-up: **'+(r.followUpDate||'not scheduled')+'**.':r.status==='ignored'?'Ignored in Linking Review. The original messages stay untouched.':r.reason||'Choose the existing spreadsheet venue, or review a new place in the app.',r.searchQuery?'🔎 Results for **'+esc(r.searchQuery)+'** · '+choices.length+' shown.':'',r.feedback||'',pending?'Search opens a popup. Results and confirmations stay on this card. Add in app requires reviewing and saving the new place.':''].filter(Boolean).join('\n').slice(0,3800),footer:{text:'Linking Review • '+r.id}}],components,allowed_mentions:{parse:[]},flags:4096};
+}
+function modal(id){return {type:9,data:{custom_id:'jddmlink:query:'+id,title:'Search existing venues',components:[{type:1,components:[{type:4,custom_id:'query',label:'Venue, city, email, phone or contact name',style:1,required:true,min_length:2,max_length:100,placeholder:'Spelling mistakes are OK'}]}]}};}
+function createService({db,discord,directory,services,calendar,now=()=>Date.now()}){
+ const ref=id=>db.doc('jddmLinkingReviews/'+id),get=async id=>(await ref(id).get()).data();
+ async function locked(id,fn){const lease=db.doc('jddmLinkingLocks/'+id),owner=crypto.randomUUID();await db.runTransaction(async tx=>{const c=(await tx.get(lease)).data();if(c?.until>now())throw Error('Another review update is saving. Try again shortly.');tx.set(lease,{owner,until:now()+180000});});try{return await fn();}finally{await db.runTransaction(async tx=>{if((await tx.get(lease)).data()?.owner===owner)tx.set(lease,{until:0},{merge:true});});}}
+ async function publish(r){const body=card(r),digest=hash(JSON.stringify(body));if(r.messageId&&r.messageHash===digest)return r;let m;
+  try{m=await discord(r.messageId?'PATCH':'POST',r.messageId?`/channels/${CHANNEL}/messages/${r.messageId}`:`/channels/${CHANNEL}/messages`,{...body,...(!r.messageId?{nonce:r.id.slice(0,24),enforce_nonce:true}:{})});}catch(e){throw e;}
+  const n={...r,messageId:m.id||r.messageId,messageHash:digest};await ref(r.id).set(n);return n;}
+ function options(index,r,query){const suggestions=query?searchVenues(index,query):[...index.filter(v=>(r.candidates||[]).includes(v.id)),...searchVenues(index,r.name||''),...index];const seen=new Set();return suggestions.filter(v=>v.linkable!==false&&!seen.has(v.id)&&seen.add(v.id)).slice(0,25).map(v=>({id:v.id,name:v.name,city:v.city}));}
+ async function upsert(input,index){const id=key(input.source,input.sourceId);return locked(id,async()=>{const old=await get(id);if(old?.decisionAt&&old.decisionAt>=input.observedAt)return old;if(!old&&(input.testConversation||input.venueId&&!(input.source==='calendar'&&input.messageId)))return;
+  let r={...old,...input,id,draftToken:old?.draftToken||crypto.randomBytes(16).toString('hex'),draftPlaceId:'linking-review-'+id,revision:old?.revision||0,selectionVersion:old?.selectionVersion||0,status:input.venueId?'linked':(input.source==='calendar'?input.status==='ignored':old?.status==='ignored')?'ignored':input.active===false?'inactive':'pending'};
+  if(old?.status==='linked'&&!input.venueId)r.revision++;
+  const created=index.find(v=>v.id===r.draftPlaceId&&v.linkable!==false);if(r.status==='pending'&&created){await linkSource(r,created.id,'Added and saved in map app');r={...r,status:'linked',venueId:created.id,venueName:created.name,followUpDate:created.date,revision:r.revision+1};}
+  if(!old?.searchQuery||!old?.options){r.options=options(index,r);if(JSON.stringify(r.options)!==JSON.stringify(old?.options||[]))r.selectionVersion++;}else{r.options=old.options;}
+  await ref(id).set(r);return publish(r);
+ });}
+ async function sync(){const observedAt=now();const index=await directory.list({fresh:true});let count=0;
+  for(const [source,ns] of Object.entries(NS)){for(const d of (await db.collection(ns+'Conversations').get()).docs){const c=d.data();if(c.testConversation)continue;const item={observedAt,source,sourceId:d.id,name:clean(c.name||c.subject||c.phone||c.caller),correspondent:c.correspondent||'',phone:c.phone||'',username:c.username||'',kind:source==='voice'?({calls:'Calls',voicemail:'Voicemail',text:'Texts'}[c.kind]||'Texts'):'',venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',reason:c.venueLinkIssue||c.venueLinkReason||'',candidates:c.venueCandidates||[],sourceUrl:`https://discord.com/channels/${GUILD}/${c.discordThreadId}`};if(await upsert(item,index))count++;}}
+  const reviews=await calendar.list();for(const c of reviews){const result=await upsert({observedAt,source:'calendar',sourceId:c.id,name:c.name,location:c.location||'',dates:c.dates||[],active:c.active!==false,status:c.status,venueId:c.status==='linked'?c.venueId||'':'',venueName:c.venueName||'',followUpDate:index.find(v=>v.id===c.venueId)?.date||'',reason:c.reason||'',calendarRevision:c.revision||0,candidates:[],...(c.messageId?{messageId:c.messageId}:{})},index);if(result)count++;}
+  await db.doc('jddmLinkingReview/config').set({channelId:CHANNEL,lastSuccess:new Date(now()).toISOString(),lastError:'',cards:count},{merge:true});return {cards:count};
+ }
+ async function linkSource(r,venueId,actor){if(r.source==='calendar')return calendar.choose(r.sourceId,'link',venueId,actor,r.calendarRevision||0);return services[r.source].linkVenue(r.sourceId,venueId,actor,r.venueId||'');}
+ async function act(id,action,value,context,actor,messageId){return locked(id,async()=>{let r=await get(id);if(!r||r.messageId!==messageId)throw Error('This review card is no longer current.');
+  if(action==='query'){const query=clean(value,100);if(query.length<2)throw Error('Enter at least two characters.');r={...r,searchQuery:query,options:options(await directory.list(),r,query),selectionVersion:r.selectionVersion+1,feedback:''};}
+  else if(action==='select'){if(Number(context)!==r.selectionVersion||!r.options.some(v=>hash(v.id).slice(0,24)===value))throw Error('The choices changed. Search again on this card.');if(!['pending','linked'].includes(r.status))throw Error('This review has already changed.');const selected=r.options.find(v=>hash(v.id).slice(0,24)===value),venue=await directory.get(selected.id);const linked=await linkSource(r,selected.id,actor);r={...r,...(r.source==='calendar'?{calendarRevision:linked?.revision??((r.calendarRevision||0)+1)}:{}),status:'linked',venueId:venue.id,venueName:venue.name,followUpDate:venue.date,revision:r.revision+1,feedback:'Saved. The source conversation now uses this venue.'};}
+  else if(action==='ignore'||action==='reopen'){if(Number(context)!==r.revision)throw Error('Someone already changed this review.');if(r.status==='linked'||r.status==='inactive')throw Error('This review no longer needs a decision.');if(r.source==='calendar'){if(action==='ignore')await calendar.choose(r.sourceId,'ignore','',actor,r.calendarRevision||0);else await calendar.reopen(r.sourceId,actor,r.calendarRevision||0);r.calendarRevision=(r.calendarRevision||0)+1;}r={...r,status:action==='ignore'?'ignored':'pending',revision:r.revision+1,feedback:''};}
+  else throw Error('Unknown review action');r.decisionAt=now();await ref(id).set(r);return publish(r);
+ });}
+ async function feedback(id,messageId,error){return locked(id,async()=>{const r=await get(id);if(r?.messageId===messageId)await publish({...r,feedback:'⚠️ '+clean(error,350)});});}
+ async function draft(id,token){const r=await get(id);if(!r||!token||token!==r.draftToken)throw Error('This Add in app link is invalid.');if(r.status==='ignored'||r.status==='inactive')throw Error('Reopen this review in Discord before adding a place.');const existing=(await directory.list({fresh:true})).find(v=>v.id===(r.venueId||r.draftPlaceId)&&v.linkable!==false);return {ok:true,existingId:existing?.id||'',placeId:r.draftPlaceId,requestId:r.draftPlaceId,rawFields:draftFields(r)};}
+ return {get,sync,upsert,act,feedback,draft};
+}
+function interactions({service,discord,publicKey}){return async(req,res)=>{
+ if(!verifyDiscordSignature({publicKey:publicKey(),signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:req.rawBody||JSON.stringify(req.body)}))return res.status(401).send('Invalid signature');const i=req.body,[,action,id,context]=String(i.data?.custom_id||'').split(':'),user=i.member?.user?.id;
+ if(i.guild_id!==GUILD||i.channel_id!==CHANNEL||!user||!/^[a-f0-9]{32}$/.test(id||''))return res.status(403).send('Use Linking Review.');
+ if(action==='search')return res.json(modal(id));
+ await discord('POST',`/interactions/${i.id}/${i.token}/callback`,{type:6});
+ try{const value=action==='query'?i.data.components?.flatMap(c=>c.components||[]).find(c=>c.custom_id==='query')?.value:i.data.values?.[0];await service.act(id,action,value,context,user,i.message?.id);}catch(e){await service.feedback(id,i.message?.id,e.message);}
+ return res.status(202).send('handled');
+};}
+module.exports={CHANNEL,GUILD,APP,SOURCES,NS,key,card,modal,draftFields,createService,interactions};

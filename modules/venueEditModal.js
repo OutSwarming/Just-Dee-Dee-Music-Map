@@ -42,6 +42,7 @@
     let closePromise = null;
     let editorSession = 0;
     let createRequestId = '';
+    let linkingDraftId = '';
     let draftConflict = false;
 
     function formSnapshot() {
@@ -685,6 +686,7 @@
         let rawFields;
         try { rawFields = collectRawFields(); }
         catch (error) { setStatus(error.message, 'error'); return; }
+        if (isCreatingVenue && linkingDraftId) rawFields['Place ID'] = linkingDraftId;
         const submittedSnapshot = formSnapshot();
         const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name)) {
@@ -858,11 +860,12 @@
         await loadSourceRow();
     }
 
-    async function openNewVenueEditor(prefill) {
+    async function openNewVenueEditor(prefill, options = {}) {
         if (qs('venue-edit-modal') && !qs('venue-edit-modal').hidden && !(await closeModal())) return;
         editorSession++;
         draftConflict = false;
-        createRequestId = `contact-create-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        linkingDraftId = /^linking-review-[a-f0-9]{32}$/.test(options.placeId || '') ? options.placeId : '';
+        createRequestId = linkingDraftId || `contact-create-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
             alert('The spreadsheet bridge must be connected before adding a place.');
@@ -884,9 +887,21 @@
         captureSavedState();
         const prefilled = Object.keys(prefillFields).length > 0;
         setStatus(prefilled
-            ? 'Pre-filled from Google Places. Review the details, then add the place to the map.'
+            ? options.source === 'Linking Review' ? 'Pre-filled from Linking Review. Check the venue and contact details, then press Add Place to save. Discord will link it on the next review check.' : 'Pre-filled from Google Places. Review the details, then add the place to the map.'
             : 'Enter the place name and address. Latitude and longitude are optional; the bridge will geocode the address.', 'neutral');
         openModal();
+    }
+
+    async function openLinkingDraft(id,token) {
+        try {
+            const response = await fetch('https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmLinkingReviewDraft?id='+encodeURIComponent(id), {headers:{Authorization:'Bearer '+token},cache:'no-store'});
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw Error(data.message || 'Linking Review is temporarily unavailable.');
+            if (data.existingId) return openVenueEditor({id:data.existingId});
+            const allowed = new Set([...CREATE_FIELD_ORDER,'Booking Contact']), fields = {};
+            for (const [key,value] of Object.entries(data.rawFields || {})) if (allowed.has(key) && typeof value === 'string') fields[key] = value.slice(0,2000);
+            await openNewVenueEditor(fields, {source:'Linking Review',placeId:data.placeId});
+        } catch(error) { alert('Could not open the place from Linking Review: '+error.message); }
     }
 
     function bindAddVenueButtons() {
@@ -914,6 +929,8 @@
 
     document.addEventListener('DOMContentLoaded', bindAddVenueButtons);
     document.addEventListener('DOMContentLoaded', () => {
+        const draft = window.location.hash.match(/^#linkingReview=([a-f0-9]{32})\.([a-f0-9]{32})$/);
+        if (draft) { openLinkingDraft(draft[1],draft[2]); return; }
         const id = new URLSearchParams(window.location.search).get('editVenue');
         if (id && id.length <= 300) openVenueEditor({id});
     });

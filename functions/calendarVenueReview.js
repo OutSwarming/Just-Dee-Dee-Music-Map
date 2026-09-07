@@ -24,7 +24,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
     }
     async function publish(id, r) {
         const cfg = await config({required:false});
-        if (!cfg.channelId) return; // Keep a durable pending review while channel provisioning is blocked.
+        if (!cfg.channelId || cfg.unifiedReview) return; // Keep a durable pending review while channel provisioning is blocked.
         const body = card(id,r), digest = crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
         if (r.messageHash === digest && r.messageId) return;
         let m;
@@ -87,18 +87,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
             if ((r.revision || 0) !== expectedRevision) throw Error('Someone already changed this review. Open Link again');
             const rows = await listRows(); let venue;
             if (action === 'new') {
-                if (r.active === false || !r.dates?.some(d=>d>=dateKey(new Date(now())))) throw Error('This calendar venue has no upcoming event. Refresh the review');
-                if (r.status !== 'pending') throw Error('This event has already been reviewed');
-                const candidates = matchEvent(rows,{venueName:r.name,location:r.location}).candidates;
-                const proposedId = 'calendar-approved-' + id;
-                const recovered = rows.filter(v=>v['Place ID']===proposedId);
-                if (recovered.length === 1) venue = recovered[0];
-                else {
-                    if (candidates.length) throw Error('An existing venue now matches this name. Use Link to avoid another duplicate');
-                    const result = await createVenue({action:'createVenue',requestId:'calendar-review-'+id,rawFields:{'Place ID':proposedId,'Place Name':r.name,Address:r.location,Status:'Needs Review',Notes:'Created after explicit Discord calendar review. Verify venue address and contact details.'}});
-                    if (!result.ok) throw Error(result.message || 'The venue could not be created');
-                    venue = result.venue;
-                }
+                throw Error('Use Add in app in Linking Review. Review and save the new place in the app.');
             } else if (action === 'link') {
                 const matches = rows.filter(v=>v['Place ID']===venueId); if (matches.length !== 1) throw Error('That venue is missing or its Place ID is duplicated. Choose another venue'); venue = matches[0];
             } else if (action !== 'ignore') throw Error('Unknown calendar decision');
@@ -119,7 +108,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
         if (!s || s.id!==id || s.user!==user || s.expiresAt<=now() || !s.offered.includes(chosen)) throw Error('This dropdown expired. Click Link again');
         return choose(id,'link',chosen,user,s.revision);
     }
-    return {resolve:(events,options={})=>options.enqueue===false?resolveEvents(events,options):lock('source-'+(options.source||'website'),()=>resolveEvents(events,options)),choose,picker,select,config,get:async id=>(await ref(id).get()).data()};
+    return {resolve:(events,options={})=>options.enqueue===false?resolveEvents(events,options):lock('source-'+(options.source||'website'),()=>resolveEvents(events,options)),choose,picker,select,config,list:async()=>(await db.collection('jddmCalendarReviews').get()).docs.map(d=>({...d.data(),id:d.id})),reopen:async(id,actor,revision)=>lock(id,async()=>{const r=(await ref(id).get()).data();if(!r||r.status!=='ignored'||(r.revision||0)!==revision)throw Error('This review changed. Refresh it.');const next={...r,status:'pending',actor:'',venueId:'',venueName:'',revision:revision+1};await ref(id).set(next);return next;}),get:async id=>(await ref(id).get()).data()};
 }
 function searchModal(id) {
     return {type:9,data:{custom_id:`jddmcal:search:${id}`,title:'Find an existing venue',components:[{type:1,components:[{type:4,custom_id:'value',label:'Venue name or city (typos are OK)',style:1,required:true,min_length:2,max_length:100}]}]}};
@@ -151,6 +140,6 @@ function createResolveHandler({secret,service}) {return async(req,res)=>{
     const body=req.rawBody?.toString()||JSON.stringify(req.body), stamp=req.get('x-jddm-timestamp')||'', signature=req.get('x-jddm-signature')||'';
     const expected=crypto.createHmac('sha256',secret()).update(stamp+'.'+body).digest('hex');
     if(req.method!=='POST'||!/^\d+$/.test(stamp)||Math.abs(Date.now()-Number(stamp))>300000||!/^[a-f0-9]{64}$/.test(signature)||!crypto.timingSafeEqual(Buffer.from(signature),Buffer.from(expected)))return res.status(401).json({ok:false});
-    try{return res.json({ok:true,...await service.resolve(req.body.events,{source:req.body.source||'calendar',enqueue:req.body.enqueue!==false})});}catch(e){console.error('[calendarVenueReview]',e.message);return res.status(503).json({ok:false});}
+    try{if(req.body.action==='list')return res.json({ok:true,reviews:await service.list()});if(req.body.action==='choose')return res.json({ok:true,review:await service.choose(req.body.id,req.body.choice,req.body.venueId,req.body.actor,req.body.revision)});if(req.body.action==='reopen')return res.json({ok:true,review:await service.reopen(req.body.id,req.body.actor,req.body.revision)});return res.json({ok:true,...await service.resolve(req.body.events,{source:req.body.source||'calendar',enqueue:req.body.enqueue!==false})});}catch(e){console.error('[calendarVenueReview]',e.message);return res.status(503).json({ok:false});}
 };}
 module.exports={ENDPOINT,card,searchModal,createReviewService,createInteractionHandler,createResolveHandler,remoteResolve,dateKey};

@@ -1407,7 +1407,8 @@ function buildConversationRuntime() {
     const voice = require('./googleVoice');
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
-exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY', 'JDDM_CALENDAR_MONITOR_KEY'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmlink:')) return require('./linkingReview').interactions({...buildLinkingReviewRuntime(),publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmw:')) {
         const runtime=buildVenueWorklistRuntime();
         return require('./venueWorklist').createInteractions({...runtime,publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
@@ -1529,3 +1530,17 @@ exports.jddmMessengerWebhook=functions.runWith({secrets:['JDDM_MESSENGER_APP_SEC
 exports.jddmMessengerWebhookSync=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).firestore.document('jddmMessengerConfig/webhook').onWrite(async(change)=>{if(change.after.exists&&change.after.data().pending)await runJddmMessengerSync();});
 
 exports.jddmInstagramPoll=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(()=>runJddmMessengerSync('instagram'));
+
+
+function buildLinkingReviewRuntime(){
+    const runtime=buildConversationRuntime(),M=require('./messengerInbox');
+    const calendarRequest=async payload=>{const body=JSON.stringify(payload),stamp=String(Date.now()),signature=require('node:crypto').createHmac('sha256',process.env.JDDM_CALENDAR_MONITOR_KEY).update(stamp+'.'+body).digest('hex');const r=await fetch(require('./calendarVenueReview').ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','x-jddm-timestamp':stamp,'x-jddm-signature':signature},body,signal:AbortSignal.timeout(60000)});const d=await r.json();if(!r.ok||!d.ok)throw Error('Calendar linking is temporarily unavailable. Try again.');return d;};
+    const calendar={list:async()=>(await calendarRequest({action:'list'})).reviews,choose:async(id,choice,venueId,actor,revision)=>(await calendarRequest({action:'choose',id,choice,venueId,actor,revision})).review,reopen:async(id,actor,revision)=>(await calendarRequest({action:'reopen',id,actor,revision})).review};
+    const services={email:runtime.service,voice:runtime.voiceService,messenger:M.createService({...runtime,venueDirectory:conversationVenueDirectory}),instagram:M.createService({...runtime,venueDirectory:conversationVenueDirectory,platform:'instagram'})};
+    return {discord:runtime.discord,service:require('./linkingReview').createService({db:runtime.db,discord:runtime.discord,directory:conversationVenueDirectory,services,calendar})};
+}
+exports.jddmLinkingReviewPoll=functions.runWith({secrets:[...conversationSecrets,'JDDM_CALENDAR_MONITOR_KEY'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async()=>console.log('[linkingReview]',await buildLinkingReviewRuntime().service.sync()));
+exports.jddmLinkingReviewDraft=functions.runWith({secrets:[...conversationSecrets,'JDDM_CALENDAR_MONITOR_KEY'],timeoutSeconds:60}).https.onRequest(async(req,res)=>{
+    res.set('Access-Control-Allow-Origin','https://outswarming.github.io');res.set('Access-Control-Allow-Headers','Authorization');res.set('Access-Control-Allow-Methods','GET, OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.status(204).send('');if(req.method!=='GET')return res.status(405).send('GET required');
+    try{if(!/^[a-f0-9]{32}$/.test(req.query.id||''))throw Error('Invalid review');return res.json(await buildLinkingReviewRuntime().service.draft(req.query.id,String(req.get('Authorization')||'').replace(/^Bearer /,'')));}catch(e){return res.status(400).json({ok:false,message:e.message});}
+});
