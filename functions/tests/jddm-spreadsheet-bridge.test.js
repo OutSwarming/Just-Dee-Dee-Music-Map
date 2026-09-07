@@ -424,6 +424,34 @@ test('guarded cleanup only deletes marked end-to-end test rows', async () => {
     assert.equal(gateway.sheets.Sheet1.length, 2);
 });
 
+test('HTTP app activity sees successful contact saves and played changes, not empty saves or failures', async () => {
+    const {savedAppEdit}=require('../appActivity');
+    const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS,makeVenueRow({'Place ID':'activity-test','Place Name':'Activity test',Status:'Needs Review'})]});
+    const service=createJddmSpreadsheetBridgeService({gateway});
+    const edits=[];
+    const handler=createJddmSpreadsheetBridgeHandler({service,allowedOrigins:['https://outswarming.github.io'],activity:{record:async input=>{if(savedAppEdit(input))edits.push(input);}}});
+    const res=()=>({set(){return this;},status(){return this;},json(body){this.body=body;return this;}});
+    async function call(payload,origin='https://outswarming.github.io') {
+        const response=res();await handler({method:'POST',body:payload,get:()=>origin},response);return response.body;
+    }
+    const payload={action:'saveVenue',id:'activity-test',rawFields:{Notes:'Office hours updated'}};
+    await call(payload);await call(payload);
+    await call({action:'saveVenue',id:'missing',rawFields:{Notes:'Not saved'}});
+    await call({action:'setPlayed',id:'activity-test',played:true});
+    await call({action:'setPlayed',id:'activity-test',played:true});
+    await call({...payload,rawFields:{Notes:'Automated update'}},'');
+    assert.equal(edits.length,2);
+    assert.deepEqual(edits.map(e=>e.result.changedHeaders),[['Notes'],['Status']]);
+});
+
+test('an unavailable activity counter never turns a saved venue into a failed save',async()=>{
+    const handler=createJddmSpreadsheetBridgeHandler({service:{route:async()=>({ok:true,action:'saveVenue',changedHeaders:['Notes']})},activity:{record:async()=>{throw Error('Temporary activity outage');}}});
+    const res={set(){return this;},status(code){this.code=code;return this;},json(body){this.body=body;}};
+    await handler({method:'POST',body:{action:'saveVenue'},get:()=>''},res);
+    assert.equal(res.code,200);assert.equal(res.body.ok,true);
+    assert.match(res.body.activityWarning,/change was saved/);
+});
+
 test('original 28 columns support people, legacy clients, edits and follow-up confirmations', async () => {
     const codec=require('../contactRecords');
     const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS.slice()]});

@@ -846,9 +846,12 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         const statusIndex = data.headerMap.get('Status');
         if (statusIndex === undefined) return { ok: false, code: 'NO_STATUS_COLUMN', message: 'Status column is missing.' };
         const status = payload.played ? 'Played in the Past' : 'Needs Review';
+        if (data.rows[rowNumber - 2][statusIndex] === status) {
+            return { ok: true, action: 'setPlayed', rowNumber, played: Boolean(payload.played), status, changedHeaders: [] };
+        }
         await gateway.updateValues(`${MAIN_SHEET}!${columnName(statusIndex)}${rowNumber}`, [[status]]);
         await gateway.formatVenueRow(rowNumber, status, data.headers.length);
-        return { ok: true, action: 'setPlayed', rowNumber, played: Boolean(payload.played), status };
+        return { ok: true, action: 'setPlayed', rowNumber, played: Boolean(payload.played), status, changedHeaders: ['Status'] };
     }
 
     async function deleteTestVenue(payload) {
@@ -1133,7 +1136,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
     return { route };
 }
 
-function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [] }) {
+function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [], activity = null }) {
     const allowed = new Set(allowedOrigins);
     return async function jddmSpreadsheetBridgeHandler(req, res) {
         const origin = clean(req.get ? req.get('origin') : req.headers && req.headers.origin);
@@ -1152,6 +1155,15 @@ function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [] }) {
         }
         try {
             const result = await service.route(payload);
+            if (activity) {
+                try {
+                    await activity.record({ method: req.method, origin, payload, result });
+                } catch (error) {
+                    // A saved spreadsheet change must not appear to fail because its activity log is unavailable.
+                    console.error('[jddmAppActivity] Saved edit could not be counted', { action: payload.action, requestId: payload.requestId, message: error.message });
+                    result.activityWarning = 'Your change was saved, but the activity counter could not be updated.';
+                }
+            }
             if (result && result.action === 'csv' && result.ok) {
                 res.type('text/csv');
                 return res.status(200).send(result.csv);

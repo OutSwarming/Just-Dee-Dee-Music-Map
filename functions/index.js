@@ -86,6 +86,7 @@ const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
 
 const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
     service: jddmSpreadsheetBridgeService,
+    activity: {record: input => buildAppActivityRuntime().record(input)},
     allowedOrigins: [
         'https://outswarming.github.io',
         'https://just-dee-dee-music-map.web.app',
@@ -94,6 +95,24 @@ const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
         'http://127.0.0.1:4173'
     ]
 });
+
+function buildAppActivityRuntime() {
+    return require('./appActivity').createAppActivity({
+        db: admin.firestore(),
+        discord: require('./discordConversations').createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)
+    });
+}
+
+exports.jddmAppActivityNightly = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
+    .pubsub.schedule('0 22 * * *').timeZone('America/New_York').onRun(async context => {
+        const result = await buildAppActivityRuntime().report('nightly', new Date(context.timestamp || Date.now()));
+        console.log('[jddmAppActivity] nightly', result);
+    });
+exports.jddmAppActivityMorning = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
+    .pubsub.schedule('55 7 * * *').timeZone('America/New_York').onRun(async context => {
+        const result = await buildAppActivityRuntime().report('morning', new Date(context.timestamp || Date.now()));
+        console.log('[jddmAppActivity] morning', result);
+    });
 
 // Keep admin callables compatible with the current admin page. The backend
 // still enforces signed-in admin status plus per-admin rate limits.

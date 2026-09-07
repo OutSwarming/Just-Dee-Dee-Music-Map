@@ -154,7 +154,7 @@
     }
 
     async function setPlayed(id, played) {
-        return request('setPlayed', { id, played: Boolean(played) });
+        return request('setPlayed', { id, played: Boolean(played), requestId: createRequestId('setPlayed') });
     }
 
     async function queueReminder(reminderId, requestId) {
