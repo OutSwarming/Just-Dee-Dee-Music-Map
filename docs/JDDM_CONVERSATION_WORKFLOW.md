@@ -30,6 +30,21 @@ New received mail changes the conversation to Waiting on DEE DEE; a sent reply c
 
 Long email bodies are split into ordered Discord messages within the same post. Recognizable repeated reply quotations are trimmed; the original Gmail link preserves access to the full email and attachments. Separate Gmail thread IDs remain separate posts, even if they have similar subjects or the same venue.
 
+## Gig prep and Song requests
+
+The conversation label menu allows **Gig prep** (teal card, 🩵 tag) and **Song requests** (pink card, 🩷 tag), separately or together. These labels persist while the reply status changes. They do not change Gmail labels, archive mail, or remove a follow-up date.
+
+Mail sent directly in the JDDM Gmail website is imported as **Sent by Dee Dee** and turns its Discord conversation yellow. Replies received from the correspondent turn it blue. Replying again through either Gmail or Discord turns it yellow. The poller watches both new-message events and SENT-label events so sending an existing Gmail draft is detected.
+
+## Imported conversation cleanup — September 7
+
+- Standardized names as correspondent plus subject, removed repeated Re/Fwd prefixes, and shortened long contact names so the subject remains visible.
+- Added readable latest-message previews; removed technical Gmail IDs from the starter card and email messages. Multi-part emails retain simple Part N of M labels.
+- Tidied 50 existing email conversations and 242 message footers. Three historical imports now representing only drafts/deleted mail were archived and excluded from processed-message history so a later send can still import correctly.
+- Simplified 54 archived duplicate posts to a link to the complete conversation, removing their redundant email previews and obsolete controls. Original Discord content was backed up locally before this cleanup.
+- Resolved, Rejected, and Spam posts are archived after their summary is updated. A later incoming message can reopen the same post.
+- Separate Gmail conversations remain separate, even when they involve the same person; this preserves the correct reply destination and email thread.
+
 ## Operation
 
 - The Firebase conversation poll runs every five minutes. Unsent drafts and trashed messages are excluded. It uses Gmail history to retrieve changed conversations, with a durable queue for bursts and per-message chunk checkpoints. Up to 25 changed conversations and 100 Discord message chunks are handled per run.
@@ -57,4 +72,6 @@ Live verification used labeled self-emails and temporary map records. No test re
 - The existing map create/date-change/unchanged-save checks passed against its production spreadsheet endpoint; the temporary record was removed.
 - Automated tests cover long-message resumption, single-topic delivery, status effects, date validation and deduplication, combined email/map reminders, partial digest retry, incremental Gmail polling, and immediate interaction acknowledgement.
 
-Final automated run: **112 tests passed, 0 failed**.
+Final automated run: **115 tests passed, 0 failed**.
+
+Additional live round-trip verification used `JDDM Gmail round-trip test — September 7`, exchanged only between JDDM and Carter's own mailbox. The same Discord post (`1546377404438548531`) received the original email sent in Gmail, incoming replies, a direct Gmail reply, and a reply sent from Discord. Gmail send → yellow, incoming reply → blue, and direct Gmail reply → yellow were confirmed against both Gmail headers and the saved Discord state. Gig prep and Song requests remained attached through the exchange.
