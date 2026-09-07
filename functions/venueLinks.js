@@ -4,22 +4,51 @@ const contacts=require('./contactRecords');
 const {calendarDate}=require('./venueFields');
 const BRIDGE='https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
 const MAILBOX='justdeedeemusic@gmail.com';
-const norm=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const norm=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const emails=s=>[...new Set((String(s||'').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(e=>e.toLowerCase()).filter(e=>e!==MAILBOX))];
+const SHARED_DOMAINS=new Set(['gmail.com','googlemail.com','google.com','yahoo.com','outlook.com','hotmail.com','live.com','icloud.com','aol.com','msn.com','facebook.com','instagram.com','youtube.com','yelp.com','wixsite.com','square.site','godaddysites.com','sites.google.com','justdeedeemusic.com']);
+function domain(raw){try{const host=new URL(/^https?:\/\//i.test(raw)?raw:'https://'+raw).hostname.toLowerCase().replace(/^www\./,'');return host.includes('.')&&![...SHARED_DOMAINS].some(d=>host===d||host.endsWith('.'+d))?host:'';}catch{return '';}}
+function phones(raw){return [...new Set((String(raw||'').match(/(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}/g)||[]).map(p=>p.replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'')))];}
+function messageText(payload){const texts=[];function walk(p){if(!p)return;if(p.body?.data&&['text/plain','message/delivery-status','message/rfc822'].includes(p.mimeType))texts.push(Buffer.from(p.body.data,'base64url').toString('utf8'));(p.parts||[]).forEach(walk);}walk(payload);return texts.join('\n');}
+function venueName(raw){return norm(String(raw||'').replace(/\s+\d+\s+.*$/,''));}
 function indexRows(rows){
  const counts=new Map();for(const r of rows){const id=String(r['Place ID']||'').trim();if(id)counts.set(id,(counts.get(id)||0)+1);}
  return rows.filter(r=>r['Place Name']&&String(r['Place ID']||'').trim()).map(r=>{
   let people=[];try{people=contacts.read(r).contacts||[];}catch{};
   const contactEmails=[...emails(r['Email/Contact']),...people.flatMap(p=>p.emails.flatMap(e=>emails(e.value)))];
   const text=[r['Place Name'],r.City,r.State,r['Contact Name'],r['Email/Contact'],r['Phone Number'],...people.flatMap(p=>[p.name,...p.emails.map(e=>e.value),...p.phones.map(e=>e.value)])].join(' ');
-  return {linkable:counts.get(String(r['Place ID']).trim())===1,id:String(r['Place ID']).trim(),name:r['Place Name'],city:[r.City,r.State].filter(Boolean).join(', '),emails:[...new Set(contactEmails)],search:norm(text),date:calendarDate(r['Next Follow Up']),rawDate:r['Next Follow Up']||''};
+  const domains=[...new Set([r.Website,...people.flatMap(p=>p.others.map(x=>x.value)),...contactEmails.map(e=>e.split('@')[1])].map(domain).filter(Boolean))];
+  return {names:[...new Set([norm(r['Place Name']),venueName(r['Place Name']),venueName(r['Place Name']).replace(/ (?:company|co|inc|llc)$/,'')])],domains,phones:[...new Set([r['Phone Number'],...people.flatMap(p=>p.phones.map(x=>x.value))].flatMap(phones))],linkable:counts.get(String(r['Place ID']).trim())===1,id:String(r['Place ID']).trim(),name:r['Place Name'],city:[r.City,r.State].filter(Boolean).join(', '),emails:[...new Set(contactEmails)],search:norm(text),date:calendarDate(r['Next Follow Up']),rawDate:r['Next Follow Up']||''};
  });
 }
 function searchVenues(index,query){const q=norm(query);if(q.length<2)return[];const terms=q.split(' ');return index.filter(v=>v.linkable!==false&&terms.every(t=>v.search.includes(t))).sort((a,b)=>(norm(b.name)===q)-(norm(a.name)===q)||Number(norm(b.name).startsWith(q))-Number(norm(a.name).startsWith(q))||a.name.localeCompare(b.name));}
 function matchVenue(index,messages){
- const participants=new Set();for(const m of messages||[])for(const h of m.payload?.headers||[])if(['from','to','cc','reply-to'].includes(h.name.toLowerCase()))for(const e of emails(h.value))participants.add(e);
- const matches=index.filter(v=>v.emails.some(e=>participants.has(e)));
- return {venue:matches.length===1&&matches[0].linkable!==false?matches[0]:null,candidates:matches,reason:matches.length>1?'More than one venue matches these email participants.':matches.length===1?(matches[0].linkable===false?'Matching venue has a duplicate Place ID; correct it in the app.':'Unique exact email address match.'):'No unique saved email address match.'};
+ const participants=new Set(),voicePhones=new Set(),subjects=[];
+ for(const m of messages||[]){if(m.labelIds?.some(l=>['DRAFT','TRASH'].includes(l)))continue;
+  const headers=m.payload?.headers||[],get=name=>headers.find(h=>h.name.toLowerCase()===name)?.value||'';
+  for(const h of headers)if(['from','to','cc','reply-to'].includes(h.name.toLowerCase()))for(const e of emails(h.value))participants.add(e);
+  subjects.push(norm(get('subject')));
+  const forwarded=messageText(m.payload).match(/(?:Begin forwarded message:|-{2,}\s*Forwarded message\s*-{2,})([\s\S]{0,3000})/i);
+  if(forwarded){const block=forwarded[1].replace(/^\s+/, '').split(/\r?\n\s*\r?\n/)[0];for(const h of block.matchAll(/^(?:From|To|Cc|Reply-To):[ \t]*(.+)$/gim))for(const e of emails(h[1]))participants.add(e);}
+
+  const from=emails(get('from'));
+  if(from.some(e=>e.endsWith('@txt.voice.google.com'))&&/^(?:(?:re|fwd?):\s*)*new text message from\b/i.test(get('subject')))for(const p of phones(get('subject')))voicePhones.add(p);
+  // Delivery notices carry their recipient outside normal From/To headers.
+  if(from.some(e=>/^mailer-daemon@(?:googlemail|google)\.com$/.test(e))){
+   const text=messageText(m.payload);
+   for(const match of text.matchAll(/(?:Final-Recipient:\s*rfc822;\s*|problem delivering your message to\s+|Your message (?:wasn't delivered|couldn't be delivered) to\s+)([^\s<>]+)/gi))for(const e of emails(match[1]))participants.add(e);
+  }
+ }
+ const participantDomains=new Set([...participants].map(e=>domain(e.split('@')[1])).filter(Boolean));
+ const hasExactEmail=index.some(v=>v.emails.some(e=>participants.has(e)));
+ const evidence=index.map(v=>({v,reasons:[
+  v.emails.some(e=>participants.has(e))?'exact saved email address':'',
+  !hasExactEmail&&(v.domains||[]).some(d=>participantDomains.has(d))?'saved business email/website domain':'',
+  (v.phones||[]).some(p=>voicePhones.has(p))?'exact Google Voice sender phone':'',
+  (v.names||[venueName(v.name)]).some(n=>n.length>=8&&n.split(' ').length>=2&&subjects.some(subject=>(' '+subject+' ').includes(' '+n+' ')))?'venue name in subject':''
+ ].filter(Boolean)})).filter(x=>x.reasons.length);
+ const matches=evidence.map(x=>x.v),one=matches.length===1&&matches[0].linkable!==false;
+ return {venue:one?matches[0]:null,candidates:matches,reason:one?'Unique match: '+evidence[0].reasons.join(', ')+'.':matches.length>1?'Multiple spreadsheet venues match. Choose the correct place with Link venue.':matches.length===1?'Matching venue has a duplicate Place ID; correct it in the app.':'No reliable saved venue match. Use Link venue to search.'};
 }
 function createVenueDirectory({fetchImpl=fetch,now=()=>Date.now()}={}){
  let cached,until=0;
