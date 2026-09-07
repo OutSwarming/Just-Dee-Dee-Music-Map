@@ -1942,53 +1942,18 @@ function dedupeGigEvents_(events) {
   return Object.keys(deduped).map(function(key) { return deduped[key]; });
 }
 
-function findEventRow_(data, event) {
-  var eventVenueKey = normalizeKey_(event.venueName || event.title);
-  var eventLocationKey = normalizeKey_(event.location);
-  var eventVenueTokens = calendarTokens_(event.venueName || event.title);
-  var eventTokens = calendarTokens_([event.venueName, event.title, event.location].join(' '));
-  var bestRow = -1;
-  var bestScore = 0;
+function findEventRow_(data, event, reviewedMappings) {
+  var chosen = reviewedMappings && reviewedMappings[jddmCalendarReviewKey_(event)];
+  if (!chosen) return -1;
+  var found = [];
   data.rows.forEach(function(row, index) {
-    if (isBlankVenueRow_(row, data.headerMap)) return;
-    var rowName = getByHeader_(row, data.headerMap, 'Place Name') || getByHeader_(row, data.headerMap, 'Venue Name');
-    var rowAddress = getByHeader_(row, data.headerMap, 'Address');
-    var rowCity = getByHeader_(row, data.headerMap, 'City');
-    var rowNameKey = normalizeKey_(rowName);
-    var rowLocationKey = normalizeKey_([rowAddress, rowCity].join(' '));
-    var rowTokens = calendarTokens_([rowName, rowAddress, rowCity].join(' '));
-    var rowVenueTokens = calendarTokens_(rowName);
-    if (!rowNameKey && !rowLocationKey) return;
-    var score = 0;
-    if (eventVenueKey && rowNameKey && (eventVenueKey.indexOf(rowNameKey) >= 0 || rowNameKey.indexOf(eventVenueKey) >= 0)) score += 8;
-    if (eventLocationKey && rowLocationKey && rowLocationKey.length > 8 && eventLocationKey.indexOf(rowLocationKey) >= 0) score += 8;
-    score += calendarTokenScore_(eventVenueTokens, rowVenueTokens) * 2;
-    score += calendarTokenScore_(eventTokens, rowTokens);
-    if (score > bestScore) {
-      bestScore = score;
-      bestRow = index + 2;
-    }
+    if (String(getByHeader_(row, data.headerMap, 'Place ID')).trim() === chosen) found.push(index + 2);
   });
-  return bestScore >= 4 ? bestRow : -1;
+  return found.length === 1 ? found[0] : -1;
 }
 
-function appendVenueFromEvent_(data, event) {
-  var name = event.venueName || event.title || event.location || 'Calendar Venue';
-  var parsedLocation = parseCalendarLocation_(event.location);
-  var row = JDDM_CANONICAL_HEADERS.map(function(header) {
-    return '';
-  });
-  var map = makeHeaderMap_(JDDM_CANONICAL_HEADERS);
-  setByHeader_(row, map, 'Place Name', name);
-  setByHeader_(row, map, 'Address', parsedLocation.address);
-  setByHeader_(row, map, 'City', parsedLocation.city);
-  setByHeader_(row, map, 'State', parsedLocation.state || 'OH');
-  setByHeader_(row, map, 'Zip', parsedLocation.zip);
-  setByHeader_(row, map, 'Place ID', slugify_([name, parsedLocation.city, parsedLocation.state].filter(Boolean).join(' ')));
-  setByHeader_(row, map, 'Status', 'Needs Review');
-  setByHeader_(row, map, 'Notes', 'Created from Google Calendar future gig or official artist website gig. Review venue details and coordinates.');
-  data.sheet.appendRow(row);
-  return data.sheet.getLastRow();
+function appendVenueFromEvent_() {
+  throw new Error('Calendar imports cannot create spreadsheet venues. Use New row in Discord calendar-review.');
 }
 
 function summarizeCalendarEvent_(event) {
@@ -2020,10 +1985,11 @@ function syncCalendarGigEvents_(payload) {
   var today = todayIso_();
   var calendarResult = getCalendarEventsResult_();
   var events = dedupeGigEvents_(calendarResult.events.concat(getStoredWebsiteGigEvents_()));
+  var reviewedMappings = resolveCalendarVenueEvents_(events);
   var touched = {};
-  var addMissing = payload && payload.addMissing !== undefined ? isTrue_(payload.addMissing) : true;
+  var addMissing = false; // Only an explicit Discord review decision may create a venue.
   var replaceFutureGigsRequested = !(payload && isFalse_(payload.replaceFutureGigs));
-  var replaceFutureGigs = replaceFutureGigsRequested && calendarResult.coverageComplete;
+  var replaceFutureGigs = replaceFutureGigsRequested && calendarResult.coverageComplete && events.every(function(event) { return Boolean(reviewedMappings[jddmCalendarReviewKey_(event)]); });
   var previousWebsiteEvents = payload && Array.isArray(payload.previousWebsiteEvents)
     ? payload.previousWebsiteEvents
     : [];
@@ -2034,9 +2000,10 @@ function syncCalendarGigEvents_(payload) {
 
   if (replaceFutureGigs) seedCalendarRowsWithExistingFuture_(data, touched);
 
+  var previousReviewedMappings = previousWebsiteEvents.length ? resolveCalendarVenueEvents_(previousWebsiteEvents) : {};
   previousWebsiteEvents.forEach(function(event) {
     if (!event || !event.date || event.date < today) return;
-    var rowNumber = findEventRow_(data, event);
+    var rowNumber = findEventRow_(data, event, previousReviewedMappings);
     if (rowNumber < 0) return;
     if (!touched[rowNumber]) touched[rowNumber] = { past: [], future: [] };
     if (!websiteDatesToReplaceByRow[rowNumber]) websiteDatesToReplaceByRow[rowNumber] = {};
@@ -2045,7 +2012,7 @@ function syncCalendarGigEvents_(payload) {
 
   events.forEach(function(event) {
     if (!event.date) return;
-    var rowNumber = findEventRow_(data, event);
+    var rowNumber = findEventRow_(data, event, reviewedMappings);
     if (rowNumber < 0) {
       if (event.date >= today && addMissing) {
         rowNumber = appendVenueFromEvent_(data, event);
@@ -2122,7 +2089,7 @@ function installCalendarAutomation_() {
 }
 
 function runJddmCalendarSyncTrigger() {
-  return syncCalendarGigEvents_({ addMissing: true });
+  return syncCalendarGigEvents_({ addMissing: false });
 }
 
 function onEdit(e) {

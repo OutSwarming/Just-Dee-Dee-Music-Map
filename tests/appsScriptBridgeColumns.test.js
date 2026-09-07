@@ -334,6 +334,20 @@ function loadBridge(sheet, options = {}) {
         { filename: 'google-apps-script/jddm-spreadsheet-bridge/Code.gs' }
     );
 
+    const crypto = require('node:crypto');
+    context.Utilities.DigestAlgorithm={SHA_256:'sha256'};
+    context.Utilities.Charset={UTF_8:'utf8'};
+    context.Utilities.computeDigest=(algorithm,text)=>Array.from(crypto.createHash(algorithm).update(text).digest());
+    context.Utilities.computeHmacSha256Signature=(text,key)=>Array.from(crypto.createHmac('sha256',key).update(text).digest());
+    context.PropertiesService.getScriptProperties=()=>({getProperty:()=>'test-key'});
+    context.UrlFetchApp={fetch:(_url,options)=>{
+        const payload=JSON.parse(options.payload), data=context.getData_();
+        const rows=data.rows.map(row=>Object.fromEntries(data.headers.map((h,i)=>[h,row[i]||''])));
+        const {keyFor,matchEvent}=require('../functions/calendarVenueMatching');
+        const mappings=Object.fromEntries(payload.events.map(e=>[keyFor(e),matchEvent(rows,e).venue?.['Place ID']||'']));
+        return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({ok:true,mappings})};
+    }};
+    vm.runInContext(fs.readFileSync(path.join(ROOT,'google-apps-script/jddm-spreadsheet-bridge/CalendarReview.gs'),'utf8'),context);
     return context;
 }
 
@@ -635,7 +649,7 @@ test('calendar sync preserves Status while rebuilding future gig dates from curr
     assert.equal(row[headerIndex(headers, 'Future Gig Count')], 1);
 });
 
-test('calendar sync fuzzy-matches venue names and adds missing future real gigs', () => {
+test('calendar sync holds fuzzy and missing venue matches for Discord review without appending rows', () => {
     const sheet = createFakeSheet(
         ['Place Name', 'Address', 'City', 'Place ID', 'Status', 'Past Gigs', 'Future Gigs', 'Notes'],
         [['Brighten Brewing Company', '1375 S Main St', 'Cuyahoga Falls', 'brighten-brewing-company-cuyahoga-falls', 'Not Contacted Yet', '', '2099-01-01', '']]
@@ -680,17 +694,11 @@ test('calendar sync fuzzy-matches venue names and adds missing future real gigs'
     const added = cleanSheet.values.find(row => row[headerIndex(headers, 'Place Name')] === 'Pipe Creek Wharf');
 
     assert.equal(result.eventCount, 2);
-    assert.equal(result.addedRows.length, 1);
+    assert.equal(result.addedRows.length, 0);
+    assert.equal(result.unmatchedFutureEvents.length, 2);
     assert.equal(brighten[headerIndex(headers, 'Status')], 'Not Contacted Yet');
-    assert.equal(brighten[headerIndex(headers, 'Future Gigs')], '2099-02-02');
-    assert.ok(added);
-    assert.equal(added[headerIndex(headers, 'Place Name')], 'Pipe Creek Wharf');
-    assert.equal(added[headerIndex(headers, 'Address')], '49 Madison St');
-    assert.equal(added[headerIndex(headers, 'City')], 'Sandusky');
-    assert.equal(added[headerIndex(headers, 'Zip')], '44870');
-    assert.equal(added[headerIndex(headers, 'Status')], 'Needs Review');
-    assert.equal(added[headerIndex(headers, 'Future Gigs')], '2099-03-03');
-    assert.match(added[headerIndex(headers, 'Notes')], /Google Calendar future gig/i);
+    assert.equal(brighten[headerIndex(headers, 'Future Gigs')], '2099-01-01');
+    assert.equal(added, undefined);
 });
 
 test('official website gig reconciliation adds late gigs and removes deleted gigs', () => {
@@ -1095,4 +1103,15 @@ test('calendar sync keeps the existing tab and contact groups in the original co
     assert.equal(sheet.values[0][13],'Booking Contact');
     assert.equal(sheet.values[1][13],details);
     assert.equal(sheet.deletedColumns.length,0);
+});
+
+
+test('calendar review outage and legacy addMissing=true cannot create a venue or alter contacts',()=>{
+    const sheet=createFakeSheet(['Place Name','Place ID','Notes'],[['Known','known','Keep me']]);
+    const bridge=loadBridge(sheet,{calendars:{'justdeedeemusic@gmail.com':[{title:'Missing',location:'',startTime:new Date('2099-10-01T12:00Z'),id:'new'}]}});
+    bridge.UrlFetchApp.fetch=()=>({getResponseCode:()=>503,getContentText:()=>JSON.stringify({ok:false})});
+    assert.throws(()=>bridge.syncCalendarGigEvents_({addMissing:true}),/review is unavailable/);
+    assert.equal(sheet.values.length,2);
+    assert.equal(sheet.values[1][2],'Keep me');
+    assert.throws(()=>bridge.appendVenueFromEvent_(),/cannot create/);
 });

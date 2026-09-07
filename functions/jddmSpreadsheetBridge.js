@@ -587,7 +587,7 @@ function createFirestoreIdempotencyStore({ firestore, Timestamp }) {
     };
 }
 
-function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date(), notifier = null }) {
+function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date(), notifier = null, calendarReview = null, websiteState = null }) {
     // Best-effort Discord notifications. These must never block or fail a sheet
     // write, so every call is awaited inside a try/catch that swallows errors.
     async function notifyNewPlace(venue) {
@@ -948,34 +948,40 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             sourceUrl: clean(event && event.sourceUrl)
         })).filter(event => event.date && event.venueName);
 
-        function groupDates(sourceEvents) {
+        const data = await loadMainData();
+        const rawRows = data.rows.map(row => rowObject(row, data.headerMap));
+        const {keyFor, matchEvent} = require('./calendarVenueMatching');
+        async function resolve(sourceEvents, enqueue) {
+            if (calendarReview) return calendarReview.resolve(sourceEvents, {enqueue});
+            return {mappings:Object.fromEntries(sourceEvents.map(e => [keyFor(e), matchEvent(rawRows,e).venue?.['Place ID'] || '']))};
+        }
+        // Resolve before any sheet mutation. A review outage never becomes permission to add a row.
+        const currentResolution = await resolve(events, true);
+        const stored = websiteState ? await websiteState.load() : null;
+        const previousResolution = stored ? null : await resolve(previousEvents, false);
+        function groupDates(sourceEvents, resolution) {
             const groups = new Map();
-            sourceEvents.forEach(event => {
-                const key = normalizeKey(event.venueName);
-                if (!key) return;
-                if (!groups.has(key)) groups.set(key, new Set());
-                groups.get(key).add(event.date);
-            });
+            for (const event of sourceEvents) {
+                const id = resolution.mappings[keyFor(event)];
+                if (!id) continue;
+                if (!groups.has(id)) groups.set(id,new Set());
+                groups.get(id).add(event.date);
+            }
             return groups;
         }
-
-        const previousByVenue = groupDates(previousEvents);
-        const currentByVenue = groupDates(events);
-        const data = await loadMainData();
-        const knownIds = new Set(data.rows.map(row => clean(getCell(row, data.headerMap, 'Place ID'))).filter(Boolean));
-        const matchedCurrentVenues = new Set();
+        const previousByVenue = stored ? new Map(Object.entries(stored).map(([id,dates])=>[id,new Set(dates)])) : groupDates(previousEvents, previousResolution);
+        const currentByVenue = groupDates(events, currentResolution);
         const updatedRows = [];
         let preservedNonWebsiteDates = 0;
         const syncedAt = now().toISOString();
 
         for (let index = 0; index < data.rows.length; index += 1) {
             const row = data.rows[index];
-            const venueKey = normalizeKey(getCell(row, data.headerMap, 'Place Name'));
-            if (!venueKey) continue;
+            const venueKey = clean(getCell(row, data.headerMap, 'Place ID'));
+            if (!venueKey || rawRows.filter(r=>r['Place ID']===venueKey).length!==1) continue;
             const previousDates = previousByVenue.get(venueKey) || new Set();
             const currentDates = currentByVenue.get(venueKey) || new Set();
             if (!previousDates.size && !currentDates.size) continue;
-            if (currentDates.size) matchedCurrentVenues.add(venueKey);
 
             const existingDates = new Set(gigDates(getCell(row, data.headerMap, 'Future Gigs')));
             const retainedDates = [...existingDates].filter(date => !previousDates.has(date));
@@ -997,58 +1003,8 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             updatedRows.push(clean(getCell(row, data.headerMap, 'Place Name')));
         }
 
-        const newRows = [];
-        const addedRows = [];
-        for (const [venueKey, dates] of currentByVenue.entries()) {
-            if (matchedCurrentVenues.has(venueKey)) continue;
-            const representative = events.find(event => normalizeKey(event.venueName) === venueKey);
-            if (!representative) continue;
-            const location = parseUsLocation(representative.location);
-            const row = Array(data.headers.length).fill('');
-            setCell(row, data.headerMap, 'Place Name', representative.venueName);
-            setCell(row, data.headerMap, 'Address', location.address);
-            setCell(row, data.headerMap, 'City', location.city);
-            setCell(row, data.headerMap, 'State', location.state || 'OH');
-            setCell(row, data.headerMap, 'Zip', location.zip);
-            setCell(row, data.headerMap, 'Status', 'Needs Review');
-            const orderedDates = [...dates].sort();
-            setCell(row, data.headerMap, 'Future Gigs', orderedDates.join('; '));
-            setCell(row, data.headerMap, 'Next Booked', orderedDates[0] || '');
-            setCell(row, data.headerMap, 'Future Gig Count', orderedDates.length);
-            setCell(row, data.headerMap, 'Total Gig Count', orderedDates.length);
-            setCell(row, data.headerMap, 'Last Synced', syncedAt);
-            setCell(row, data.headerMap, 'Website', representative.sourceUrl);
-            setCell(row, data.headerMap, 'Notes', 'Added from the successfully checked Just Dee Dee official website calendar; review contact details.');
-            const idBase = slugify([representative.venueName, location.city, location.state || 'OH'].filter(Boolean).join(' ')) || `website-venue-${newRows.length + 1}`;
-            let id = idBase;
-            let suffix = 2;
-            while (knownIds.has(id)) {
-                id = `${idBase}-${suffix}`;
-                suffix += 1;
-            }
-            knownIds.add(id);
-            setCell(row, data.headerMap, 'Place ID', id);
-            if (geocode && representative.location) {
-                try {
-                    const coordinates = await geocode(representative.location);
-                    if (coordinates && Number.isFinite(Number(coordinates.lat)) && Number.isFinite(Number(coordinates.lng))) {
-                        setCell(row, data.headerMap, 'Latitude', Number(coordinates.lat));
-                        setCell(row, data.headerMap, 'Longitude', Number(coordinates.lng));
-                    }
-                } catch (_error) {
-                    // The row remains available for review if geocoding is unavailable.
-                }
-            }
-            newRows.push(row);
-            addedRows.push(representative.venueName);
-        }
-
-        if (newRows.length) {
-            await gateway.appendValues(`${MAIN_SHEET}!A:${columnName(data.headers.length - 1)}`, newRows);
-            for (let offset = 0; offset < newRows.length; offset += 1) {
-                await gateway.formatVenueRow(data.rows.length + 2 + offset, 'Needs Review', data.headers.length);
-            }
-        }
+        const addedRows = []; // Calendar imports never create venues; only an explicit review decision can.
+        const pendingVenues = [...new Set(events.filter(e=>!currentResolution.mappings[keyFor(e)]).map(e=>e.venueName))];
 
         const websiteValues = [WEBSITE_GIG_HEADERS].concat(events.map(event => [
             event.id,
@@ -1060,6 +1016,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             syncedAt
         ]));
         await gateway.replaceSheetValues(WEBSITE_GIG_SHEET, websiteValues);
+        if (websiteState) await websiteState.save(Object.fromEntries([...currentByVenue].map(([id,dates])=>[id,[...dates]])));
         return {
             ok: true,
             action: 'syncWebsiteGigEvents',
@@ -1067,6 +1024,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             mapSync: {
                 updatedRows,
                 addedRows,
+                pendingVenues,
                 preservedNonWebsiteDates,
                 calendarCoverageComplete: false,
                 replaceFutureGigs: false

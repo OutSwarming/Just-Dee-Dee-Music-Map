@@ -341,9 +341,10 @@ test('official website gig sync preserves calendar dates and replaces only its o
     assert.equal(refused.code, 'UNCONFIRMED_WEBSITE_GIG_SOURCE');
     assert.equal(synced.ok, true);
     assert.equal(synced.websiteEventCount, 2);
-    assert.equal(synced.mapSync.addedRows.length, 1);
+    assert.equal(synced.mapSync.addedRows.length, 0);
+    assert.deepEqual(synced.mapSync.pendingVenues, ['Brand New Room']);
     assert.equal(gateway.sheets.Sheet1[1][CANONICAL_HEADERS.indexOf('Future Gigs')], '2099-08-10; 2099-09-10');
-    assert.equal(gateway.sheets.Sheet1[2][CANONICAL_HEADERS.indexOf('Place Name')], 'Brand New Room');
+    assert.equal(gateway.sheets.Sheet1.length, 2);
     assert.equal(gateway.sheets.WebsiteGigs.length, 3);
 });
 
@@ -484,4 +485,34 @@ test('stale editor cannot overwrite newer notes and retrying the same successful
  await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Other window'}});
  const blocked=await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Stale overwrite'},expectedRawFields:made.rawFields});assert.equal(blocked.code,'VENUE_CONFLICT');assert.equal((await service.route({action:'getVenue',id:'conflict-test'})).rawFields.Notes,'Other window');
  const repeat=await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Other window'},expectedRawFields:made.rawFields});assert.equal(repeat.ok,true);assert.deepEqual(repeat.changedHeaders,[]);
+});
+
+
+test('ambiguous calendar names cannot update both rows or append another row', async () => {
+    const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS,makeVenueRow({'Place ID':'old','Place Name':'Filia Cellars 3059 Greenwich Rd','Future Gigs':'2026-10-23'}),makeVenueRow({'Place ID':'new','Place Name':'Filia Cellars'})]});
+    const service=createJddmSpreadsheetBridgeService({gateway});
+    const result=await service.route({action:'syncWebsiteGigEvents',sourceChecked:true,events:[{date:'2026-10-23',venueName:'Filia Cellars'}]});
+    assert.deepEqual(result.mapSync.addedRows,[]);
+    assert.deepEqual(result.mapSync.updatedRows,[]);
+    assert.equal(gateway.sheets.Sheet1.length,3);
+});
+
+test('manual calendar decisions target IDs, keep contact fields intact and replace only owned dates on relink', async () => {
+    const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS,makeVenueRow({'Place ID':'old','Place Name':'Filia Cellars 3059 Greenwich Rd','Future Gigs':'2026-10-23; 2026-12-01','Notes':'Keep me'}),makeVenueRow({'Place ID':'new','Place Name':'Filia Cellars'})]});
+    const event={date:'2026-10-23',venueName:'Filia Cellars'};
+    let ownership={old:['2026-10-23']};
+    const service=createJddmSpreadsheetBridgeService({gateway,calendarReview:{resolve:async()=>({mappings:{[require('../calendarVenueMatching').keyFor(event)]:'new'}})},websiteState:{load:async()=>ownership,save:async v=>{ownership=v;}}});
+    const result=await service.route({action:'syncWebsiteGigEvents',sourceChecked:true,events:[event]});
+    assert.equal(gateway.sheets.Sheet1[1][CANONICAL_HEADERS.indexOf('Future Gigs')],'2026-12-01');
+    assert.equal(gateway.sheets.Sheet1[2][CANONICAL_HEADERS.indexOf('Future Gigs')],'2026-10-23');
+    assert.equal(gateway.sheets.Sheet1[1][CANONICAL_HEADERS.indexOf('Notes')],'Keep me');
+    assert.deepEqual(ownership,{new:['2026-10-23']});
+});
+
+test('review outage fails closed before changing website snapshot or master rows', async()=>{
+    const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS]});
+    const service=createJddmSpreadsheetBridgeService({gateway,calendarReview:{resolve:async()=>{throw Error('offline');}}});
+    await assert.rejects(service.route({action:'syncWebsiteGigEvents',sourceChecked:true,events:[{date:'2026-10-23',venueName:'Unknown'}]}),/offline/);
+    assert.equal(gateway.sheets.Sheet1.length,1);
+    assert.ok(!gateway.calls.some(c=>c.action==='appendValues'));
 });

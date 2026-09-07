@@ -76,7 +76,12 @@ const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
     gateway: jddmSpreadsheetGateway,
     idempotency: jddmSpreadsheetIdempotency,
     geocode: geocodeJddmSpreadsheetAddress,
-    notifier: createDiscordSpreadsheetNotifier()
+    notifier: createDiscordSpreadsheetNotifier(),
+    calendarReview: {resolve:(events,options)=>buildCalendarReviewRuntime().service.resolve(events,options)},
+    websiteState: {
+        load:async()=>(await admin.firestore().doc('jddmCalendarReview/websiteOwnership').get()).data()?.dates || null,
+        save:dates=>admin.firestore().doc('jddmCalendarReview/websiteOwnership').set({dates})
+    }
 });
 
 const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
@@ -947,7 +952,7 @@ async function handlePremiumGeocode(requestOrData, context, options = {}) {
 
 exports.jddmSpreadsheetBridge = functions
     .runWith({
-        secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL"],
+        secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL", "DISCORD_EMAIL_BOT_TOKEN"],
         timeoutSeconds: 120,
         memory: "512MB"
     })
@@ -1381,6 +1386,22 @@ function buildConversationRuntime() {
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory }) };
 }
 exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmcal:')) {
+        const raw=req.rawBody || JSON.stringify(req.body);
+        if(!discordEmailInteractions.verifyDiscordSignature({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY,signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:raw}))return res.status(401).send('Invalid signature');
+        const [,action,id]=req.body.data.custom_id.split(':');
+        if(action==='query' && /^[a-f0-9]{32}$/.test(id||''))return res.json(require('./calendarVenueReview').searchModal(id));
+        const discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN), i=req.body;
+        await discord('POST',`/interactions/${i.id}/${i.token}/callback`,{type:5,data:{flags:64}});
+        // Preserve Discord's original signature; the calendar endpoint verifies it independently.
+        try {
+        const response = await fetch(require('./calendarVenueReview').ENDPOINT, {method:'POST',headers:{'Content-Type':'application/json','x-jddm-deferred':'1','X-Signature-Ed25519':req.get('X-Signature-Ed25519') || '', 'X-Signature-Timestamp':req.get('X-Signature-Timestamp') || ''},body:req.rawBody || JSON.stringify(req.body),signal:AbortSignal.timeout(110000)});
+        return res.status(response.status).type(response.headers.get('content-type') || 'application/json').send(await response.text());
+        } catch(error) {
+            await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content:'Calendar review is temporarily unavailable. Please try the control again shortly.',components:[],allowed_mentions:{parse:[]}});
+            return res.status(202).send('retry later');
+        }
+    }
     const runtime = buildConversationRuntime();
     const legacy = discordEmailInteractions.createInteractionsHandler({
         getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }),
@@ -1412,9 +1433,31 @@ const calendarMonitor = require('./calendarMonitor');
 exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_CALENDAR_MONITOR_KEY'],timeoutSeconds:240,maxInstances:1}).https.onRequest(
     calendarMonitor.createHandler({
         secret:()=>process.env.JDDM_CALENDAR_MONITOR_KEY,
-        run:input=>calendarMonitor.createCalendarMonitor({db:admin.firestore(),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input)
+        run:async input=>{
+            const review=require('./calendarVenueReview'), matching=require('./calendarVenueMatching');
+            const events=input.calendars.flatMap(c=>c.events.map(e=>({id:c.id+':'+e.id,title:e.title,venueName:matching.venueName(e.title),location:e.location,date:review.dateKey(new Date(e.start))}))).filter(e=>e.date>=review.dateKey(new Date()));
+            const result=await calendarMonitor.createCalendarMonitor({db:admin.firestore(),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input);
+            if(!result.stale) await review.remoteResolve(events,process.env.JDDM_CALENDAR_MONITOR_KEY);
+            return result;
+        }
     })
 );
+
+// Calendar review lives beside the canonical spreadsheet gateway in barkrangermap-auth.
+function buildCalendarReviewRuntime() {
+    const review = require('./calendarVenueReview');
+    const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const service = review.createReviewService({db:admin.firestore(),discord,
+        listRows:async()=>{const csv=(await jddmSpreadsheetBridgeService.route({action:'csv'})).csv;const [headers,...rows]=require('./jddmSpreadsheetBridge').parseCsv(csv);return rows.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||''])));},
+        createVenue:payload=>jddmSpreadsheetBridgeService.route(payload)
+    });
+    return {service,discord};
+}
+exports.jddmCalendarVenueReview = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','DISCORD_EMAIL_PUBLIC_KEY','JDDM_CALENDAR_MONITOR_KEY','ORS_API_KEY','DISCORD_NEW_PLACES_WEBHOOK_URL','DISCORD_FOLLOWUP_WEBHOOK_URL'],timeoutSeconds:120}).https.onRequest(async(req,res)=>{
+    const review = require('./calendarVenueReview'), runtime = buildCalendarReviewRuntime();
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmcal:')) return review.createInteractionHandler({...runtime,publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
+    return review.createResolveHandler({...runtime,secret:()=>process.env.JDDM_CALENDAR_MONITOR_KEY})(req,res);
+});
 
 // Private daily digest for the already-authorized local Messages delivery worker.
 exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_KEY'],timeoutSeconds:60,maxInstances:2}).https.onRequest(async(req,res)=>{
