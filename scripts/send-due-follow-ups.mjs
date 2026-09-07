@@ -11,6 +11,7 @@
  *   --dry-run            build + print the message, send/post nothing
  *   --only-me            text Carter only (+14403054062), for testing
  *   --discord-only       post to Discord only, no texts (webhook test)
+ *   --no-discord         SMS only; cloud service handles Discord at 8 AM Eastern
  *   --today YYYY-MM-DD   pretend today is this date (testing future fires)
  *   --force              ignore the once-per-day guard
  * Text recipients default to Carter + Dee Dee, override with
@@ -90,6 +91,7 @@ async function resolveDiscordWebhook() {
 }
 
 async function postToDiscord(body) {
+    if (hasFlag("--no-discord")) return { skipped: true, reason: "Discord daily digest runs in the cloud at 8 AM Eastern" };
     const url = await resolveDiscordWebhook();
     if (!url) return { skipped: true, reason: "no webhook configured" };
     if (!DISCORD_WEBHOOK_RE.test(url)) return { ok: false, reason: "invalid webhook url" };

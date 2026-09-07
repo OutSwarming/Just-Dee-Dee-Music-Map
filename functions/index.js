@@ -1363,8 +1363,8 @@ exports.syncToSpreadsheet = functions
 
 // ============================================================================
 // 3. DISCORD EMAIL ACTION BOT
-// The Apps Script intake posts one buttoned forum post per Gmail message.
-// Clicking Reply / Mark Spam / Archive / Done sends a signed interaction here.
+// The cloud poller keeps one forum post per Gmail conversation.
+// Reply, status and follow-up controls send signed interactions here.
 // We verify Discord's Ed25519 signature, acknowledge within the 3s window, then
 // perform the Gmail side effect and edit the original post to show the result.
 //
@@ -1384,20 +1384,37 @@ function buildJddmGmailGateway() {
     });
 }
 
-exports.discordEmailInteractions = functions
-    .runWith({
-        secrets: [
-            'DISCORD_EMAIL_PUBLIC_KEY',
-            'JDDM_GMAIL_CLIENT_ID',
-            'JDDM_GMAIL_CLIENT_SECRET',
-            'JDDM_GMAIL_REFRESH_TOKEN'
-        ]
-    })
-    .https.onRequest(discordEmailInteractions.createInteractionsHandler({
-        getConfig: () => ({ publicKey: cleanOptionalString(process.env.DISCORD_EMAIL_PUBLIC_KEY) }),
+const conversations = require('./discordConversations');
+const conversationSecrets = ['DISCORD_EMAIL_PUBLIC_KEY', 'JDDM_GMAIL_CLIENT_ID', 'JDDM_GMAIL_CLIENT_SECRET', 'JDDM_GMAIL_REFRESH_TOKEN', 'DISCORD_EMAIL_BOT_TOKEN'];
+function buildConversationRuntime() {
+    const oauth = new google.auth.OAuth2(process.env.JDDM_GMAIL_CLIENT_ID, process.env.JDDM_GMAIL_CLIENT_SECRET);
+    oauth.setCredentials({ refresh_token: process.env.JDDM_GMAIL_REFRESH_TOKEN });
+    const gmail = google.gmail({ version: 'v1', auth: oauth });
+    const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const db = admin.firestore();
+    return { db, discord, service: conversations.createConversationService({ db, gmail, discord }) };
+}
+exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+    const runtime = buildConversationRuntime();
+    const legacy = discordEmailInteractions.createInteractionsHandler({
+        getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }),
         buildGmailGateway: buildJddmGmailGateway,
-        onError: (error) => console.error('[discordEmailInteractions] action failed:', error)
-    }));
+        onError: error => console.error('[discordEmailInteractions]', error.message)
+    });
+    return conversations.createConversationInteractions({
+        ...runtime, getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }), legacy
+    })(req, res);
+});
+exports.jddmConversationPoll = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 540, maxInstances: 1 })
+    .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async () => {
+        const result = await buildConversationRuntime().service.poll();
+        console.log('[jddmConversationPoll]', JSON.stringify(result));
+    });
+exports.jddmDailyFollowUps = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 300, maxInstances: 1 })
+    .pubsub.schedule('0 8 * * *').timeZone('America/New_York').onRun(async () => {
+        const result = await buildConversationRuntime().service.daily();
+        console.log('[jddmDailyFollowUps]', JSON.stringify(result));
+    });
 
 exports.discordEmailIntake = functions
     .runWith({ timeoutSeconds: 60, maxInstances: 2 })

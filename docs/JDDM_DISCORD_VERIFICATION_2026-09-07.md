@@ -1,5 +1,7 @@
 # JDDM Discord verification — September 6–7, 2026
 
+> Historical per-message verification. The current conversation-based workflow is documented in [JDDM_CONVERSATION_WORKFLOW.md](JDDM_CONVERSATION_WORKFLOW.md).
+
 Verified against the production map's spreadsheet endpoint and the JDDM Discord server.
 
 | Workflow | Live result |

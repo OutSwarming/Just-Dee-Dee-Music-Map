@@ -1,0 +1,127 @@
+'use strict';
+const crypto = require('node:crypto');
+const { verifyDiscordSignature, buildReplyRaw, getHeader } = require('./discordEmailInteractions');
+const GUILD_ID = '1543777084265070623';
+const FORUM_ID = '1543777722042679436';
+const MAILBOX = 'justdeedeemusic@gmail.com';
+const STATES = {
+  venue: { name: 'Waiting on venue', emoji: '🟡', color: 0xf1c40f },
+  deedee: { name: 'Waiting on DEE DEE', emoji: '🔵', color: 0x3498db },
+  resolved: { name: 'Resolved', emoji: '🟢', color: 0x2ecc71 },
+  rejected: { name: 'Rejected', emoji: '🔴', color: 0xe74c3c },
+  spam: { name: 'Spam', emoji: '🟣', color: 0x9b59b6 },
+  followup: { name: 'Follow up', emoji: '🟠', color: 0xe67e22 }
+};
+const ALLOWED_MENTIONS = { parse: [] };
+function dateKey(date = new Date()) { return new Intl.DateTimeFormat('en-CA', {timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit'}).format(date); }
+function followUpDate(raw){const value=String(raw||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(value))return validDate(value)?value:'';const date=new Date(value);return Number.isNaN(date.getTime())?'':dateKey(date);}
+function validDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s+'T12:00:00Z')) && new Date(s+'T12:00:00Z').toISOString().slice(0,10) === s; }
+function cleanHeader(s) { return String(s || '').replace(/[\r\n]/g,' ').trim(); }
+function address(s) { const m=String(s||'').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i); return m ? m[0].toLowerCase() : ''; }
+function ownMessage(message) { return address(getHeader(message.payload?.headers,'From')) === MAILBOX; }
+function splitText(text, limit=1850) {
+  const parts=[]; let rest=String(text||'');
+  while(rest.length>limit){let n=rest.lastIndexOf('\n',limit);if(n<limit/2)n=limit;if(/[\uD800-\uDBFF]/.test(rest[n-1]))n--;parts.push(rest.slice(0,n));rest=rest.slice(n).replace(/^\n/,'');}
+  if(rest)parts.push(rest);return parts;
+}
+function plainBody(payload) {
+  const nodes=[];function visit(p){if(!p)return;if(p.body?.data)nodes.push(p);(p.parts||[]).forEach(visit);}visit(payload);
+  const node=nodes.find(p=>p.mimeType==='text/plain')||nodes.find(p=>p.mimeType==='text/html')||nodes[0];
+  if(!node)return '(No plain-text body. Open the original email for attachments.)';
+  let text=Buffer.from(node.body.data,'base64url').toString('utf8');
+  if(node.mimeType==='text/html')text=text.replace(/<(script|style)[\s\S]*?<\/\1>/gi,'').replace(/<br\s*\/?>|<\/p>|<\/div>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
+  // Remove only recognizable quoted history; the actual original messages are
+  // posted separately in chronological order, without truncating their bodies.
+  text=text.replace(/\r\n/g,'\n');const cut=text.search(/\n(?:On [^\n]{3,220}wrote:|[- ]{2,}Original Message[- ]*)\s*\n/i);
+  if(cut>0)text=text.slice(0,cut);
+  return text.trim()||'(See original email.)';
+}
+function attachments(payload){const names=[];function visit(p){if(p?.filename)names.push(p.filename);(p?.parts||[]).forEach(visit);}visit(payload);return names;}
+function mailUrl(id){return `https://mail.google.com/mail/?authuser=${MAILBOX}#all/${id}`;}
+function conversationUrl(id){return `https://discord.com/channels/${GUILD_ID}/${id}`;}
+function controls(id){return [
+ {type:1,components:[{type:2,style:1,label:'Reply by email',emoji:{name:'✉️'},custom_id:`jddm2:reply:${id}`},{type:2,style:2,label:'Set follow-up date',emoji:{name:'📅'},custom_id:`jddm2:date:${id}`} ]},
+ {type:1,components:[{type:3,custom_id:`jddm2:status:${id}`,placeholder:'Change conversation status',options:Object.entries(STATES).map(([value,s])=>({label:s.name,value,emoji:{name:s.emoji}}))}]}
+];}
+function summaryMessage(c){const s=STATES[c.status]||STATES.deedee;return {content:'',embeds:[{title:c.subject.slice(0,256),description:`${s.emoji} **${s.name}**${c.followUpDate?'\n📅 Follow-up: **'+c.followUpDate+'**':''}\n\n${c.correspondent||'Email conversation'}\n[Open original Gmail conversation](${mailUrl(c.gmailThreadId)})`,color:s.color,footer:{text:`JDDM conversation ${c.gmailThreadId}`}}],components:controls(c.gmailThreadId),allowed_mentions:ALLOWED_MENTIONS};}
+function messageChunks(message){const h=message.payload?.headers||[];const from=cleanHeader(getHeader(h,'From'));const to=cleanHeader(getHeader(h,'To'));const when=new Date(Number(message.internalDate)).toLocaleString('en-US',{timeZone:'America/New_York'});const files=attachments(message.payload);const body=plainBody(message.payload)+(files.length?'\n\nAttachments: '+files.join(', ')+' (open Gmail to download)':'');const heading=`**${ownMessage(message)?'Sent by Dee Dee':'Received'}** · ${when} Eastern\n**From:** ${from}\n**To:** ${to}\n\n`;
+ return splitText(heading+body).map((part,i)=>({content:part+`\n-# Gmail ${message.id} · part ${i+1}`,allowed_mentions:ALLOWED_MENTIONS,nonce:crypto.createHash('sha256').update(message.id+':'+i).digest('hex').slice(0,24),enforce_nonce:true}));}
+function createDiscordClient(token, fetchImpl=fetch){return async(method,path,body)=>{
+ for(let i=0;i<3;i++){const r=await fetchImpl('https://discord.com/api/v10'+path,{method,headers:{Authorization:'Bot '+token,'User-Agent':'DiscordBot (https://outswarming.github.io/Just-Dee-Dee-Music-Map/, 2.0)','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const d=await r.json().catch(()=>({}));if(r.ok)return d;if(r.status===429&&d.retry_after<=5&&i<2){await new Promise(resolve=>setTimeout(resolve,d.retry_after*1000+100));continue;}const e=new Error('Discord request failed ('+r.status+'): '+String(d.message||''));e.status=r.status;e.retryAfter=d.retry_after;throw e;}
+};}
+function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImpl=fetch}){
+ const collection=db.collection('jddmEmailConversations');
+ async function config(){return (await db.doc('jddmEmailConfig/main').get()).data()||{};}
+ async function get(id){const d=await collection.doc(id).get();return d.exists?d.data():null;}
+ async function updateCard(c){const cfg=await config();await discord('PATCH',`/channels/${c.discordThreadId}`,{archived:false,applied_tags:cfg.tags?.[c.status]?[cfg.tags[c.status]]:[]});await discord('PATCH',`/channels/${c.discordThreadId}/messages/${c.starterId||c.discordThreadId}`,summaryMessage(c));}
+ async function syncThread(thread,options={}){
+  const lock=db.doc('jddmEmailSyncLocks/'+thread.id);const acquired=await db.runTransaction(async tx=>{const current=await tx.get(lock);if((current.data()?.until||0)>Date.now())return false;tx.set(lock,{until:Date.now()+500000});return true;});
+  if(!acquired)return {posted:0,deferred:true};try{return await syncUnlocked(thread,options);}finally{await lock.set({until:0});}
+ }
+ async function syncUnlocked(thread,{budget=100}={}){
+  const id=thread.id;const messages=(thread.messages||[]).filter(m=>!m.labelIds?.includes('DRAFT')&&!m.labelIds?.includes('TRASH')).sort((a,b)=>Number(a.internalDate)-Number(b.internalDate));if(!messages.length)return {posted:0};
+  let c=await get(id);const latest=messages[messages.length-1];const headers=latest.payload?.headers||[];
+  if(!c){const cfg=await config();const subject=cleanHeader(getHeader(headers,'Subject')).replace(/^(?:(?:re|fwd?):\s*)+/i,'')||'(No subject)';c={gmailThreadId:id,subject,correspondent:cleanHeader(getHeader(headers,ownMessage(latest)?'To':'From')),status:latest.labelIds?.includes('SPAM')?'spam':ownMessage(latest)?'venue':'deedee',followUpDate:'',processed:[],chunks:{},latestMessageId:latest.id,createdAt:now().toISOString()};
+   const post=await discord('POST',`/channels/${FORUM_ID}/threads`,{name:subject.slice(0,100),message:summaryMessage(c),applied_tags:cfg.tags?.[c.status]?[cfg.tags[c.status]]:[]});c.discordThreadId=post.id;c.starterId=post.message?.id||post.id;await collection.doc(id).set(c);
+  }
+  let posted=0;const newMessages=messages.filter(m=>!c.processed.includes(m.id));
+  for(const message of newMessages){const chunks=messageChunks(message);let part=c.chunks?.[message.id]||0;for(;part<chunks.length;part++){
+    if(posted>=budget)return {posted,deferred:true};
+    // Reopen after Discord's inactivity archive. A status change is independent.
+    if(posted===0)await discord('PATCH',`/channels/${c.discordThreadId}`,{archived:false});
+    await discord('POST',`/channels/${c.discordThreadId}/messages`,chunks[part]);posted++;c.chunks={...c.chunks,[message.id]:part+1};await collection.doc(id).set({chunks:c.chunks},{merge:true});
+   }
+   c.processed.push(message.id);c.latestMessageId=message.id;c.updatedAt=now().toISOString();await collection.doc(id).set({processed:c.processed,latestMessageId:c.latestMessageId,updatedAt:c.updatedAt},{merge:true});
+  }
+  if(newMessages.length){const last=newMessages[newMessages.length-1];if(Number(last.internalDate)>Number(c.lastStatusMessageAt||0)){
+    c.status=last.labelIds?.includes('SPAM')?'spam':ownMessage(last)?'venue':'deedee';c.followUpDate='';c.lastStatusMessageAt=Number(last.internalDate);
+    await collection.doc(id).set({status:c.status,followUpDate:'',lastStatusMessageAt:c.lastStatusMessageAt},{merge:true});
+  }await updateCard(c);}
+  return {posted,discordThreadId:c.discordThreadId};
+ }
+ async function poll(){const cfg=await config();if(!cfg.enabled)return {paused:true};const lock=db.doc('jddmEmailConfig/pollLock');const acquired=await db.runTransaction(async tx=>{const s=await tx.get(lock);if((s.data()?.until||0)>Date.now())return false;tx.set(lock,{until:Date.now()+500000});return true;});if(!acquired)return {busy:true};const result={conversations:0,posted:0};try{
+  const profile=(await gmail.users.getProfile({userId:'me'})).data;if(profile.emailAddress.toLowerCase()!==MAILBOX)throw Error('Wrong Gmail mailbox');
+  const checkpoint=db.doc('jddmEmailConfig/checkpoint');const saved=(await checkpoint.get()).data()||{};
+  let ids=[...(saved.pending||[])],cursor=saved.historyId,pageToken;
+  if(cursor){try{do{const page=(await gmail.users.history.list({userId:'me',startHistoryId:cursor,historyTypes:['messageAdded'],maxResults:500,pageToken})).data;for(const h of page.history||[])for(const added of h.messagesAdded||[])if(!added.message.labelIds?.includes('TRASH')&&!added.message.labelIds?.includes('DRAFT'))ids.push(added.message.threadId);pageToken=page.nextPageToken;}while(pageToken);}catch(e){if(Number(e.code)!==404)throw e;cursor=null;}}
+  if(!cursor){pageToken=undefined;const after=saved.checkedAt?Math.floor(Date.parse(saved.checkedAt)/1000)-300:null;do{const page=(await gmail.users.threads.list({userId:'me',q:'in:anywhere '+(after?'after:'+after:'newer_than:1d')+' -in:trash',maxResults:500,pageToken})).data;ids.push(...(page.threads||[]).map(t=>t.id));pageToken=page.nextPageToken;}while(pageToken);}
+  ids=[...new Set(ids)];await checkpoint.set({historyId:profile.historyId,pending:ids,checkedAt:now().toISOString()});
+  // Read only changed conversations, with a persisted queue for bursts and long bodies.
+  while(ids.length&&result.posted<100&&result.conversations<25){const id=ids[0];let thread;try{thread=(await gmail.users.threads.get({userId:'me',id,format:'full'})).data;}catch(e){if(Number(e.code)!==404)throw e;ids.shift();await checkpoint.set({pending:ids},{merge:true});continue;}const r=await syncThread(thread,{budget:100-result.posted});result.posted+=r.posted;result.conversations++;if(r.deferred)break;ids.shift();await checkpoint.set({pending:ids},{merge:true});}
+  result.queued=ids.length;
+  await db.doc('jddmEmailConfig/health').set({...result,lastSuccess:now().toISOString()});return result;
+ }catch(e){await db.doc('jddmEmailConfig/health').set({lastError:e.message,errorAt:now().toISOString()},{merge:true});throw e;}finally{await lock.set({until:0});}}
+ async function setStatus(id,status,actor,date=''){if(!STATES[status])throw Error('Unknown status');if(status==='followup'&&(!validDate(date)||date<dateKey(now())))throw Error('Choose today or a future date in YYYY-MM-DD format.');let c=await get(id);if(!c)throw Error('Conversation is not ready yet.');const previous=c.followUpDate;
+  if(status==='spam')await gmail.users.threads.modify({userId:'me',id,requestBody:{addLabelIds:['SPAM'],removeLabelIds:['INBOX','UNREAD']}});
+  if(status==='resolved')await gmail.users.threads.modify({userId:'me',id,requestBody:{removeLabelIds:['INBOX','UNREAD']}});
+  c={...c,status,followUpDate:status==='followup'?date:'',updatedAt:now().toISOString(),lastActor:actor};await collection.doc(id).set({status:c.status,followUpDate:c.followUpDate,updatedAt:c.updatedAt,lastActor:actor},{merge:true});await updateCard(c);
+  if(status==='followup'&&date!==previous){const cfg=await config();await discord('POST',`/channels/${cfg.confirmationChannelId}/messages`,{content:`🟠 **Email follow-up ${previous?'changed':'added'}**\n**${c.subject}**\n${c.correspondent}\n${previous?'Previous: '+previous+'\n':''}Due: **${date}**\n[Open conversation](${conversationUrl(c.discordThreadId)})\nUpdated by ${actor}`,allowed_mentions:ALLOWED_MENTIONS});}
+  return c;
+ }
+ async function reply(id,body,actor){const c=await get(id);if(!c)throw Error('Conversation is not ready.');const thread=(await gmail.users.threads.get({userId:'me',id,format:'metadata',metadataHeaders:['From','To','Reply-To','Subject','Message-ID','References']})).data;const list=(thread.messages||[]).sort((a,b)=>Number(a.internalDate)-Number(b.internalDate));const latest=list[list.length-1];const h=latest.payload.headers;const to=cleanHeader(ownMessage(latest)?getHeader(h,'To'):getHeader(h,'Reply-To')||getHeader(h,'From'));if(!address(to))throw Error('No valid recipient was found.');const raw=buildReplyRaw({toAddress:to,subject:cleanHeader(getHeader(h,'Subject')),inReplyTo:cleanHeader(getHeader(h,'Message-ID')),references:cleanHeader(getHeader(h,'References')),body});const sent=(await gmail.users.messages.send({userId:'me',requestBody:{raw,threadId:id}})).data;await setStatus(id,'venue',actor);const full=(await gmail.users.threads.get({userId:'me',id,format:'full'})).data;await syncThread(full);return {to,messageId:sent.id};}
+ async function daily({force=false,test=false,today=dateKey(now())}={}){const cfg=await config();if(!cfg.enabled)return {paused:true};const ref=db.doc('jddmEmailDaily/'+(test?'test-':'')+today);const claim=await db.runTransaction(async tx=>{const s=await tx.get(ref);if(!force&&(s.data()?.sent||s.data()?.sendingUntil>Date.now()))return false;tx.set(ref,{sendingUntil:Date.now()+300000},{merge:true});return true;});if(!claim)return {duplicate:true};
+  try{const due=(await collection.where('status','==','followup').get()).docs.map(d=>d.data()).filter(c=>c.followUpDate&&c.followUpDate<=today);const r=await fetchImpl('https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge?action=csv');if(!r.ok)throw Error('Spreadsheet follow-up list unavailable');const {parseCsv}=require('./jddmSpreadsheetBridge');const rows=parseCsv(await r.text());const hs=rows.shift()||[];const pos=n=>hs.indexOf(n);const venues=rows.filter(row=>{const d=followUpDate(row[pos('Next Follow Up')]);return d&&d<=today&&!/^(Booked|Played in the Past|Open Microphone|Told No)/i.test(row[pos('Status')]||'');});const lines=[`📅 **${test?'TEST — ':''}Daily follow-ups — ${today}**`,''];
+  lines.push('**Email conversations**',...(due.length?due.map(c=>`• [${c.subject}](${conversationUrl(c.discordThreadId)}) — ${c.followUpDate}`):['No email follow-ups due.']),'','**Places in the map**',...(venues.length?venues.map(row=>`• **${row[pos('Place Name')]}** — ${followUpDate(row[pos('Next Follow Up')])}`):['No map follow-ups due.']));
+  const saved=(await ref.get()).data()||{};const parts=saved.parts||splitText(lines.join('\n'),1900);await ref.set({parts},{merge:true});for(let part=saved.nextPart||0;part<parts.length;part++){await discord('POST',`/channels/${cfg.dailyChannelId}/messages`,{content:parts[part],allowed_mentions:ALLOWED_MENTIONS,nonce:crypto.createHash('sha256').update(ref.path+':'+part).digest('hex').slice(0,24),enforce_nonce:true});await ref.set({nextPart:part+1},{merge:true});}await ref.set({sent:true,sentAt:now().toISOString(),emails:due.length,venues:venues.length});return {emails:due.length,venues:venues.length};
+ }catch(e){await ref.set({sendingUntil:0,error:e.message},{merge:true});throw e;}}
+ return {config,get,syncThread,poll,setStatus,reply,daily,updateCard};
+}
+function modal(id,kind){return {type:9,data:{custom_id:`jddm2:${kind}-submit:${id}`,title:kind==='reply'?'Reply as Just Dee Dee':'Schedule conversation follow-up',components:[{type:1,components:[{type:4,custom_id:'value',label:kind==='reply'?'Your email reply':'Follow-up date (YYYY-MM-DD)',style:kind==='reply'?2:1,required:true,max_length:kind==='reply'?3800:10,placeholder:kind==='reply'?'This sends an email in the same conversation.':'2026-09-20'}]}]}};}
+function createConversationInteractions({getConfig,service,discord,db,legacy}){return async(req,res)=>{
+ const raw=req.rawBody||JSON.stringify(req.body);if(!verifyDiscordSignature({publicKey:getConfig().publicKey,signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:raw}))return res.status(401).send('invalid request signature');
+ const i=req.body;if(i.type===1)return res.json({type:1});const custom=i.data?.custom_id||'';if(!custom.startsWith('jddm2:'))return legacy(req,res);const [,action,id]=custom.split(':');if(i.guild_id!==GUILD_ID)return res.json({type:4,data:{content:'This control belongs to the JDDM server.',flags:64}});
+ if(action==='reply'||action==='date')return res.json(modal(id,action));if(action==='status'&&i.data.values?.[0]==='followup')return res.json(modal(id,'date'));
+ const actor=i.member?.nick||i.member?.user?.global_name||i.member?.user?.username||'Dee Dee';
+ // Acknowledge via Discord's callback API before Gmail/network work, while
+ // keeping the function alive until effects and the result update complete.
+ await discord('POST',`/interactions/${i.id}/${i.token}/callback`,{type:5,data:{flags:64}});
+ const key=db.doc('jddmEmailActions/'+i.id);const claim=await db.runTransaction(async tx=>{const d=await tx.get(key);if(d.exists)return false;tx.set(key,{state:'started',at:new Date().toISOString()});return true;});
+ if(!claim)return res.status(202).send('already handled');
+ try{const c=await service.get(id);if(!c||i.channel_id!==c.discordThreadId)throw Error('Open the current conversation post to use this control');const value=i.data?.components?.flatMap(r=>r.components||[]).find(v=>v.custom_id==='value')?.value?.trim()||'';let content;
+ if(action==='reply-submit'){if(!value)throw Error('Reply was empty.');const r=await service.reply(id,value,actor);content=`✉️ Email sent as ${MAILBOX} to ${r.to}. Conversation is waiting on the venue.`;}
+ else {const status=action==='date-submit'?'followup':i.data.values?.[0];const updated=await service.setStatus(id,status,actor,value);content=`${STATES[updated.status].emoji} ${STATES[updated.status].name}${updated.followUpDate?' — '+updated.followUpDate:''}`;}
+ await key.set({state:'complete'},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content,allowed_mentions:ALLOWED_MENTIONS});
+ }catch(e){await key.set({state:'failed',error:e.message},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content:'Could not complete this action: '+e.message+'. If an email send was interrupted, check the conversation before retrying.',allowed_mentions:ALLOWED_MENTIONS});}
+ return res.status(202).send('handled');
+};}
+module.exports={GUILD_ID,FORUM_ID,MAILBOX,STATES,dateKey,validDate,followUpDate,address,ownMessage,splitText,plainBody,messageChunks,controls,summaryMessage,mailUrl,conversationUrl,createDiscordClient,createConversationService,createConversationInteractions};
