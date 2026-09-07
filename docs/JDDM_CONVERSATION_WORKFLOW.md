@@ -32,7 +32,7 @@ Long email bodies are split into ordered Discord messages within the same post. 
 
 ## Gig prep and Song requests
 
-The conversation label menu allows **Gig prep** (teal card, 🩵 tag) and **Song requests** (pink card, 🩷 tag), separately or together. These labels persist while the reply status changes. They do not change Gmail labels, archive mail, or remove a follow-up date.
+The conversation label menu allows **Gig prep** (teal card, 🩵 tag), **Song requests** (pink card, 🩷 tag), **Text message** (brown card, 🟤 tag), and **New Event** (white card, ⚪ tag), separately or together. These labels persist while the reply status changes. They do not change Gmail labels, archive mail, or remove a follow-up date.
 
 Mail sent directly in the JDDM Gmail website is imported as **Sent by Dee Dee** and turns its Discord conversation yellow. Replies received from the correspondent turn it blue. Replying again through either Gmail or Discord turns it yellow. The poller watches both new-message events and SENT-label events so sending an existing Gmail draft is detected.
 
@@ -76,3 +76,11 @@ Live verification used labeled self-emails and temporary map records. No test re
 Final automated run: **117 tests passed, 0 failed**.
 
 Additional live round-trip verification used `JDDM Gmail round-trip test — September 7`, exchanged only between JDDM and Carter's own mailbox. The same Discord post (`1546377404438548531`) received the original email sent in Gmail, incoming replies, a direct Gmail reply, and a reply sent from Discord. Gmail send → yellow, incoming reply → blue, and direct Gmail reply → yellow were confirmed against both Gmail headers and the saved Discord state. Gig prep and Song requests remained attached through the exchange.
+
+## Automatic notification labels — September 7
+
+Subjects beginning with “New text message” automatically receive **Text message**; subjects beginning with “New Event” receive **New Event**. Matching ignores capitalization and leading Re/Fw/Fwd prefixes, checks every non-draft/non-trash message in a conversation, and does not match incidental quoted body text. Existing manual labels, status, and follow-up dates are preserved during the historical labeling pass. Future imports apply these labels automatically. One status plus all four topic labels fits the five-tag limit.
+
+The old **Merged** posts are separate Discord duplicates with links to the complete conversations. Their removal is pending the user's explicit purge approval. Deletion must target only the reviewed duplicate Discord thread IDs, with a fresh check for new replies and valid destination posts; it must never call Gmail deletion or modification APIs or delete canonical conversation records.
+
+Live verification: checked all 54 canonical conversations against Gmail subject metadata and Discord saved tags/menus. Applied Text message to 7 and New Event to 9; all 54 retained their status and follow-up dates. All 124 backend tests passed. Deployed the conversation poller and interaction handler. Read-only review found 54 merged posts containing only redirects and bot rename notices, no separate replies or attachments, and valid canonical destinations. No posts were deleted and no Gmail data was modified.

@@ -14,7 +14,9 @@ const STATES = {
 };
 const TOPICS = {
   gigprep: { name: 'Gig prep', emoji: '🩵', color: 0x1abc9c },
-  songs: { name: 'Song requests', emoji: '🩷', color: 0xe91e63 }
+  songs: { name: 'Song requests', emoji: '🩷', color: 0xe91e63 },
+  textmessage: { name: 'Text message', emoji: '🟤', color: 0xa8794f },
+  newevent: { name: 'New Event', emoji: '⚪', color: 0xecf0f1 }
 };
 const ALLOWED_MENTIONS = { parse: [] };
 function dateKey(date = new Date()) { return new Intl.DateTimeFormat('en-CA', {timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit'}).format(date); }
@@ -25,6 +27,15 @@ function address(s) { const m=String(s||'').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+
 function ownMessage(message) { return message.labelIds?.includes('SENT') || address(getHeader(message.payload?.headers,'From')) === MAILBOX; }
 function contactName(value){const clean=cleanHeader(value);const before=clean.split('<')[0].trim().replace(/^"|"$/g,'').trim();return (before&&before!==clean?before:address(clean)||clean)||'Email';}
 function threadTitle(c){const subject=cleanHeader(c.displaySubject||c.subject).replace(/^(?:(?:re|fwd?):\s*)+/i,'')||'(No subject)';return `${contactName(c.correspondent).slice(0,32)} · ${subject.replace(/^New event: JustDeeDeeMusic Live @ /i,'Gig: ')}`.slice(0,100);}
+function automaticTopics(messages) {
+ const topics=new Set();
+ for(const message of messages||[]){
+  const subject=cleanHeader(getHeader(message.payload?.headers,'Subject')).replace(/^(?:(?:re|fwd?):\s*)+/i,'');
+  if(/^New text message\b/i.test(subject))topics.add('textmessage');
+  if(/^New event\b/i.test(subject))topics.add('newevent');
+ }
+ return [...topics];
+}
 function appliedTags(c,cfg){return [cfg.tags?.[c.status],...(c.topics||[]).map(t=>cfg.topicTags?.[t])].filter(Boolean);}
 function splitText(text, limit=1850) {
   const parts=[]; let rest=String(text||'');
@@ -50,7 +61,7 @@ function conversationUrl(id){return `https://discord.com/channels/${GUILD_ID}/${
 function controls(id,topics=[]){return [
  {type:1,components:[{type:2,style:1,label:'Reply by email',emoji:{name:'✉️'},custom_id:`jddm2:reply:${id}`},{type:2,style:2,label:'Set follow-up date',emoji:{name:'📅'},custom_id:`jddm2:date:${id}`} ]},
  {type:1,components:[{type:3,custom_id:`jddm2:status:${id}`,placeholder:'Change conversation status',options:Object.entries(STATES).map(([value,s])=>({label:s.name,value,emoji:{name:s.emoji}}))}]},
- {type:1,components:[{type:3,custom_id:`jddm2:topics:${id}`,placeholder:'Label: Gig prep / Song requests',min_values:0,max_values:2,options:Object.entries(TOPICS).map(([value,s])=>({label:s.name,value,emoji:{name:s.emoji},default:topics.includes(value)}))}]}
+ {type:1,components:[{type:3,custom_id:`jddm2:topics:${id}`,placeholder:'Conversation labels',min_values:0,max_values:Object.keys(TOPICS).length,options:Object.entries(TOPICS).map(([value,s])=>({label:s.name,value,emoji:{name:s.emoji},default:topics.includes(value)}))}]}
 ];}
 function summaryMessage(c){const s=STATES[c.status]||STATES.deedee;return {content:`${s.emoji} **${s.name}**${c.preview?' — '+c.preview:''}`,embeds:[{title:(c.displaySubject||c.subject).slice(0,256),description:`${s.emoji} **${s.name}**${c.followUpDate?'\n📅 Follow-up: **'+c.followUpDate+'**':''}\n\n${c.correspondent||'Email conversation'}\n[Open original Gmail conversation](${mailUrl(c.gmailThreadId)})`,color:s.color,footer:{text:'Replies from Gmail and Discord stay together'}} ,...(c.topics||[]).filter(t=>TOPICS[t]).map(t=>({title:`${TOPICS[t].emoji} ${TOPICS[t].name}`,color:TOPICS[t].color}))],components:controls(c.gmailThreadId,c.topics),allowed_mentions:ALLOWED_MENTIONS};}
 function messageChunks(message){const h=message.payload?.headers||[];const from=cleanHeader(getHeader(h,'From'));const to=cleanHeader(getHeader(h,'To'));const when=new Date(Number(message.internalDate)).toLocaleString('en-US',{timeZone:'America/New_York'});const files=attachments(message.payload);const body=plainBody(message.payload)+(files.length?'\n\nAttachments: '+files.join(', ')+' (open Gmail to download)':'');const heading=`**${ownMessage(message)?'Sent by Dee Dee':'Received'}** · ${when} Eastern\n**From:** ${from}\n**To:** ${to}\n\n`;
@@ -69,10 +80,13 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
  }
  async function syncUnlocked(thread,{budget=100}={}){
   const id=thread.id;const messages=(thread.messages||[]).filter(m=>!m.labelIds?.includes('DRAFT')&&!m.labelIds?.includes('TRASH')).sort((a,b)=>Number(a.internalDate)-Number(b.internalDate));if(!messages.length)return {posted:0};
-  let c=await get(id);const latest=messages[messages.length-1];const headers=latest.payload?.headers||[];
-  if(!c){const cfg=await config();const subject=cleanHeader(getHeader(headers,'Subject')).replace(/^(?:(?:re|fwd?):\s*)+/i,'')||'(No subject)';c={gmailThreadId:id,subject,correspondent:cleanHeader(getHeader(headers,ownMessage(latest)?'To':'From')),status:latest.labelIds?.includes('SPAM')?'spam':ownMessage(latest)?'venue':'deedee',followUpDate:'',preview:plainBody(latest.payload).replace(/\s+/g,' ').slice(0,160),processed:[],chunks:{},latestMessageId:latest.id,createdAt:now().toISOString()};
+  const detectedTopics=automaticTopics(messages);let c=await get(id);const latest=messages[messages.length-1];const headers=latest.payload?.headers||[];
+  if(!c){const cfg=await config();const subject=cleanHeader(getHeader(headers,'Subject')).replace(/^(?:(?:re|fwd?):\s*)+/i,'')||'(No subject)';c={gmailThreadId:id,subject,correspondent:cleanHeader(getHeader(headers,ownMessage(latest)?'To':'From')),status:latest.labelIds?.includes('SPAM')?'spam':ownMessage(latest)?'venue':'deedee',followUpDate:'',topics:detectedTopics,preview:plainBody(latest.payload).replace(/\s+/g,' ').slice(0,160),processed:[],chunks:{},latestMessageId:latest.id,createdAt:now().toISOString()};
    const post=await discord('POST',`/channels/${FORUM_ID}/threads`,{name:threadTitle(c),message:summaryMessage(c),applied_tags:appliedTags(c,cfg)});c.discordThreadId=post.id;c.starterId=post.message?.id||post.id;await collection.doc(id).set(c);
   }
+  const combinedTopics=[...new Set([...(c.topics||[]),...detectedTopics])];
+  const topicsChanged=combinedTopics.length!==(c.topics||[]).length;
+  if(topicsChanged){c.topics=combinedTopics;await collection.doc(id).set({topics:c.topics},{merge:true});await updateCard(c);}
   let posted=0;const newMessages=messages.filter(m=>!c.processed.includes(m.id));
   for(const message of newMessages){const chunks=messageChunks(message);let part=c.chunks?.[message.id]||0;for(;part<chunks.length;part++){
     if(posted>=budget)return {posted,deferred:true};
@@ -134,4 +148,4 @@ function createConversationInteractions({getConfig,service,discord,db,legacy}){r
  }catch(e){await key.set({state:'failed',error:e.message},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content:'Could not complete this action: '+e.message+'. If an email send was interrupted, check the conversation before retrying.',allowed_mentions:ALLOWED_MENTIONS});}
  return res.status(202).send('handled');
 };}
-module.exports={GUILD_ID,FORUM_ID,MAILBOX,STATES,TOPICS,threadTitle,appliedTags,dateKey,validDate,followUpDate,address,ownMessage,splitText,plainBody,messageChunks,controls,summaryMessage,mailUrl,conversationUrl,createDiscordClient,createConversationService,createConversationInteractions};
+module.exports={GUILD_ID,FORUM_ID,MAILBOX,STATES,TOPICS,automaticTopics,threadTitle,appliedTags,dateKey,validDate,followUpDate,address,ownMessage,splitText,plainBody,messageChunks,controls,summaryMessage,mailUrl,conversationUrl,createDiscordClient,createConversationService,createConversationInteractions};

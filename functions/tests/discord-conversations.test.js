@@ -28,3 +28,27 @@ test('tidy post titles identify the correspondent and previews avoid technical e
 test("wrapped Gmail reply headers do not repeat the earlier conversation",()=>{const m=message("wrapped","Testing 1,2,3!!\n\nCarter Swarm\n\nOn Mon, Sep 7, 2026 at 12:32 AM JustDeeDeeMusic <justdeedeemusic@gmail.com>\nwrote:\n\n> Test\n>");assert.equal(plainBody(m.payload),"Testing 1,2,3!!\n\nCarter Swarm");});
 
 test("quotes inside forwarded material are preserved",()=>{const m=message("fwd","Please review\nBegin forwarded message:\nNew information\nOn Monday Venue wrote:\nEarlier material belonging to the forwarded email");assert.match(plainBody(m.payload),/Earlier material belonging to the forwarded email/);});
+
+test('notification labels match subjects, including replies, not incidental body text',()=>{
+ const {automaticTopics,TOPICS}=require('../discordConversations');
+ const subject=(value)=>{const m=message(value,'New text message in quoted text');m.payload.headers.find(h=>h.name==='Subject').value=value;return m;};
+ assert.deepEqual(automaticTopics([subject('RE: Fwd: New text message from venue'),subject('new EVENT: Gig')]),['textmessage','newevent']);
+ assert.deepEqual(automaticTopics([subject('Booking'),subject('Renew event'),subject('New eventful season')]),[]);
+ assert.notEqual(TOPICS.textmessage.color,TOPICS.newevent.color);
+ assert.equal(controls('a')[2].components[0].max_values,4);
+});
+test('automatic labels persist with manual topics and apply to already imported conversations without reposting',async()=>{
+ const s=setup();s.db.data.get('jddmEmailConfig/main').topicTags={textmessage:'brown',newevent:'white',gigprep:'teal',songs:'pink'};
+ const m=message('one','Hello');m.payload.headers.find(h=>h.name==='Subject').value='New text message from venue';
+ await s.service.syncThread({id:'gmail-thread',messages:[m]});
+ assert.deepEqual((await s.service.get('gmail-thread')).topics,['textmessage']);
+ await s.service.setTopics('gmail-thread',['gigprep','songs'],'Dee Dee');
+ await s.service.setStatus('gmail-thread','followup','Dee Dee','2026-09-20');
+ const before=s.calls.filter(c=>c.method==='POST'&&c.path.endsWith('/messages')).length;
+ const result=await s.service.syncThread({id:'gmail-thread',messages:[m]});
+ const c=await s.service.get('gmail-thread');assert.equal(result.posted,0);assert.equal(c.status,'followup');assert.equal(c.followUpDate,'2026-09-20');assert.deepEqual(c.topics,['gigprep','songs','textmessage']);
+ assert.equal(s.calls.filter(c=>c.method==='POST'&&c.path.endsWith('/messages')).length,before);assert.equal(s.modifications.length,0);
+ const event=message('two','Gig details',undefined,Date.now()+10);event.payload.headers.find(h=>h.name==='Subject').value='New Event: Music';
+ await s.service.syncThread({id:'gmail-thread',messages:[m,event]});
+ const {appliedTags}=require('../discordConversations');assert.equal(appliedTags(await s.service.get('gmail-thread'),await s.service.config()).length,5);
+});
