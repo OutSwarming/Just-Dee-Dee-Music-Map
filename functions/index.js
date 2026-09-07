@@ -1404,3 +1404,13 @@ exports.jddmDailyFollowUps = functions.runWith({ secrets: conversationSecrets, t
 exports.discordEmailIntake = functions
     .runWith({ timeoutSeconds: 60, maxInstances: 2 })
     .https.onRequest(createDiscordEmailIntakeHandler());
+
+// The existing CalendarApp authorization reads the same calendars as sheet sync.
+// Signed snapshots keep calendar monitoring independent of spreadsheet columns.
+const calendarMonitor = require('./calendarMonitor');
+exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_CALENDAR_MONITOR_KEY'],timeoutSeconds:240,maxInstances:1}).https.onRequest(
+    calendarMonitor.createHandler({
+        secret:()=>process.env.JDDM_CALENDAR_MONITOR_KEY,
+        run:input=>calendarMonitor.createCalendarMonitor({db:admin.firestore(),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input)
+    })
+);
