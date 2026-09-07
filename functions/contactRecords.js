@@ -89,6 +89,46 @@
         if (!old.emails && !person.emails.length && clean(fields['Email/Contact'])) person.others.push({type:'Previous email/contact',value:clean(fields['Email/Contact']),note:''});
         return normalize({version:2,contacts:[person],legacyBookingContact:clean(fields['Booking Contact'])});
     }
+    function isWebsite(value) {
+        return /^(?:https?:\/\/|www\.)[^\s@]+$/i.test(value) || /^(?:[a-z0-9-]+\.)+(?:com|org|net|us|co|io|music)(?:\/[^\s]*)?$/i.test(value);
+    }
+    function emailList(value) {
+        const text = clean(value), found = text.match(emailPattern) || [];
+        const rest = text.replace(emailPattern, '').replace(/[\s,;|&<>]+/g,'');
+        return found.length && !rest ? found : null;
+    }
+    function phoneList(value) {
+        const text = clean(value);
+        const pattern = /(?<!\d)(?:\+?1[ .-]*)?(?:\(\d{3}\)|\d{3})[ .-]*\d{3}[ .-]*\d{4}(?:\s*(?:ext(?:ension)?\.?|x|#)\s*\d+)?(?!\d)/gi;
+        const found = text.match(pattern) || [];
+        const rest = text.replace(pattern,'').replace(/[\s,;/|&]+/g,'');
+        return found.length && !rest ? found.map(formatPhone) : [formatPhone(text)];
+    }
+    function tidy(data) {
+        const result = normalize(data);
+        for (const person of result.contacts) {
+            const notes = person.notes ? [person.notes] : [];
+            const addNote = text => { if (text && !notes.includes(text)) notes.push(text); };
+            const emails = [], phones = [], others = [];
+            const add = (list,item) => { if (!list.some(i=>i.value.toLowerCase() === item.value.toLowerCase() && (i.type || '') === (item.type || ''))) list.push(item); };
+            if (emailList(person.name)?.length === 1 && emailList(person.name)[0] === person.name) {
+                add(emails,{value:person.name,note:''});
+                person.name = '';
+            }
+            for (const key of ['emails','phones','others']) for (const item of person[key]) {
+                const label = key === 'emails' ? 'Email' : key === 'phones' ? 'Phone' : item.type || 'Other contact';
+                if (item.note) addNote(`${label}${item.value ? ' (' + item.value + ')' : ' (not known yet)'}: ${item.note}`);
+                if (!item.value) { if (item.type) add(others,{type:item.type,value:'',note:''}); continue; }
+                if (key === 'phones') phoneList(item.value).forEach(value=>add(phones,{value,note:''}));
+                else if (isWebsite(item.value)) add(others,{type:key === 'others' && item.type && !/^(?:Previous email\/contact|Other)$/i.test(item.type) ? item.type : 'Website',value:item.value,note:''});
+                else if (emailList(item.value) && (key === 'emails' || /^(?:Previous email\/contact|Email)?$/i.test(item.type || ''))) emailList(item.value).forEach(value=>add(emails,{value,note:''}));
+                else add(others,{type:item.type || 'Other',value:item.value,note:''});
+            }
+            person.notes = notes.join('\n\n');
+            person.emails = emails; person.phones = phones; person.others = others;
+        }
+        return result;
+    }
     function summary(data) {
         const first = data.contacts[0] || empty();
         return {'Contact Name':first.name,'Contact Type':first.preferredMethod,
@@ -107,5 +147,5 @@
         if (!data) return clean(value);
         return [data.legacyBookingContact, ...data.contacts.map(p=>[p.name,p.preferredMethod,...p.emails.map(i=>i.value),...p.phones.map(i=>formatPhone(i.value)),...p.others.map(i=>`${i.type || 'Other'}: ${i.value}`)].filter(Boolean).join(' | '))].filter(Boolean).join('\n');
     }
-    return {PREFIX,empty,normalize,decode,read,summary,encode,display,formatPhone};
+    return {PREFIX,empty,normalize,decode,read,summary,encode,display,formatPhone,tidy,emailList,phoneList};
 });

@@ -4728,10 +4728,18 @@ body.ultra-low .trip-overlay-bookend {
 .venue-person-card > label, .venue-people > label { display: grid; gap: 6px; }
 .venue-person-notes textarea { display: block; width: 100%; margin-top: 8px; }
 .venue-person-notes summary { display: inline-block; cursor: pointer; }
-.venue-contact-group[data-contact-group="others"] .venue-contact-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; }
+.venue-contact-group[data-contact-group="others"] .venue-contact-row { display: grid; grid-template-columns: minmax(0,1fr) auto; }
 .venue-contact-kind { grid-column: 1 / -1; }
 .venue-person-card input, .venue-person-card textarea { min-width: 0; box-sizing: border-box; }
 @media(max-width: 520px) { .venue-person-card { padding: 10px; } }
 
 .venue-people { min-width: 0; }
 .venue-person-card input, .venue-person-card textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; background: #f8fafc; color: #17202f; }
+
+.venue-confirm-dialog { width: min(420px, calc(100vw - 48px)); border: 1px solid #bdd7d2; border-radius: 18px; padding: 24px; color: #17202f; font-family: Inter, sans-serif; }
+.venue-confirm-dialog::backdrop { background: #0f172a88; }
+.venue-confirm-dialog h2 { margin: 0 0 12px; font-size: 21px; }
+.venue-confirm-dialog p { line-height: 1.5; }
+.venue-confirm-dialog > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.venue-confirm-dialog button { border: 1px solid #99cfc5; border-radius: 16px; padding: 12px; background: #e6f5f0; color: #115e59; font: inherit; cursor: pointer; }
+.venue-confirm-dialog [data-choice=discard], .venue-confirm-dialog [data-choice=remove] { background: #fff1f2; color: #9f1239; border-color: #fecdd3; }

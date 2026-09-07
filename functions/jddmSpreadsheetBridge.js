@@ -640,7 +640,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
                 if (clean(rawValue) && !value) throw new Error(`${canonical} must be a valid calendar date.`);
             }
             if (canonical === 'Contact Details') return;
-            if (canonical === 'Booking Contact' && String(rawValue).startsWith(contacts.PREFIX)) value = contacts.encode(contacts.decode(rawValue));
+            if (canonical === 'Booking Contact' && String(rawValue).startsWith(contacts.PREFIX)) value = contacts.encode(contacts.tidy(contacts.decode(rawValue)));
             setCell(row, headerMap, canonical, value);
         });
         const supplied = Object.keys(fields || {}).find(header => canonicalHeader(header) === 'Contact Details');
@@ -649,7 +649,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             if (contacts.decode(current)) throw new Error('The contact editor has been updated. Refresh the map before saving so each person stays linked to their details.');
             const legacy = Object.fromEntries([...headerMap].map(([h,i])=>[h,row[i]]));
             legacy['Contact Details'] = JSON.stringify(contactDetails(fields[supplied]));
-            const migrated = contacts.read(legacy);
+            const migrated = contacts.tidy(contacts.read(legacy));
             setCell(row, headerMap, 'Booking Contact', contacts.encode(migrated));
             Object.entries(contacts.summary(migrated)).forEach(([h,v])=>setCell(row,headerMap,h,v));
         } else if (Object.prototype.hasOwnProperty.call(fields || {}, 'Booking Contact') && contacts.decode(current)) {
@@ -703,6 +703,14 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         applyFields(row, data.headerMap, payload.rawFields);
         applyFields(row, data.headerMap, payload.venue);
         if (payload.venue && payload.venue.contactStatus !== undefined) setCell(row, data.headerMap, 'Status', normalizeStatus(payload.venue.contactStatus));
+        for (const [header, expected] of Object.entries(payload.expectedRawFields || {})) {
+            const canonical = canonicalHeader(header), index = data.headerMap.get(canonical);
+            if (index === undefined || !Object.keys(payload.rawFields || {}).some(h=>canonicalHeader(h) === canonical)) continue;
+            const expectedValue = ['Next Follow Up','Last Contacted'].includes(canonical) ? calendarDate(expected) || expected : expected;
+            if (String(before[index] ?? '') !== String(expectedValue ?? '') && row[index] !== before[index]) {
+                return {ok:false,code:'VENUE_CONFLICT',message:'This venue changed in another window. Your draft has been kept. Use Reload Row to review the latest saved version before editing again.'};
+            }
+        }
         const changedIndexes = row.map((value, index) => value === before[index] ? -1 : index).filter(index => index >= 0);
         const groups = [];
         changedIndexes.forEach(index => {

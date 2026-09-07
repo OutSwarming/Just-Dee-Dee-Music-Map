@@ -42,6 +42,7 @@
     let closePromise = null;
     let editorSession = 0;
     let createRequestId = '';
+    let draftConflict = false;
 
     function formSnapshot() {
         try { return JSON.stringify(collectRawFields()); }
@@ -127,14 +128,36 @@
         setEditorMode(false);
     }
 
+    let confirmationPending = null;
+    function confirmAction(title, message, choices) {
+        if (confirmationPending) return confirmationPending;
+        confirmationPending = new Promise(resolve => {
+            const dialog = document.createElement('dialog');
+            dialog.className = 'venue-confirm-dialog';
+            dialog.setAttribute('aria-label',title);
+            dialog.innerHTML = `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p><div>${choices.map(([value,label])=>`<button type="button" data-choice="${value}">${escapeHtml(label)}</button>`).join('')}</div>`;
+            const finish = choice => { dialog.close(); dialog.remove(); resolve(choice); };
+            dialog.addEventListener('click', event => { const button=event.target.closest('[data-choice]'); if (button) finish(button.dataset.choice); });
+            dialog.addEventListener('cancel', event => { event.preventDefault(); finish('keep'); });
+            document.body.appendChild(dialog); dialog.showModal();
+        }).finally(()=>{confirmationPending=null;});
+        return confirmationPending;
+    }
     function closeModal() {
         if (closePromise) return closePromise;
         closePromise = (async () => {
             const modal = qs('venue-edit-modal');
             if (!modal || modal.hidden) return true;
-            if (savePromise && !(await savePromise)) return false;
-            if (sourceReady && formSnapshot() !== savedSnapshot) {
-                if (!(await saveVenueEdit())) return false;
+            let failed = false;
+            if (savePromise) failed = !(await savePromise);
+            while (sourceReady && (failed || formSnapshot() !== savedSnapshot)) {
+                const choice = await confirmAction(failed ? 'Changes are not saved' : 'Save changes before closing?',
+                    failed ? 'Saving did not finish. Your changes are still here. Retry, keep editing, or discard them.' : 'You have unsaved changes. Save them before closing, keep editing, or discard them.',
+                    [['save',failed ? 'Retry save' : 'Save and close'],['keep','Keep editing'],['discard','Discard changes']]);
+                if (choice === 'keep') return false;
+                if (choice === 'discard') break;
+                if (await saveVenueEdit()) break;
+                failed = true;
             }
             hideModal();
             return true;
@@ -294,7 +317,7 @@
     }
 
     const contactCodec = window.JDDMContacts;
-    function readContacts(fields) { return contactCodec.read(fields); }
+    function readContacts(fields) { return contactCodec.tidy(contactCodec.read(fields)); }
     function contactRow(key, item, index, personIndex) {
         if (key === 'phones') item = {...item,value:contactCodec.formatPhone(item.value)};
         const kind = key === 'emails' ? 'Email' : key === 'phones' ? 'Phone' : 'Other contact';
@@ -302,7 +325,7 @@
         return `<div class="venue-contact-row" data-contact-row data-method-index="${index}">
             ${key === 'others' ? `<input class="venue-contact-kind" data-contact-kind aria-label="Contact type" placeholder="Type (Facebook, website…)" value="${escapeHtml(item.type || '')}">` : `<span class="venue-contact-number">${index+1}</span>`}
             <input id="${id}" type="${key === 'emails' ? 'email' : key === 'phones' ? 'tel' : 'text'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index+1}" placeholder="${key === 'emails' || key === 'phones' ? 'Not known yet — optional' : 'Not known yet — link, username, or instructions'}">
-            <details class="venue-contact-notes"><summary class="venue-contact-bubble" aria-label="Notes for ${kind.toLowerCase()} ${index+1}">${item.note ? 'Notes •' : 'Notes'}</summary><div class="venue-contact-popover"><label for="${id}-note">${kind} notes</label><textarea id="${id}-note" data-contact-note rows="3">${escapeHtml(item.note)}</textarea><button type="button" data-note-done>Done</button></div></details>
+
             ${index === 0 ? `<button type="button" class="venue-contact-add" data-contact-add="${key}">Add</button>` : '<button type="button" class="venue-contact-remove" data-contact-remove aria-label="Remove this method">×</button>'}
         </div>`;
     }
@@ -322,7 +345,7 @@
         const contacts = Array.from(modal.querySelectorAll('[data-person-index]')).map(card=>{
             const person={name:clean(card.querySelector('[data-person-name]').value),preferredMethod:clean(card.querySelector('[data-person-preferred]').value),notes:clean(card.querySelector('[data-person-notes]').value)};
             card.querySelectorAll('[data-contact-group]').forEach(group=>{
-                person[group.dataset.contactGroup]=Array.from(group.querySelectorAll('[data-contact-row]')).map(row=>({value:group.dataset.contactGroup === 'phones' ? contactCodec.formatPhone(row.querySelector('[data-contact-value]').value) : clean(row.querySelector('[data-contact-value]').value),note:clean(row.querySelector('[data-contact-note]').value),...(group.dataset.contactGroup === 'others' ? {type:clean(row.querySelector('[data-contact-kind]').value)} : {})})).filter(i=>i.value || i.note || i.type);
+                person[group.dataset.contactGroup]=Array.from(group.querySelectorAll('[data-contact-row]')).map(row=>({value:group.dataset.contactGroup === 'phones' ? contactCodec.formatPhone(row.querySelector('[data-contact-value]').value) : clean(row.querySelector('[data-contact-value]').value),note:'',...(group.dataset.contactGroup === 'others' ? {type:clean(row.querySelector('[data-contact-kind]').value)} : {})})).filter(i=>i.value || i.note || i.type);
             });
             return person;
         });
@@ -353,7 +376,7 @@
             const tall = fieldType === 'textarea' || clean(value).length > 80;
             const checkbox = fieldType === 'checkbox';
             const input = renderInputForHeader(id, header, value);
-            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}${checkbox ? ' venue-edit-checkbox' : ''}"><label for="${id}">${escapeHtml(header)}${fieldType === 'date' ? ' (Eastern)' : ''}</label>${input}</div>`;
+            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}${checkbox ? ' venue-edit-checkbox' : ''}"><label for="${id}">${escapeHtml(header === 'Notes' ? 'Venue notes' : header)}${fieldType === 'date' ? ' (Eastern)' : ''}</label>${input}</div>`;
         }).join('');
     }
 
@@ -621,6 +644,7 @@
                 renderRawFields(buildInitialRawFields(activeVenue));
             }
             sourceReady = true;
+            draftConflict = false;
             captureSavedState();
             setStatus('CRM fields loaded from the spreadsheet.', 'success');
         } catch (error) {
@@ -673,7 +697,7 @@
         try {
             let result = wasCreating
                 ? await service.createVenue({ rawFields, requestId: createRequestId })
-                : await service.saveVenue({ id: activeVenue.id, rawFields });
+                : await service.saveVenue({ id: activeVenue.id, rawFields, expectedRawFields: activeRawFields });
             if (wasCreating && result?.venue?.['Place ID']) {
                 activeVenue = {...activeVenue, id:result.venue['Place ID']};
                 isCreatingVenue = false;
@@ -721,9 +745,12 @@
                 isCreatingVenue = false;
                 setEditorMode(false);
             }
+            activeRawFields = {...activeRawFields,...(result?.rawFields || rawFields)};
+            draftConflict = false;
             savedSnapshot = submittedSnapshot;
             return true;
         } catch (error) {
+            draftConflict = error.code === 'VENUE_CONFLICT';
             console.error('[venueEditModal] save failed:', error);
             setStatus('Not saved yet. ' + (error.message || 'Check your connection and try again.') + ' Your changes are still here; press Save or X to retry.', 'error');
             return false;
@@ -742,7 +769,7 @@
         modal.addEventListener('focusout', event => {
             if (event.target.matches('[data-contact-group="phones"] [data-contact-value]')) event.target.value = contactCodec.formatPhone(event.target.value);
         });
-        modal.addEventListener('click', event => {
+        modal.addEventListener('click', async event => {
             const target = event.target;
             if (savePromise && !target.closest('[data-close-venue-edit]')) return;
             if (target.matches('[data-person-add]')) {
@@ -751,7 +778,11 @@
                 people.insertAdjacentHTML('beforeend',personCard(contactCodec.empty(),next));
                 people.lastElementChild.querySelector('input').focus();
             }
-            if (target.matches('[data-person-remove]')) target.closest('[data-person-index]').remove();
+            if (target.matches('[data-person-remove]')) {
+                const card = target.closest('[data-person-index]');
+                const name = clean(card.querySelector('[data-person-name]').value) || 'this contact';
+                if (await confirmAction('Remove contact?', `Are you sure you want to remove ${name} and their contact details and notes?`, [['keep','Keep contact'],['remove','Remove contact']]) === 'remove') card.remove();
+            }
             if (target.matches('[data-contact-add]')) {
                 const group = target.closest('[data-contact-group]');
                 const rows = group.querySelector('[data-contact-rows]');
@@ -759,8 +790,7 @@
                 rows.lastElementChild.querySelector('input').focus();
             }
             if (target.matches('[data-contact-remove]')) {
-                const group = target.closest('[data-contact-group]');
-                target.closest('[data-contact-row]').remove();
+                if (await confirmAction('Remove contact method?', 'Are you sure you want to remove this phone number, email, or other contact method?', [['keep','Keep it'],['remove','Remove method']]) === 'remove') target.closest('[data-contact-row]').remove();
 
             }
             if (target.matches('[data-note-done]')) {
@@ -782,12 +812,20 @@
 
         const refreshBtn = qs('venue-edit-refresh');
         if (refreshBtn) refreshBtn.addEventListener('click', async () => {
-            if (sourceReady && formSnapshot() !== savedSnapshot && !(await saveVenueEdit())) return;
+            if (draftConflict) {
+                if (await confirmAction('Reload the latest saved version?', 'This will discard your unsaved draft and load the changes saved in the other window.', [['keep','Keep editing'],['discard','Reload latest']]) !== 'discard') return;
+            } else if (sourceReady && formSnapshot() !== savedSnapshot && !(await saveVenueEdit())) return;
             await loadSourceRow();
         });
 
+        if (typeof window.addEventListener === 'function') window.addEventListener('beforeunload', event => {
+            if (!modal.hidden && (savePromise || (sourceReady && formSnapshot() !== savedSnapshot))) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && modal && !modal.hidden) {
+            if (event.key === 'Escape' && modal && !modal.hidden && !confirmationPending) {
                 const note = event.target.closest && event.target.closest('details[open]');
                 if (note) { note.open = false; return; }
                 event.preventDefault();
@@ -804,6 +842,7 @@
 
         if (qs('venue-edit-modal') && !qs('venue-edit-modal').hidden && !(await closeModal())) return;
         editorSession++;
+        draftConflict = false;
         sourceReady = false;
         isCreatingVenue = false;
         setEditorMode(false);
@@ -820,6 +859,7 @@
     async function openNewVenueEditor(prefill) {
         if (qs('venue-edit-modal') && !qs('venue-edit-modal').hidden && !(await closeModal())) return;
         editorSession++;
+        draftConflict = false;
         createRequestId = `contact-create-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {

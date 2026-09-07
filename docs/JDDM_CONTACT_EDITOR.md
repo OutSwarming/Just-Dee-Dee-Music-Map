@@ -1,6 +1,6 @@
 # Venue contact groups and follow-up dates
 
-Add Place and pin → Edit share one contact editor. Each person or venue has a free-form name, preferred method/contact type, contact notes, and multiple emails, phone numbers and other contact methods. Each method has its own Notes bubble. Add stays beside the method on phones. Removing a contact removes that person's methods; editing one person keeps the others intact.
+Add Place and pin → Edit share one contact editor. Each person or venue has a free-form name, preferred method/contact type, contact notes, and multiple emails, phone numbers and other contact methods. Each person has one Contact notes box shared by their methods. Add stays beside the method on phones. Removing a contact removes that person's methods; editing one person keeps the others intact.
 
 ## Original 28-column storage
 
@@ -22,7 +22,7 @@ The old Apps Script sync ran destructive spreadsheet setup every five minutes. T
 
 ## Verification
 
-`npm run test:booking`, `npm test --prefix functions`, and `node tests/venueEditModal.browser.cjs` cover contact storage, legacy migration, Add/Edit, multiple people, notes, removal, calendars and desktop/mobile layout. Live verification creates a temporary marked venue, edits multiple people and notes, runs the deployed calendar sync, checks fresh spreadsheet reads and Discord new-place/follow-up confirmations, and removes the test row.
+`npm run test:booking`, `npm test --prefix functions`, and `node tests/venueEditModal.browser.cjs` cover contact storage, legacy migration, Add/Edit, multiple people, notes, removal confirmations, calendars and desktop/mobile layout. Live verification creates a temporary marked venue, edits multiple people and notes, runs the deployed calendar sync, checks fresh spreadsheet reads and Discord new-place/follow-up confirmations, and removes the test row.
 
 ## Incomplete contacts and saving on close (v20)
 
@@ -33,3 +33,11 @@ Complete US numbers display and save as (330) 555-0123, dropping an optional lea
 X, the backdrop and Escape save changed fields before closing. Failed saves and invalid fields leave the editor open with the draft intact. Unchanged editors and untouched new-place forms close without writing. Duplicate close requests and Save followed by X share a single in-flight save. Fields cannot change during that write. A new-place retry reuses its request ID and applies subsequent edits to the same created venue if the original response was lost. Late loading responses cannot overwrite another editor. Reload saves current edits before fetching fresh data.
 
 `node tests/venueEditModal.edges.browser.cjs` covers fragmented contacts, unknown names, missing-method notes, formatting, save-on-close, failed saves/retries, repeated X, Save+X, empty new forms, invalid email, interrupted create responses and stale loads.
+
+## Contact cleanup and confirmations (v21)
+
+One Contact notes box replaces method-specific notes. Migration joins existing person notes and labeled legacy method notes without losing their context; method note properties remain empty for older-client compatibility. Repeat cleanup is idempotent. Recognizable whitespace-separated email lists and clearly delimited US phone lists become individual rows. Websites misplaced in email/contact fields move to Other with type Website. An email saved in the name field moves to email without guessing a person's name. Ambiguous strings remain intact. Venue notes are still separate and unchanged. The sheet remains 28 columns.
+
+Removing a person or an extra method requires confirmation. Closing a dirty editor with X, backdrop or Escape offers Save and close, Keep editing or Discard changes. Failed saves offer retry, keep or discard; they never silently close. Browser navigation also warns while there is an unsaved draft or pending save. An unchanged editor closes without writing.
+
+Save requests include the loaded raw fields. If another editor changed a submitted field, the bridge rejects overwriting it unless the requested value already matches the saved value (safe retry). Reloading after a conflict requires confirmation before discarding the stale draft. New-place retries retain the stable request ID.

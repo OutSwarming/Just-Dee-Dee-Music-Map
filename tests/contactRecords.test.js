@@ -30,3 +30,13 @@ test('missing-method notes survive and primary values come from the contact who 
  const data={version:2,contacts:[{...codec.empty(),name:'Phone only',emails:[{value:'',note:'Need email later'}],phones:[{value:'(330) 555-0123',note:''}]},{...codec.empty(),name:'Email only',emails:[{value:'known@example.com',note:'Booking'}]}]};
  const fields={...codec.summary(data),'Booking Contact':codec.encode(data)};assert.equal(fields['Email/Contact'],'known@example.com');fields['Email/Contact']='changed@example.com';const read=codec.read(fields);assert.equal(read.contacts[0].emails[0].value,'');assert.equal(read.contacts[0].emails[0].note,'Need email later');assert.equal(read.contacts[1].emails[0].value,'changed@example.com');
 });
+
+test('tidying consolidates notes once and splits recognized contact lists without guessing',()=>{
+ const input={version:2,contacts:[{...codec.empty(),name:'Sandy, Nicole',notes:'Existing person note',emails:[],phones:[{value:'330-555-0123 / 4405550199',note:'Office and mobile'}],others:[{type:'Previous email/contact',value:'nicole@example.com sandy@example.com',note:'Booking contacts'},{type:'Previous email/contact',value:'http://www.750mlwines.com',note:'Website note'}]}]};
+ const tidy=codec.tidy(input),p=tidy.contacts[0];assert.deepEqual(p.phones.map(i=>i.value),['(330) 555-0123','(440) 555-0199']);assert.deepEqual(p.emails.map(i=>i.value),['nicole@example.com','sandy@example.com']);assert.equal(p.others[0].type,'Website');assert(p.notes.includes('Existing person note'));assert(p.notes.includes('Office and mobile'));assert(p.notes.includes('Booking contacts'));assert(p.notes.includes('Website note'));assert([...p.emails,...p.phones,...p.others].every(i=>!i.note));assert.deepEqual(codec.tidy(tidy),tidy);
+ assert.deepEqual(codec.phoneList('Ask Bob: 3305550123 or front desk'),['Ask Bob: 3305550123 or front desk']);assert.equal(codec.emailList('email a@example.com next week'),null);
+});
+
+test('cleanup preserves explicit contact types on Facebook and booking links',()=>{
+ const data={version:2,contacts:[{...codec.empty(),others:[{type:'Facebook Messenger',value:'https://m.me/venue',note:'Ask for Pat'},{type:'Booking form',value:'https://example.com/book',note:''}]}]};const p=codec.tidy(data).contacts[0];assert.equal(p.others[0].type,'Facebook Messenger');assert.equal(p.others[1].type,'Booking form');assert(p.notes.includes('Ask for Pat'));
+});

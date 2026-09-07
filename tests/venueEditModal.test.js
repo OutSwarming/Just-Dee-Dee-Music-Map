@@ -303,19 +303,21 @@ test('multiple contacts preserve individual punctuation and multiline notes', ()
     const modal = loadVenueEditModal();
     const details = { version: 1, emails: [{value:'one@example.com',note:'Jamie, booking; "manager"\nAfter 5'}, {value:'two@example.com',note:'Gig materials'}], phones:[{value:'+1 (330) 555-0123 ext 2',note:'Office'}, {value:'330-555-0124',note:'Mobile'}] };
     const fields = {'Contact Details':JSON.stringify(details), 'Email/Contact':'one@example.com', 'Phone Number':'+1 (330) 555-0123 ext 2'};
-    assert.deepEqual(plain(modal.readContacts(fields)).contacts[0].emails, details.emails);
+    assert.deepEqual(plain(modal.readContacts(fields)).contacts[0].emails.map(i=>i.value), details.emails.map(i=>i.value));
     fields['Email/Contact']='new@example.com';
     const reread=plain(modal.readContacts(fields)).contacts[0];
     assert.equal(reread.emails[0].value,'new@example.com');
-    assert.equal(reread.emails[0].note,details.emails[0].note);
-    assert.deepEqual(reread.emails[1],details.emails[1]);
+    assert(reread.notes.includes(details.emails[0].note));
+    assert.equal(reread.emails[1].value,details.emails[1].value);
+    assert(reread.notes.includes(details.emails[1].note));
     assert.equal(modal.buildVenueFromRawFields(fields).contactDetails,fields['Contact Details']);
 });
 
 test('legacy availability notes are attached to the email instead of creating a fake address', () => {
     const modal=loadVenueEditModal();
     const read=plain(modal.readContacts({'Email/Contact':'kristin@example.com tues,wed 4pm'})).contacts[0];
-    assert.deepEqual(read.emails,[{value:'kristin@example.com',note:'tues,wed 4pm'}]);
+    assert.deepEqual(read.emails,[{value:'kristin@example.com',note:''}]);
+    assert(read.notes.includes('tues,wed 4pm'));
     const multiple=plain(modal.readContacts({'Email/Contact':'one@example.com, two@example.com'})).contacts[0];
     assert.deepEqual(multiple.emails,[{value:'one@example.com',note:''},{value:'two@example.com',note:''}]);
     assert.equal(modal.readContacts({'Email/Contact':'Use website, booking page'}).contacts[0].others[0].value,'Use website, booking page');

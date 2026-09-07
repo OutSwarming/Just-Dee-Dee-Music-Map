@@ -135,11 +135,12 @@
         return request('schema');
     }
 
-    async function saveVenue({ id, venue, rawFields, requestId }) {
+    async function saveVenue({ id, venue, rawFields, requestId, expectedRawFields }) {
         return request('saveVenue', {
             id,
             venue,
             rawFields,
+            expectedRawFields,
             requestId: clean(requestId) || createRequestId('saveVenue')
         });
     }

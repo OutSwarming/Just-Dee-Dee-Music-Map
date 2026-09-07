@@ -433,11 +433,11 @@ test('original 28 columns support people, legacy clients, edits and follow-up co
     assert.equal(made.rawFields['Email/Contact'],'a@example.com');
     const people=codec.read(made.rawFields);people.contacts[0].name='Jamie';people.contacts.push({...codec.empty(),name:'Venue office',preferredMethod:'Messenger',others:[{type:'Facebook',value:'@office',note:'After 4pm'}]});
     await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Booking Contact':codec.encode(people),'Next Follow Up':'Sun Sep 20 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'}});
-    const read=await service.route({action:'getVenue',id:'contact-test'});assert.deepEqual(codec.read(read.rawFields).contacts,people.contacts);
+    const read=await service.route({action:'getVenue',id:'contact-test'});assert.deepEqual(codec.read(read.rawFields).contacts,codec.tidy(people).contacts);
     assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1,'same Eastern date does not notify');
     await assert.rejects(service.route({action:'saveVenue',id:'contact-test',rawFields:{'Contact Details':JSON.stringify(old)}}),/Refresh the map/);
     await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-09-22'}});assert.equal(notifier.events.at(-1).previousDate,'2026-09-20');
-    const csv=await service.route({action:'csv'});assert.deepEqual(codec.decode(parseCsv(csv.csv)[1][13]).contacts,people.contacts);
+    const csv=await service.route({action:'csv'});assert.deepEqual(codec.decode(parseCsv(csv.csv)[1][13]).contacts,codec.tidy(people).contacts);
     assert.equal(gateway.sheets.Sheet1[1].length,28);
     await assert.rejects(service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-02-30'}}),/valid calendar date/);
 });
@@ -474,6 +474,14 @@ test('gateway expands the current tab after a warm instance cached a replaced Sh
 test('fragmented people and missing-method notes save and clear within 28 columns',async()=>{
  const codec=require('../contactRecords');const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS.slice()]});const service=createJddmSpreadsheetBridgeService({gateway});
  const data={version:2,contacts:[{...codec.empty(),phones:[{value:'(330) 555-0123',note:'Only phone known'}],emails:[{value:'',note:'Ask for email'}]},{...codec.empty(),emails:[{value:'venue@example.com',note:'Only email known'}],phones:[{value:'',note:'Ask for phone'}]}]};
- let result=await service.route({action:'createVenue',rawFields:{'Place ID':'fragmented','Place Name':'Fragmented','Booking Contact':codec.encode(data)}});assert.equal(result.ok,true);assert.equal(result.rawFields['Contact Name'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert.equal(result.rawFields['Phone Number'],'(330) 555-0123');assert.deepEqual(codec.read(result.rawFields).contacts,data.contacts);
- data.contacts.shift();result=await service.route({action:'saveVenue',id:'fragmented',rawFields:{'Booking Contact':codec.encode(data)}});assert.equal(result.rawFields['Phone Number'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert.equal(codec.read(result.rawFields).contacts[0].phones[0].note,'Ask for phone');assert.equal(gateway.sheets.Sheet1[0].length,28);assert.equal(gateway.sheets.Sheet1[1].length,28);
+ let result=await service.route({action:'createVenue',rawFields:{'Place ID':'fragmented','Place Name':'Fragmented','Booking Contact':codec.encode(data)}});assert.equal(result.ok,true);assert.equal(result.rawFields['Contact Name'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert.equal(result.rawFields['Phone Number'],'(330) 555-0123');assert.deepEqual(codec.read(result.rawFields).contacts,codec.tidy(data).contacts);
+ data.contacts.shift();result=await service.route({action:'saveVenue',id:'fragmented',rawFields:{'Booking Contact':codec.encode(data)}});assert.equal(result.rawFields['Phone Number'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert(codec.read(result.rawFields).contacts[0].notes.includes('Ask for phone'));assert.equal(gateway.sheets.Sheet1[0].length,28);assert.equal(gateway.sheets.Sheet1[1].length,28);
+});
+
+test('stale editor cannot overwrite newer notes and retrying the same successful write is safe',async()=>{
+ const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS.slice()]});const service=createJddmSpreadsheetBridgeService({gateway});
+ const made=await service.route({action:'createVenue',rawFields:{'Place ID':'conflict-test','Place Name':'Conflict test',Notes:'Original'}});
+ await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Other window'}});
+ const blocked=await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Stale overwrite'},expectedRawFields:made.rawFields});assert.equal(blocked.code,'VENUE_CONFLICT');assert.equal((await service.route({action:'getVenue',id:'conflict-test'})).rawFields.Notes,'Other window');
+ const repeat=await service.route({action:'saveVenue',id:'conflict-test',rawFields:{Notes:'Other window'},expectedRawFields:made.rawFields});assert.equal(repeat.ok,true);assert.deepEqual(repeat.changedHeaders,[]);
 });
