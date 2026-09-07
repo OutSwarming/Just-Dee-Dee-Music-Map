@@ -32,3 +32,14 @@ Review locks prevent concurrent decisions. A missing/deleted linked venue reopen
 Run `npm --prefix functions test`, `node --test tests/appsScriptBridgeColumns.test.js`, and `node --test tests/calendarMonitor.test.cjs`.
 
 For rollout, provision the Discord channel, deploy the two functions in barkrangermap-auth, then the interaction and monitor functions in just-dee-dee-music-map. Update the exact live Apps Script source and its legacy versioned sync deployment/trigger separately. Confirm the live calendar source no longer contains an automatic append path. Re-run a real signed snapshot twice, verify one review per venue/location, and compare all spreadsheet contact/follow-up cells and row count before/after. Exercise the dropdown without selecting a real venue unless the decision is intended.
+
+## Live verification — September 7, 2026
+
+- Monitoring → `calendar-review` is channel `1546552196991287377`; its Firestore routing is configured. The native Discord app was used to grant usbarkrangers the Administrator role.
+- The bound Apps Script project `19VbxcEIo0peCHSZxOfQj1pRp8GJvUkjOTHpEmgT9qQL3i2y6v9HiKRAf` was backed up, patched, and published as version 38. Both existing five-minute calendar sync triggers now show version 38; the change monitor uses Head. The editor's full saved Code.gs matched the prepared patch exactly.
+- A real, marked temporary Google Calendar event reached Discord review while the sheet stayed at 537 venue rows. The actual Apps Script sync returned `addedRows: []` and listed the test event as unmatched.
+- Clicking New row and Confirm new row in Discord created exactly one venue. Repeating the confirmation was rejected as stale. The next real sync attached the test gig date to that row without creating another row.
+- Link displayed the immediate dropdown; selecting the existing test venue succeeded while signed in as usbarkrangers in Chrome. Ignore and its confirmation succeeded as well.
+- The temporary calendar event and venue row were removed, and temporary Apps Script test helpers were removed. Final comparison: 537 rows, the same 28 columns, and zero changes to contacts, follow-up dates, or other non-calendar cells. Existing duplicate rows remain intact for a separate reviewed merge.
+
+Private execution logs, snapshots, the duplicate audit, and the comparison result are retained under `work/calendar-review/` (not committed).
