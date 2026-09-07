@@ -12,9 +12,9 @@ function card(c){
  const platform=PLATFORMS[c.platform]||PLATFORMS.messenger;
  const state=email.STATES[c.status], rows=email.controls(c.id,c.topics||[],c);
  rows[0].components=rows[0].components.filter(x=>!x.custom_id.includes(':reply:'));
- rows[0].components.unshift({type:2,style:5,label:'Open '+platform.label+' / Reply',url:sourceUrl(c)});
+ rows[0].components.unshift({type:2,style:1,label:'Reply in Discord',custom_id:`jddms:reply:${c.platform||'messenger'}:${c.id}`},{type:2,style:5,label:'Open '+platform.label,url:sourceUrl(c)});
  for(const row of rows)for(const x of row.components)if(x.custom_id)x.custom_id=x.custom_id.replace('jddm2:',platform.prefix+':');
- return {content:state?`${state.emoji} **${state.name}**`:'📚 **Imported conversation — review when needed**',embeds:[{title:c.name.slice(0,256),color:state?.color||0x5865f2,description:`${c.venueId?'📍 '+c.venueName:'📍 No venue linked — use Link venue'}\n📅 Official spreadsheet follow-up: **${c.followUpDate||'not scheduled'}**${c.venueLinkIssue?'\n⚠️ '+c.venueLinkIssue:''}\n\nMessages and replies stay together in this post. Use **Open ${platform.label} / Reply** to reply in ${platform.label}.`,footer:{text:'Just Dee Dee Music • '+platform.source+' • Eastern time'}}],components:rows,allowed_mentions:quiet};
+ return {content:state?`${state.emoji} **${state.name}**`:'📚 **Imported conversation — review when needed**',embeds:[{title:c.name.slice(0,256),color:state?.color||0x5865f2,description:`${c.venueId?'📍 '+c.venueName:'📍 No venue linked — use Link venue'}\n📅 Official spreadsheet follow-up: **${c.followUpDate||'not scheduled'}**${c.venueLinkIssue?'\n⚠️ '+c.venueLinkIssue:''}\n\nMessages and replies stay together in this post. Use **Reply in Discord** to send as Just Dee Dee Music, or **Open ${platform.label}** for the original inbox.`,footer:{text:'Just Dee Dee Music • '+platform.source+' • Eastern time'}}],components:rows,allowed_mentions:quiet};
 }
 function messageParts(m,platformName='messenger'){
  const platform=PLATFORMS[platformName]||PLATFORMS.messenger;

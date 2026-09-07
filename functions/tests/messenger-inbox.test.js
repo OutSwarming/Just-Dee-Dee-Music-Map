@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const m=require('../messengerInbox');
-test('history card has no false waiting status and cannot send email',()=>{const c=m.card({id:'t_123',psid:'456',name:'Venue contact',status:'history',topics:[]});assert.match(c.content,/Imported conversation/);assert.equal(c.allowed_mentions.parse.length,0);assert.ok(c.components.flatMap(r=>r.components).every(x=>!x.custom_id?.startsWith('jddm2:')));assert.ok(c.components[0].components[0].url.startsWith('https://business.facebook.com/'));assert.ok(c.components.flatMap(r=>r.components).every(x=>!x.custom_id?.includes(':reply:')));});
+test('history card has no false waiting status and cannot send email',()=>{const c=m.card({id:'t_123',psid:'456',name:'Venue contact',status:'history',topics:[]});assert.match(c.content,/Imported conversation/);assert.equal(c.allowed_mentions.parse.length,0);assert.ok(c.components.flatMap(r=>r.components).every(x=>!x.custom_id?.startsWith('jddm2:')));assert.ok(c.components[0].components.find(x=>x.style===5).url.startsWith('https://business.facebook.com/'));assert.ok(c.components.flatMap(r=>r.components).every(x=>!x.custom_id?.startsWith('jddm2:reply:')));});
 test('long sent replies retain all text and use silent deduplicated messages',()=>{const body='Long booking conversation. '.repeat(500),parts=m.messageParts({id:'m_123',created_time:'2026-09-07T12:00:00Z',from:{id:m.PAGE_ID,name:'Just Dee Dee Music'},message:body});assert.ok(parts.length>1);assert.ok(parts.every(p=>p.flags===4096&&p.enforce_nonce&&p.allowed_mentions.parse.length===0&&p.content.length<2000));assert.match(parts[0].content,/Sent by Just Dee Dee Music/);assert.equal(new Set(parts.map(p=>p.nonce)).size,parts.length);assert.equal(parts.map(p=>p.content).join('').replace(/\s/g,'').includes(body.replace(/\s/g,'')),true);});
 test('pagination follows all history pages without using a remote next URL',async()=>{const calls=[];const out=await m.allPages(async p=>{calls.push(p);return calls.length===1?{data:[1],paging:{next:'https://example.invalid/',cursors:{after:'next cursor'}}}:{data:[2]};},'104/conversations?limit=100');assert.deepEqual(out,[1,2]);assert.match(calls[1],/&after=next%20cursor$/);});
 
@@ -17,7 +17,7 @@ test('Instagram uses its own forum, receipts, short control IDs, and outgoing id
  const sourceId='instagram-conversation-'.repeat(12),thread={id:sourceId,participants:{data:[{id:m.INSTAGRAM_ID},{id:'ig-customer',username:'venue.customer'}]},messages:[{id:'m1',created_time:'2026-09-07T12:00:00Z',from:{id:'ig-customer',username:'venue.customer'},message:'Instagram inquiry'}]};
  const result=await service.syncConversation(thread,{historical:true});assert.equal(result.id.length,32);
  let c=await service.get(result.id);assert.equal(c.name,'venue.customer');assert.equal(c.sourceId,sourceId);assert.equal(c.platform,'instagram');
- const rendered=m.card(c);assert.ok(rendered.components.flatMap(r=>r.components).filter(x=>x.custom_id).every(x=>x.custom_id.startsWith('jddmi:')&&x.custom_id.length<=100));assert.match(rendered.components[0].components[0].url,/instagram_direct/);
+ const rendered=m.card(c);assert.ok(rendered.components.flatMap(r=>r.components).filter(x=>x.custom_id).every(x=>(x.custom_id.startsWith('jddmi:')||x.custom_id.startsWith('jddms:reply:instagram:'))&&x.custom_id.length<=100));assert.match(rendered.components[0].components.find(x=>x.style===5).url,/instagram_direct/);
  thread.messages.push({id:'m2',created_time:'2026-09-07T13:00:00Z',from:{id:m.INSTAGRAM_ID},message:'JDDM reply'});await service.syncConversation(thread);c=await service.get(result.id);assert.equal(c.status,'venue');
  const posts=s.calls.filter(x=>x.method==='POST'&&x.path.endsWith('/messages'));assert.match(posts.at(-1).body.content,/Sent by Just Dee Dee Music/);assert.ok(posts.every(x=>x.body.flags===4096));
  assert.equal([...s.data.keys()].filter(x=>x.startsWith('jddmMessengerMessages/')).length,0);assert.equal([...s.data.keys()].filter(x=>x.startsWith('jddmInstagramMessages/')).length,2);
@@ -52,4 +52,15 @@ test('Instagram exact saved handle links without a display name or message-body 
  const t={id:'ig-thread',participants:{data:[{id:m.INSTAGRAM_ID},{id:'ig-customer',username:'venue.customer'}]},messages:[{id:'ig-message',from:{id:'ig-customer'},created_time:'2026-09-07T12:00:00Z',message:'Hello'}]};
  const result=await service.syncConversation(t);assert.equal((await service.get(result.id)).venueId,'venue');
  t.participants.data[1].username='different.handle';await service.syncConversation(t);assert.equal((await service.get(result.id)).venueId,'');
+});
+
+
+test('signed webhooks route only the matching JDDM platform identity',async()=>{
+ const w=require('../messengerWebhook'),crypto=require('crypto');
+ for(const [object,id,expected] of [['page',m.PAGE_ID,'jddmMessengerConfig/webhook'],['instagram',m.INSTAGRAM_ID,'jddmInstagramConfig/webhook'],['instagram',m.PAGE_ID,null],['page',m.INSTAGRAM_ID,null],['instagram','other-ig',null]]){
+  const body={object,entry:[{id}]},raw=Buffer.from(JSON.stringify(body)),secret='test-secret',signature='sha256='+crypto.createHmac('sha256',secret).update(raw).digest('hex');let writes=[],code;
+  const res={status:x=>{code=x;return res;},send:x=>x};
+  await w.createHandler({db:{doc:p=>({set:async v=>writes.push({p,v})})},appSecret:secret})({method:'POST',rawBody:raw,body,get:()=>signature},res);
+  assert.equal(code,200);assert.deepEqual(writes.map(x=>x.p),expected?[expected]:[]);if(expected)assert.equal(writes[0].v.pending,true);
+ }
 });

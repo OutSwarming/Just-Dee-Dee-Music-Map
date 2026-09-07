@@ -1407,7 +1407,7 @@ function buildConversationRuntime() {
     const voice = require('./googleVoice');
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
-exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY', 'JDDM_CALENDAR_MONITOR_KEY'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY', 'JDDM_CALENDAR_MONITOR_KEY', 'JDDM_MESSENGER_PAGE_TOKEN'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
     if (String(req.body?.data?.custom_id || '').startsWith('jddmlink:')) return require('./linkingReview').interactions({...buildLinkingReviewRuntime(),publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmw:')) {
         const runtime=buildVenueWorklistRuntime();
@@ -1430,6 +1430,11 @@ exports.discordEmailInteractions = functions.runWith({ secrets: [...conversation
         }
     }
     const runtime = buildConversationRuntime();
+    if (String(req.body?.data?.custom_id || '').startsWith('jddms:')) {
+        const replies=require('./messengerReplies'), M=require('./messengerInbox');
+        const inboxes=Object.fromEntries(['messenger','instagram'].map(platform=>[platform,M.createService({...runtime,platform,venueDirectory:conversationVenueDirectory})]));
+        return replies.interactions({publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY,discord:runtime.discord,inboxes,service:replies.createService({db:runtime.db,transport:replies.createTransport(process.env.JDDM_MESSENGER_PAGE_TOKEN),inboxes})})(req,res);
+    }
     if (String(req.body?.data?.custom_id || '').startsWith('jddmi:')) return conversations.createConversationInteractions({ ...runtime, service:require('./messengerInbox').createService({...runtime,platform:'instagram',venueDirectory:conversationVenueDirectory}), prefix:'jddmi', readOnlySource:'Reply using Open Instagram / Reply on this conversation.', getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Instagram control') })(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmm:')) return conversations.createConversationInteractions({ ...runtime, service:require('./messengerInbox').createService({...runtime,venueDirectory:conversationVenueDirectory}), prefix:'jddmm', readOnlySource:'Reply using Open Messenger / Reply on this conversation.', getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Messenger control') })(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmv:')) return conversations.createConversationInteractions({ ...runtime, service:runtime.voiceService, prefix:'jddmv', readOnlySource:true, getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Voice control') })(req,res);
@@ -1528,6 +1533,8 @@ async function runJddmMessengerSync(platform='messenger'){
 exports.jddmMessengerPoll=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(runJddmMessengerSync);
 exports.jddmMessengerWebhook=functions.runWith({secrets:['JDDM_MESSENGER_APP_SECRET','JDDM_MESSENGER_VERIFY_TOKEN'],timeoutSeconds:30,maxInstances:3}).https.onRequest((req,res)=>require('./messengerWebhook').createHandler({db:admin.firestore(),appSecret:process.env.JDDM_MESSENGER_APP_SECRET,verifyToken:process.env.JDDM_MESSENGER_VERIFY_TOKEN})(req,res));
 exports.jddmMessengerWebhookSync=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).firestore.document('jddmMessengerConfig/webhook').onWrite(async(change)=>{if(change.after.exists&&change.after.data().pending)await runJddmMessengerSync();});
+
+exports.jddmInstagramWebhookSync=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).firestore.document('jddmInstagramConfig/webhook').onWrite(async(change)=>{if(change.after.exists&&change.after.data().pending)await runJddmMessengerSync('instagram');});
 
 exports.jddmInstagramPoll=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(()=>runJddmMessengerSync('instagram'));
 
