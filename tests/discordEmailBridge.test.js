@@ -52,11 +52,15 @@ function loadBridge(options = {}) {
         },
         UrlFetchApp: {
             fetch(url, requestOptions) {
-                requests.push({ url, options: requestOptions, payload: JSON.parse(requestOptions.payload) });
+                requests.push({
+                    url,
+                    options: requestOptions,
+                    payload: requestOptions.payload ? JSON.parse(requestOptions.payload) : null
+                });
                 const code = responseCodes.length ? responseCodes.shift() : 200;
                 return {
                     getResponseCode: () => code,
-                    getContentText: () => code >= 300 ? 'test failure' : '{"ok":true}'
+                    getContentText: () => code >= 300 ? 'test failure' : (options.fetchBody || '{"ok":true}')
                 };
             }
         },
@@ -232,4 +236,94 @@ test('rejects malformed webhook and incomplete tag configuration', () => {
         () => context.configureDiscordEmailBridge('https://discord.com/api/webhooks/123/token', { important: TAGS.important }),
         /Tag IDs are required/
     );
+});
+
+const BOT_TOKEN = 'a'.repeat(59);
+const CHANNEL_ID = '999999999999999999';
+
+function botConfiguredProperties() {
+    return {
+        DISCORD_EMAIL_BOT_TOKEN: BOT_TOKEN,
+        DISCORD_EMAIL_CHANNEL_ID: CHANNEL_ID,
+        DISCORD_EMAIL_TAGS_JSON: JSON.stringify(TAGS),
+        DISCORD_EMAIL_GMAIL_QUERY: 'in:anywhere newer_than:30d -in:trash',
+        DISCORD_EMAIL_MAX_THREADS: '50'
+    };
+}
+
+test('configureDiscordEmailBotBridge validates the bot token, channel, and tags', () => {
+    const { context } = loadBridge();
+    assert.throws(() => context.configureDiscordEmailBotBridge('short', CHANNEL_ID, TAGS), /valid Discord bot token/);
+    assert.throws(() => context.configureDiscordEmailBotBridge(BOT_TOKEN, 'nope', TAGS), /valid Discord forum channel/);
+    assert.throws(() => context.configureDiscordEmailBotBridge(BOT_TOKEN, CHANNEL_ID, { important: TAGS.important }), /missing required tags/);
+    const health = context.configureDiscordEmailBotBridge(BOT_TOKEN, CHANNEL_ID, TAGS);
+    assert.equal(health.botConfigured, true);
+    assert.equal(health.actionButtons, true);
+    assert.equal(health.channelId, CHANNEL_ID);
+});
+
+test('configureDiscordEmailBotBridge auto-discovers tag IDs from the forum', () => {
+    const availableTags = [
+        { id: '111111111111111111', name: 'Important' },
+        { id: '222222222222222222', name: 'Booking' },
+        { id: '333333333333333333', name: 'Action Needed' },
+        { id: '666666666666666666', name: 'Spam' },
+        { id: '777777777777777777', name: 'Google Voice' },
+        { id: '444444444444444444', name: 'Receipt' }
+    ];
+    const bridge = loadBridge({ fetchBody: JSON.stringify({ available_tags: availableTags }) });
+    const health = bridge.context.configureDiscordEmailBotBridge(BOT_TOKEN, CHANNEL_ID);
+
+    assert.equal(health.botConfigured, true);
+    assert.match(bridge.requests[0].url, /\/channels\/999999999999999999$/);
+    assert.equal(bridge.requests[0].options.method, 'get');
+    assert.equal(bridge.requests[0].options.headers.Authorization, 'Bot ' + BOT_TOKEN);
+    const stored = JSON.parse(bridge.properties.get('DISCORD_EMAIL_TAGS_JSON'));
+    assert.equal(stored.important, '111111111111111111');
+    assert.equal(stored['action-needed'], '333333333333333333');
+    assert.equal(stored['google-voice'], '777777777777777777');
+});
+
+test('configureDiscordEmailBotBridge fails clearly when the forum lacks required tags', () => {
+    const bridge = loadBridge({ fetchBody: JSON.stringify({ available_tags: [{ id: '111111111111111111', name: 'Important' }] }) });
+    assert.throws(
+        () => bridge.context.configureDiscordEmailBotBridge(BOT_TOKEN, CHANNEL_ID),
+        /missing required tags/
+    );
+});
+
+test('bot mode posts a forum thread with the four action buttons', () => {
+    const message = makeMessage({ id: 'm-bot', starred: true });
+    const thread = makeThread([message], { id: 't-bot', important: true });
+    const bridge = loadBridge({ threads: [thread], properties: botConfiguredProperties() });
+
+    const result = bridge.context.syncJddmEmailToDiscord();
+
+    assert.equal(result.posted, 1);
+    assert.equal(bridge.requests.length, 1);
+    const request = bridge.requests[0];
+    assert.match(request.url, /\/channels\/999999999999999999\/threads$/);
+    assert.equal(request.options.method, 'post');
+    assert.equal(request.options.headers.Authorization, 'Bot ' + BOT_TOKEN);
+    assert.equal(request.payload.name, 'Venue Booker — Are you available for a live music booking?');
+    assert.deepEqual(request.payload.applied_tags, [TAGS.important, TAGS.booking, TAGS['action-needed']]);
+    const row = request.payload.message.components[0];
+    assert.equal(row.type, 1);
+    assert.deepEqual(row.components.map(c => c.custom_id), [
+        'jddm:reply:m-bot:t-bot', 'jddm:spam:m-bot:t-bot', 'jddm:archive:m-bot:t-bot', 'jddm:done:m-bot:t-bot'
+    ]);
+    assert.deepEqual(request.payload.message.allowed_mentions, { parse: [] });
+    assert.ok(thread.addedLabels.includes('JDDM/Discord Posted'));
+});
+
+test('bot mode takes priority when both bot and webhook are configured', () => {
+    const message = makeMessage({ id: 'm-both' });
+    const thread = makeThread([message], { id: 't-both' });
+    const properties = Object.assign(botConfiguredProperties(), { DISCORD_EMAIL_WEBHOOK_URL: 'https://discord.com/api/webhooks/1/t' });
+    const bridge = loadBridge({ threads: [thread], properties });
+
+    bridge.context.syncJddmEmailToDiscord();
+
+    assert.match(bridge.requests[0].url, /\/channels\/.*\/threads$/);
+    assert.ok(bridge.requests[0].payload.message.components);
 });

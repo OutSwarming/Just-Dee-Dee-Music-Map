@@ -35,3 +35,22 @@ Deployment order:
 Google Voice can use the same route: turn on Voice's email forwarding for
 messages, missed calls, and voicemail. The classifier applies the `Google Voice`
 and `Action Needed` tags to those notification emails.
+
+## Action buttons (bot mode)
+
+Each post can carry **Reply / Mark Spam / Archive / Done** buttons that act on the
+real Gmail message. This requires a Discord **bot** (a plain webhook cannot carry
+interactive buttons) plus the `discordEmailInteractions` Cloud Function to handle
+clicks. Full runbook: [`docs/JDDM_DISCORD_EMAIL_BOT_SETUP.md`](../../docs/JDDM_DISCORD_EMAIL_BOT_SETUP.md).
+
+Short version once the Discord bot + Gmail OAuth are provisioned:
+
+1. Deploy the function: `firebase deploy --only functions:discordEmailInteractions`.
+2. Set the function URL as the app's **Interactions Endpoint URL** in the Discord
+   Developer Portal.
+3. In this Apps Script, run once:
+   `configureDiscordEmailBotBridge(botToken, forumChannelId)`.
+   Forum tag IDs are auto-discovered by name, so no tag map is needed. Bot mode then
+   takes priority over the webhook automatically; buttons appear on every new post.
+   `configureDiscordEmailBridge(webhookUrl, tagMap)` still works for plain webhook
+   (no-button) mode.

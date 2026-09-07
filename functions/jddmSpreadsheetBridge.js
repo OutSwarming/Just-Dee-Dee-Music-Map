@@ -569,7 +569,26 @@ function createFirestoreIdempotencyStore({ firestore, Timestamp }) {
     };
 }
 
-function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date() }) {
+function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date(), notifier = null }) {
+    // Best-effort Discord notifications. These must never block or fail a sheet
+    // write, so every call is awaited inside a try/catch that swallows errors.
+    async function notifyNewPlace(venue) {
+        if (!notifier || typeof notifier.newPlace !== 'function') return;
+        try {
+            await notifier.newPlace(venue);
+        } catch (error) {
+            console.error('[jddmBridge] new-place notification failed:', error && error.message ? error.message : error);
+        }
+    }
+    async function notifyFollowUp(venue, followUpDate) {
+        if (!notifier || typeof notifier.followUp !== 'function') return;
+        try {
+            await notifier.followUp({ venue, date: clean(followUpDate), addedAt: now() });
+        } catch (error) {
+            console.error('[jddmBridge] follow-up notification failed:', error && error.message ? error.message : error);
+        }
+    }
+
     async function loadMainData() {
         const values = await gateway.getValues(`${MAIN_SHEET}!A:${columnName(CANONICAL_HEADERS.length - 1)}`);
         const headers = padRow(values[0] || [], CANONICAL_HEADERS.length).map(clean);
@@ -654,6 +673,11 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         const statusIndex = data.headerMap.get('Status');
         if (statusIndex !== undefined && changedIndexes.includes(statusIndex)) {
             await gateway.formatVenueRow(rowNumber, clean(row[statusIndex]), data.headers.length);
+        }
+        const followUpIndex = data.headerMap.get('Next Follow Up');
+        const followUpDate = clean(getCell(row, data.headerMap, 'Next Follow Up'));
+        if (followUpIndex !== undefined && changedIndexes.includes(followUpIndex) && followUpDate) {
+            await notifyFollowUp(rowObject(row, data.headerMap), followUpDate);
         }
         return {
             ok: true,
@@ -752,6 +776,9 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
                 hasCoordinates: Boolean(clean(getCell(row, data.headerMap, 'Latitude')) && clean(getCell(row, data.headerMap, 'Longitude')))
             };
             if (idempotency && requestId) await idempotency.complete(requestId, result);
+            await notifyNewPlace(result.venue);
+            const createdFollowUp = clean(getCell(row, data.headerMap, 'Next Follow Up'));
+            if (createdFollowUp) await notifyFollowUp(result.venue, createdFollowUp);
             return result;
         } catch (error) {
             if (idempotency && requestId) await idempotency.fail(requestId, error.message);

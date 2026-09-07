@@ -42,6 +42,10 @@ Forum tags: `Important`, `Booking`, `Action Needed`, `Receipt`, `Newsletter`,
 2. Every new message becomes one Discord forum post, never several duplicate
    channel messages.
 3. Automatic tags make the first pass; humans can correct tags and add `Done`.
+   In bot mode, each post also has **Reply / Mark Spam / Archive / Done** buttons
+   that act on the Gmail message directly (see
+   `docs/JDDM_DISCORD_EMAIL_BOT_SETUP.md`). Replying from Discord sends a genuine
+   threaded email from `justdeedeemusic@gmail.com`.
 4. Discord mentions are disabled in imported email bodies so an email cannot
    trigger `@everyone` or role pings.
 5. Attachments stay in Gmail at launch. Discord shows a Gmail link and the email

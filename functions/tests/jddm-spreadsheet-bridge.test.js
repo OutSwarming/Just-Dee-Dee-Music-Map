@@ -214,6 +214,80 @@ test('create venue rejects a duplicate name and address', async () => {
     assert.equal(gateway.sheets.Sheet1.length, 2);
 });
 
+function createRecordingNotifier() {
+    const events = [];
+    return {
+        events,
+        async newPlace(venue) { events.push({ type: 'newPlace', venue }); },
+        async followUp(payload) { events.push(Object.assign({ type: 'followUp' }, payload)); }
+    };
+}
+
+test('createVenue notifies Discord about the new place', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
+    const notifier = createRecordingNotifier();
+    const service = createJddmSpreadsheetBridgeService({ gateway, notifier });
+
+    await service.route({
+        action: 'createVenue',
+        requestId: 'notify-new-1',
+        rawFields: { 'Place Name': 'The Barn', City: 'Kent', State: 'OH' }
+    });
+
+    const event = notifier.events.find(e => e.type === 'newPlace');
+    assert.ok(event, 'expected a newPlace notification');
+    assert.equal(event.venue['Place Name'], 'The Barn');
+    assert.equal(event.venue['City'], 'Kent');
+});
+
+test('saveVenue notifies Discord when a follow-up date is newly set', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [CANONICAL_HEADERS, makeVenueRow({ 'Place Name': 'Cafe X', 'Place ID': 'cafe-x', Status: 'Needs Review' })]
+    });
+    const notifier = createRecordingNotifier();
+    const service = createJddmSpreadsheetBridgeService({ gateway, notifier, now: () => new Date('2026-09-06T15:00:00.000Z') });
+
+    await service.route({
+        action: 'saveVenue',
+        id: 'cafe-x',
+        requestId: 'notify-follow-1',
+        venue: { nextFollowUpDate: '2026-09-20' }
+    });
+
+    const event = notifier.events.find(e => e.type === 'followUp');
+    assert.ok(event, 'expected a followUp notification');
+    assert.equal(event.date, '2026-09-20');
+    assert.equal(event.venue['Place Name'], 'Cafe X');
+    assert.ok(event.addedAt instanceof Date);
+});
+
+test('saveVenue does not notify when the follow-up date is unchanged', async () => {
+    const gateway = createFakeGateway({
+        Sheet1: [CANONICAL_HEADERS, makeVenueRow({ 'Place Name': 'Cafe Y', 'Place ID': 'cafe-y', 'Next Follow Up': '2026-09-20' })]
+    });
+    const notifier = createRecordingNotifier();
+    const service = createJddmSpreadsheetBridgeService({ gateway, notifier });
+
+    await service.route({ action: 'saveVenue', id: 'cafe-y', requestId: 'notify-follow-2', rawFields: { Notes: 'touched' } });
+
+    assert.equal(notifier.events.filter(e => e.type === 'followUp').length, 0);
+});
+
+test('a failing notifier never breaks the sheet write', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
+    const notifier = { newPlace: async () => { throw new Error('discord down'); }, followUp: async () => {} };
+    const service = createJddmSpreadsheetBridgeService({ gateway, notifier });
+
+    const created = await service.route({
+        action: 'createVenue',
+        requestId: 'notify-fail-1',
+        rawFields: { 'Place Name': 'Resilient Room', City: 'Akron', State: 'OH' }
+    });
+
+    assert.equal(created.ok, true);
+    assert.equal(gateway.sheets.Sheet1.length, 2);
+});
+
 test('reminder queue deduplicates pending work and records completion', async () => {
     const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS] });
     const service = createJddmSpreadsheetBridgeService({

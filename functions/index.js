@@ -10,6 +10,7 @@ const {
     createJddmSpreadsheetBridgeHandler,
     createJddmSpreadsheetBridgeService
 } = require('./jddmSpreadsheetBridge');
+const discordEmailInteractions = require('./discordEmailInteractions');
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -38,10 +39,58 @@ async function geocodeJddmSpreadsheetAddress(text) {
         : null;
 }
 
+// Posts one-way Discord notifications when a place is added or a follow-up is
+// scheduled. Best-effort: each method no-ops when its webhook secret is unset.
+// Secrets: DISCORD_NEW_PLACES_WEBHOOK_URL, DISCORD_FOLLOWUP_WEBHOOK_URL.
+function createDiscordSpreadsheetNotifier() {
+    async function post(webhookUrl, username, content) {
+        const url = cleanOptionalString(webhookUrl);
+        if (!url) return;
+        await axios.post(
+            url,
+            { username, content: String(content).slice(0, 1900), allowed_mentions: { parse: [] } },
+            { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
+        );
+    }
+    function placeParts(venue) {
+        const v = venue || {};
+        const name = cleanOptionalString(v['Place Name']) || 'New place';
+        const cityState = [cleanOptionalString(v['City']), cleanOptionalString(v['State'])].filter(Boolean).join(', ');
+        return { name, cityState, status: cleanOptionalString(v['Status']) };
+    }
+    function formatAddedAt(date) {
+        const value = date instanceof Date ? date : new Date();
+        try {
+            return value.toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' });
+        } catch (error) {
+            return value.toISOString();
+        }
+    }
+    return {
+        async newPlace(venue) {
+            const parts = placeParts(venue);
+            const lines = ['🆕 **New place added to the spreadsheet**', `**${parts.name}**${parts.cityState ? ` — ${parts.cityState}` : ''}`];
+            if (parts.status) lines.push(`Status: ${parts.status}`);
+            await post(process.env.DISCORD_NEW_PLACES_WEBHOOK_URL, 'New Places', lines.join('\n'));
+        },
+        async followUp({ venue, date, addedAt }) {
+            const parts = placeParts(venue);
+            const lines = [
+                '📅 **Follow-up scheduled**',
+                `**${parts.name}**${parts.cityState ? ` — ${parts.cityState}` : ''}`,
+                `Due: ${cleanOptionalString(date) || 'unspecified'}`,
+                `Added: ${formatAddedAt(addedAt)}`
+            ];
+            await post(process.env.DISCORD_FOLLOWUP_WEBHOOK_URL, 'Follow-up Log', lines.join('\n'));
+        }
+    };
+}
+
 const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
     gateway: jddmSpreadsheetGateway,
     idempotency: jddmSpreadsheetIdempotency,
-    geocode: geocodeJddmSpreadsheetAddress
+    geocode: geocodeJddmSpreadsheetAddress,
+    notifier: createDiscordSpreadsheetNotifier()
 });
 
 const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
@@ -911,7 +960,11 @@ async function handlePremiumGeocode(requestOrData, context, options = {}) {
 }
 
 exports.jddmSpreadsheetBridge = functions
-    .runWith({ secrets: ["ORS_API_KEY"], timeoutSeconds: 120, memory: "512MB" })
+    .runWith({
+        secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL"],
+        timeoutSeconds: 120,
+        memory: "512MB"
+    })
     .https.onRequest(jddmSpreadsheetBridgeHandler);
 
 exports.getPremiumRoute = functions
@@ -1306,3 +1359,41 @@ exports.syncToSpreadsheet = functions
         throwHttpsError(error, 'Failed to sync to Sheets');
     }
 });
+
+// ============================================================================
+// 3. DISCORD EMAIL ACTION BOT
+// The Apps Script intake posts one buttoned forum post per Gmail message.
+// Clicking Reply / Mark Spam / Archive / Done sends a signed interaction here.
+// We verify Discord's Ed25519 signature, acknowledge within the 3s window, then
+// perform the Gmail side effect and edit the original post to show the result.
+//
+// Secrets (set with `firebase functions:secrets:set <NAME>`):
+//   DISCORD_EMAIL_PUBLIC_KEY  — the Discord application's public key
+//   JDDM_GMAIL_CLIENT_ID      — OAuth client id for justdeedeemusic@gmail.com
+//   JDDM_GMAIL_CLIENT_SECRET  — OAuth client secret
+//   JDDM_GMAIL_REFRESH_TOKEN  — refresh token minted by scripts/jddm-gmail-oauth-token.mjs
+// ============================================================================
+
+function buildJddmGmailGateway() {
+    return discordEmailInteractions.createGmailGateway({
+        google,
+        clientId: cleanOptionalString(process.env.JDDM_GMAIL_CLIENT_ID),
+        clientSecret: cleanOptionalString(process.env.JDDM_GMAIL_CLIENT_SECRET),
+        refreshToken: cleanOptionalString(process.env.JDDM_GMAIL_REFRESH_TOKEN)
+    });
+}
+
+exports.discordEmailInteractions = functions
+    .runWith({
+        secrets: [
+            'DISCORD_EMAIL_PUBLIC_KEY',
+            'JDDM_GMAIL_CLIENT_ID',
+            'JDDM_GMAIL_CLIENT_SECRET',
+            'JDDM_GMAIL_REFRESH_TOKEN'
+        ]
+    })
+    .https.onRequest(discordEmailInteractions.createInteractionsHandler({
+        getConfig: () => ({ publicKey: cleanOptionalString(process.env.DISCORD_EMAIL_PUBLIC_KEY) }),
+        buildGmailGateway: buildJddmGmailGateway,
+        onError: (error) => console.error('[discordEmailInteractions] action failed:', error)
+    }));

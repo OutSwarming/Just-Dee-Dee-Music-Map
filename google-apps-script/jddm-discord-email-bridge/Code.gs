@@ -13,7 +13,11 @@ var JDDM_DEFAULT_MAX_THREADS = 50;
 var JDDM_POSTED_LABEL = 'JDDM/Discord Posted';
 var JDDM_ERROR_LABEL = 'JDDM/Discord Error';
 var JDDM_PROPERTY_WEBHOOK = 'DISCORD_EMAIL_WEBHOOK_URL';
+var JDDM_PROPERTY_BOT_TOKEN = 'DISCORD_EMAIL_BOT_TOKEN';
+var JDDM_PROPERTY_CHANNEL_ID = 'DISCORD_EMAIL_CHANNEL_ID';
 var JDDM_PROPERTY_TAGS = 'DISCORD_EMAIL_TAGS_JSON';
+var JDDM_CUSTOM_ID_PREFIX = 'jddm';
+var JDDM_DISCORD_API_BASE = 'https://discord.com/api/v10';
 var JDDM_PROPERTY_QUERY = 'DISCORD_EMAIL_GMAIL_QUERY';
 var JDDM_PROPERTY_MAX_THREADS = 'DISCORD_EMAIL_MAX_THREADS';
 var JDDM_PROPERTY_LAST_SUCCESS = 'DISCORD_EMAIL_LAST_SUCCESS_AT';
@@ -38,6 +42,56 @@ function configureDiscordEmailBridge(webhookUrl, tagIdsByName, options) {
   var settings = options || {};
   var properties = PropertiesService.getScriptProperties();
   properties.setProperty(JDDM_PROPERTY_WEBHOOK, url);
+  properties.setProperty(JDDM_PROPERTY_TAGS, JSON.stringify(normalizedTags));
+  properties.setProperty(
+    JDDM_PROPERTY_QUERY,
+    String(settings.gmailQuery || JDDM_DEFAULT_GMAIL_QUERY).trim()
+  );
+  properties.setProperty(
+    JDDM_PROPERTY_MAX_THREADS,
+    String(clampInteger_(settings.maxThreads || JDDM_DEFAULT_MAX_THREADS, 1, 100))
+  );
+  return getDiscordEmailBridgeHealth();
+}
+
+/**
+ * Save the Discord bot token + forum channel ID so each email posts with the
+ * Reply / Mark Spam / Archive / Done action buttons. Bot mode takes priority
+ * over the plain webhook when both are configured.
+ *
+ * Tag IDs are optional: if you do not pass `tagIdsByName`, the bridge reads the
+ * forum's tags from Discord and maps them by name automatically, so you only
+ * need `configureDiscordEmailBotBridge(botToken, channelId)`.
+ * Run only in the Just Dee Dee Gmail account's Apps Script project.
+ */
+function configureDiscordEmailBotBridge(botToken, channelId, tagIdsByName, options) {
+  var token = String(botToken || '').trim();
+  if (!/^[A-Za-z0-9_.\-]{40,120}$/.test(token)) {
+    throw new Error('A valid Discord bot token is required.');
+  }
+  var channel = String(channelId || '').trim();
+  if (!/^\d{10,30}$/.test(channel)) {
+    throw new Error('A valid Discord forum channel ID is required.');
+  }
+
+  var normalizedTags = normalizeTagMap_(tagIdsByName || {});
+  if (!Object.keys(normalizedTags).length) {
+    // No tag IDs supplied — discover them from the forum channel by name.
+    normalizedTags = fetchForumTagMap_(token, channel);
+  }
+  var requiredTags = ['important', 'spam', 'booking', 'action-needed', 'google-voice'];
+  var missingTags = requiredTags.filter(function(name) { return !normalizedTags[name]; });
+  if (missingTags.length) {
+    throw new Error(
+      'The forum is missing required tags: ' + missingTags.join(', ') +
+      '. Create them in Discord (Edit Channel → Tags) and run this again.'
+    );
+  }
+
+  var settings = options || {};
+  var properties = PropertiesService.getScriptProperties();
+  properties.setProperty(JDDM_PROPERTY_BOT_TOKEN, token);
+  properties.setProperty(JDDM_PROPERTY_CHANNEL_ID, channel);
   properties.setProperty(JDDM_PROPERTY_TAGS, JSON.stringify(normalizedTags));
   properties.setProperty(
     JDDM_PROPERTY_QUERY,
@@ -92,8 +146,13 @@ function uninstallDiscordEmailBridgeTrigger() {
 function syncJddmEmailToDiscord() {
   assertExpectedMailbox_();
   var properties = PropertiesService.getScriptProperties();
+  var botToken = String(properties.getProperty(JDDM_PROPERTY_BOT_TOKEN) || '').trim();
+  var channelId = String(properties.getProperty(JDDM_PROPERTY_CHANNEL_ID) || '').trim();
   var webhookUrl = String(properties.getProperty(JDDM_PROPERTY_WEBHOOK) || '').trim();
-  if (!webhookUrl) throw new Error('Discord webhook is not configured.');
+  var useBot = Boolean(botToken && channelId);
+  if (!useBot && !webhookUrl) {
+    throw new Error('Discord is not configured. Set a bot token + channel ID (for action buttons) or a webhook URL.');
+  }
 
   var tagMap = parseTagMap_(properties.getProperty(JDDM_PROPERTY_TAGS));
   var query = String(properties.getProperty(JDDM_PROPERTY_QUERY) || JDDM_DEFAULT_GMAIL_QUERY);
@@ -128,8 +187,11 @@ function syncJddmEmailToDiscord() {
     try {
       var record = readMessageRecord_(item.message, item.thread);
       var classification = classifyMessage_(record);
-      var payload = buildDiscordForumPayload_(record, classification, tagMap);
-      postToDiscord_(webhookUrl, payload);
+      if (useBot) {
+        postToDiscordBotThread_(botToken, channelId, buildDiscordBotThreadPayload_(record, classification, tagMap));
+      } else {
+        postToDiscord_(webhookUrl, buildDiscordForumPayload_(record, classification, tagMap));
+      }
       markMessageProcessed_(item.message);
       item.thread.addLabel(postedLabel);
       item.thread.removeLabel(errorLabel);
@@ -157,9 +219,14 @@ function syncJddmEmailToDiscord() {
 function testDiscordEmailBridge() {
   assertExpectedMailbox_();
   var properties = PropertiesService.getScriptProperties();
+  var botToken = String(properties.getProperty(JDDM_PROPERTY_BOT_TOKEN) || '').trim();
+  var channelId = String(properties.getProperty(JDDM_PROPERTY_CHANNEL_ID) || '').trim();
   var webhookUrl = String(properties.getProperty(JDDM_PROPERTY_WEBHOOK) || '').trim();
+  var useBot = Boolean(botToken && channelId);
   var tagMap = parseTagMap_(properties.getProperty(JDDM_PROPERTY_TAGS));
-  if (!webhookUrl) throw new Error('Discord webhook is not configured.');
+  if (!useBot && !webhookUrl) {
+    throw new Error('Discord is not configured. Set a bot token + channel ID or a webhook URL.');
+  }
   var record = {
     id: 'synthetic-' + new Date().getTime(),
     threadId: '',
@@ -175,8 +242,10 @@ function testDiscordEmailBridge() {
     labelNames: []
   };
   var classification = { tags: ['important'], reasons: ['Synthetic bridge test'] };
-  var response = postToDiscord_(webhookUrl, buildDiscordForumPayload_(record, classification, tagMap));
-  return { ok: true, responseCode: response.getResponseCode() };
+  var response = useBot
+    ? postToDiscordBotThread_(botToken, channelId, buildDiscordBotThreadPayload_(record, classification, tagMap))
+    : postToDiscord_(webhookUrl, buildDiscordForumPayload_(record, classification, tagMap));
+  return { ok: true, mode: useBot ? 'bot' : 'webhook', responseCode: response.getResponseCode() };
 }
 
 function getDiscordEmailBridgeHealth() {
@@ -188,6 +257,9 @@ function getDiscordEmailBridgeHealth() {
     expectedGmailAccount: JDDM_EXPECTED_GMAIL_ACCOUNT,
     activeGmailAccount: getActiveMailbox_(),
     webhookConfigured: Boolean(properties.getProperty(JDDM_PROPERTY_WEBHOOK)),
+    botConfigured: Boolean(properties.getProperty(JDDM_PROPERTY_BOT_TOKEN) && properties.getProperty(JDDM_PROPERTY_CHANNEL_ID)),
+    channelId: properties.getProperty(JDDM_PROPERTY_CHANNEL_ID) || '',
+    actionButtons: Boolean(properties.getProperty(JDDM_PROPERTY_BOT_TOKEN) && properties.getProperty(JDDM_PROPERTY_CHANNEL_ID)),
     configuredTags: Object.keys(tagMap).sort(),
     gmailQuery: properties.getProperty(JDDM_PROPERTY_QUERY) || JDDM_DEFAULT_GMAIL_QUERY,
     maxThreads: Number(properties.getProperty(JDDM_PROPERTY_MAX_THREADS) || JDDM_DEFAULT_MAX_THREADS),
@@ -248,7 +320,7 @@ function classifyMessage_(record) {
   return { tags: uniqueStrings_(tags), reasons: reasons };
 }
 
-function buildDiscordForumPayload_(record, classification, tagMap) {
+function buildEmailEmbedParts_(record, classification, tagMap) {
   var sender = extractSenderName_(record.from) || record.from || 'Unknown sender';
   var subject = cleanOneLine_(record.subject || '(no subject)');
   var tagNames = classification.tags || [];
@@ -267,19 +339,114 @@ function buildDiscordForumPayload_(record, classification, tagMap) {
   if (record.cc) fields.push({ name: 'CC', value: truncate_(cleanOneLine_(record.cc), 1024), inline: false });
   if (gmailUrl) fields.push({ name: 'Open in Gmail', value: '[Open original conversation](' + gmailUrl + ')', inline: false });
   return {
-    thread_name: truncate_(sender + ' — ' + subject, 100),
-    applied_tags: appliedTags,
-    allowed_mentions: { parse: [] },
-    username: 'Just Dee Dee Email',
-    embeds: [{
+    threadName: truncate_(sender + ' — ' + subject, 100),
+    appliedTags: appliedTags,
+    embed: {
       title: truncate_(subject, 256),
       description: truncate_(record.body || '_No plain-text message body._', 3900),
       color: colorForTags_(tagNames),
       fields: fields,
       timestamp: dateText || new Date().toISOString(),
       footer: { text: 'Gmail message ' + truncate_(record.id || 'unknown', 120) }
-    }]
+    }
   };
+}
+
+/** The Reply / Mark Spam / Archive / Done action row. custom_id must match the
+ * Cloud Function in functions/discordEmailInteractions.js (jddm:action:msg:thread). */
+function buildEmailButtons_(record) {
+  var messageId = String(record.id || '');
+  var threadId = String(record.threadId || '');
+  function customId(action) {
+    return (JDDM_CUSTOM_ID_PREFIX + ':' + action + ':' + messageId + ':' + threadId).slice(0, 100);
+  }
+  return {
+    type: 1,
+    components: [
+      { type: 2, style: 1, label: 'Reply', emoji: { name: '✉️' }, custom_id: customId('reply') },
+      { type: 2, style: 4, label: 'Mark Spam', emoji: { name: '🚫' }, custom_id: customId('spam') },
+      { type: 2, style: 2, label: 'Archive', emoji: { name: '🗂️' }, custom_id: customId('archive') },
+      { type: 2, style: 3, label: 'Done', emoji: { name: '✅' }, custom_id: customId('done') }
+    ]
+  };
+}
+
+/** Webhook payload (no interactive buttons — plain webhooks cannot carry them). */
+function buildDiscordForumPayload_(record, classification, tagMap) {
+  var parts = buildEmailEmbedParts_(record, classification, tagMap);
+  return {
+    thread_name: parts.threadName,
+    applied_tags: parts.appliedTags,
+    allowed_mentions: { parse: [] },
+    username: 'Just Dee Dee Email',
+    embeds: [parts.embed]
+  };
+}
+
+/** Bot forum-thread payload — carries the action buttons. */
+function buildDiscordBotThreadPayload_(record, classification, tagMap) {
+  var parts = buildEmailEmbedParts_(record, classification, tagMap);
+  return {
+    name: parts.threadName,
+    applied_tags: parts.appliedTags,
+    message: {
+      embeds: [parts.embed],
+      components: [buildEmailButtons_(record)],
+      allowed_mentions: { parse: [] }
+    }
+  };
+}
+
+/**
+ * Read the forum channel's available tags from Discord and map them by
+ * normalized name -> tag ID, e.g. { important: '...', 'action-needed': '...' }.
+ * Requires the bot to be able to view the channel.
+ */
+function fetchForumTagMap_(botToken, channelId) {
+  var url = JDDM_DISCORD_API_BASE + '/channels/' + encodeURIComponent(channelId);
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { Authorization: 'Bot ' + botToken },
+    muteHttpExceptions: true
+  });
+  var code = response.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error(
+      'Could not read the forum channel from Discord (HTTP ' + code + '). ' +
+      'Check the bot token and channel ID, and that the bot can view the channel.'
+    );
+  }
+  var data;
+  try {
+    data = JSON.parse(response.getContentText());
+  } catch (error) {
+    throw new Error('Discord returned an unreadable channel response.');
+  }
+  var available = (data && data.available_tags) || [];
+  var map = {};
+  for (var i = 0; i < available.length; i++) {
+    var name = normalizeTagName_(available[i] && available[i].name);
+    var id = String((available[i] && available[i].id) || '');
+    if (name && /^\d{10,30}$/.test(id)) map[name] = id;
+  }
+  return map;
+}
+
+/** Create a forum post as the bot so interactive buttons attach to it. */
+function postToDiscordBotThread_(botToken, channelId, payload) {
+  var url = JDDM_DISCORD_API_BASE + '/channels/' + encodeURIComponent(channelId) + '/threads';
+  var response = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bot ' + botToken },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  var responseCode = response.getResponseCode();
+  if (responseCode < 200 || responseCode >= 300) {
+    throw new Error('Discord returned HTTP ' + responseCode + ': ' + truncate_(response.getContentText(), 500));
+  }
+  return response;
 }
 
 function postToDiscord_(webhookUrl, payload) {
