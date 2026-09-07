@@ -59,14 +59,6 @@ function createDiscordSpreadsheetNotifier() {
         const cityState = [cleanOptionalString(v['City']), cleanOptionalString(v['State'])].filter(Boolean).join(', ');
         return { name, cityState, status: cleanOptionalString(v['Status']) };
     }
-    function formatAddedAt(date) {
-        const value = date instanceof Date ? date : new Date();
-        try {
-            return value.toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' });
-        } catch (error) {
-            return value.toISOString();
-        }
-    }
     return {
         async newPlace(venue) {
             const parts = placeParts(venue);
@@ -74,15 +66,8 @@ function createDiscordSpreadsheetNotifier() {
             if (parts.status) lines.push(`Status: ${parts.status}`);
             await post(process.env.DISCORD_NEW_PLACES_WEBHOOK_URL, 'New Places', lines.join('\n'));
         },
-        async followUp({ venue, date, addedAt }) {
-            const parts = placeParts(venue);
-            const lines = [
-                '📅 **Follow-up scheduled**',
-                `**${parts.name}**${parts.cityState ? ` — ${parts.cityState}` : ''}`,
-                `Due: ${cleanOptionalString(date) || 'unspecified'}`,
-                `Added: ${formatAddedAt(addedAt)}`
-            ];
-            await post(process.env.DISCORD_FOLLOWUP_WEBHOOK_URL, 'Follow-up Log', lines.join('\n'));
+        async followUp(event) {
+            await post(process.env.DISCORD_FOLLOWUP_WEBHOOK_URL, 'Follow-up Added', require('./venueFields').followUpMessage(event));
         }
     };
 }

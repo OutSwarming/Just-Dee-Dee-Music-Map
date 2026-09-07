@@ -36,6 +36,7 @@
     let activeVenue = null;
     let activeRawFields = {};
     let isCreatingVenue = false;
+    let sourceReady = false;
 
     function qs(id) {
         return document.getElementById(id);
@@ -145,6 +146,7 @@
     function buildInitialRawFields(venue = {}) {
         const booking = venue.booking || {};
         return {
+            ...(venue.contactDetails ? { 'Contact Details': venue.contactDetails } : {}),
             Status: clean(booking.contactStatus || venue.contactStatus || venue.status),
             'Last Contacted': clean(booking.lastContactedDate || venue.lastContactedDate),
             'Contact Name': clean(booking.contactName || venue.contactName),
@@ -187,20 +189,21 @@
     }
 
     function toDateInputValue(value) {
-        const text = clean(value);
-        if (!text) return '';
-        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-
-        const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-        if (slash) {
-            const year = slash[3].length === 2 ? `20${slash[3]}` : slash[3];
-            const month = slash[1].padStart(2, '0');
-            const day = slash[2].padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
-        return '';
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    let candidate = text;
+    const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (slash) candidate = `${slash[3].length === 2 ? '20' : ''}${slash[3]}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+        // Parse only timestamps with an explicit timezone, avoiding server-local dates.
+        if (!/(?:GMT|[zZ]$|[+-]\d{2}:?\d{2}$)/.test(text)) return '';
+        const date = new Date(text);
+        if (!Number.isFinite(date.getTime())) return '';
+        candidate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
     }
+    const date = new Date(candidate + 'T12:00:00Z');
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === candidate ? candidate : '';
+}
 
     function getFieldType(header) {
         const normalized = getNormalizedHeader(header);
@@ -245,9 +248,7 @@
 
         if (fieldType === 'date') {
             const dateValue = toDateInputValue(value);
-            if (dateValue || !clean(value)) {
-                return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="date" value="${escapeHtml(dateValue)}">`;
-            }
+            return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="date" value="${escapeHtml(dateValue)}" aria-label="${escapeHtml(header)} (Eastern)">`;
         }
 
         if (fieldType === 'textarea' || clean(value).length > 80) {
@@ -255,6 +256,53 @@
         }
 
         return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="text" value="${escapeHtml(value)}">`;
+    }
+
+    function readContacts(fields) {
+        let details = {};
+        if (clean(fields['Contact Details'])) {
+            try { details = JSON.parse(fields['Contact Details']); }
+            catch (_) { throw new Error('Contact notes could not be read. Reload the row before saving.'); }
+        }
+        const result = { version: 1 };
+        for (const [key, header] of [['emails', 'Email/Contact'], ['phones', 'Phone Number']]) {
+            const legacy = clean(fields[header]);
+            const stored = Array.isArray(details[key]) ? details[key].map(item => ({ value: clean(item.value), note: clean(item.note) })) : [];
+            // A direct spreadsheet edit to the primary contact takes precedence, while
+            // retaining every saved alternate and its notes.
+            if (stored.length && legacy !== stored[0].value) stored[0] = { ...stored[0], value: legacy };
+            const rows = stored.length ? stored : legacy.split(key === 'emails' ? /[,;\n]+/ : /[;\n]+/).map(value => ({ value: clean(value), note: '' })).filter(item => item.value);
+            result[key] = rows.length ? rows : [{ value: '', note: '' }];
+        }
+        return result;
+    }
+
+    function contactRow(key, item, index) {
+        const kind = key === 'emails' ? 'Email' : 'Phone';
+        const id = `venue-contact-${key}-${index}`;
+        return `<div class="venue-contact-row" data-contact-row>
+            <span class="venue-contact-number">${index + 1}</span>
+            <input id="${id}" type="${key === 'emails' ? 'email' : 'tel'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index + 1}" placeholder="${key === 'emails' ? 'name@example.com' : '(330) 555-0100'}">
+            <details class="venue-contact-notes"><summary class="venue-contact-bubble" aria-label="Notes for ${kind.toLowerCase()} ${index + 1}">${item.note ? 'Notes •' : 'Notes'}</summary>
+                <div class="venue-contact-popover"><label for="${id}-note">Notes for ${kind.toLowerCase()} ${index + 1}</label><textarea id="${id}-note" data-contact-note rows="3" placeholder="Contact name, best time to call, or other details">${escapeHtml(item.note)}</textarea><button type="button" data-note-done>Done</button></div>
+            </details>
+            ${index === 0 ? `<button type="button" class="venue-contact-add" data-contact-add="${key}">Add</button>` : '<button type="button" class="venue-contact-remove" data-contact-remove aria-label="Remove this contact">×</button>'}
+        </div>`;
+    }
+
+    function renderContacts(key, contacts) {
+        return `<div class="venue-edit-field venue-edit-field--wide venue-contact-group" data-contact-group="${key}"><label>${key === 'emails' ? 'Email addresses' : 'Phone numbers'}</label><div data-contact-rows>${contacts[key].map((item, index) => contactRow(key, item, index)).join('')}</div></div>`;
+    }
+
+    function collectContacts(modal) {
+        const details = { version: 1, emails: [], phones: [] };
+        modal.querySelectorAll('[data-contact-group]').forEach(group => {
+            details[group.dataset.contactGroup] = Array.from(group.querySelectorAll('[data-contact-row]')).map(row => ({
+                value: clean(row.querySelector('[data-contact-value]').value),
+                note: clean(row.querySelector('[data-contact-note]').value)
+            })).filter(item => item.value || item.note);
+        });
+        return details;
     }
 
     function renderRawFields(rawFields) {
@@ -271,26 +319,34 @@
             return;
         }
 
+        const contacts = readContacts(activeRawFields);
         container.innerHTML = headers.map(header => {
+            if (header === 'Email/Contact') return renderContacts('emails', contacts);
+            if (header === 'Phone Number') return renderContacts('phones', contacts);
             const id = `venue-edit-source-${header.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
             const value = getOptionalRawField(activeRawFields, [header], '');
             const fieldType = getFieldType(header);
             const tall = fieldType === 'textarea' || clean(value).length > 80;
             const checkbox = fieldType === 'checkbox';
             const input = renderInputForHeader(id, header, value);
-            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}${checkbox ? ' venue-edit-checkbox' : ''}"><label for="${id}">${escapeHtml(header)}</label>${input}</div>`;
+            return `<div class="venue-edit-field${tall ? ' venue-edit-field--wide' : ''}${checkbox ? ' venue-edit-checkbox' : ''}"><label for="${id}">${escapeHtml(header)}${fieldType === 'date' ? ' (Eastern)' : ''}</label>${input}</div>`;
         }).join('');
     }
 
     function collectRawFields() {
         const modal = qs('venue-edit-modal');
         if (!modal) return {};
-        return Array.from(modal.querySelectorAll('[data-source-header]')).reduce((fields, input) => {
+        const fields = Array.from(modal.querySelectorAll('[data-source-header]')).reduce((fields, input) => {
             fields[input.dataset.sourceHeader] = input.type === 'checkbox'
                 ? (input.checked ? 'Yes' : '')
                 : input.value;
             return fields;
         }, {});
+        const details = collectContacts(modal);
+        fields['Contact Details'] = JSON.stringify(details);
+        fields['Email/Contact'] = details.emails[0]?.value || '';
+        fields['Phone Number'] = details.phones[0]?.value || '';
+        return fields;
     }
 
     function getRawFieldValue(rawFields, headers) {
@@ -403,6 +459,7 @@
             contactName: getOptionalRawField(rawFields, ['Contact Name'], venue.contactName),
             contactEmail: getOptionalRawField(rawFields, ['Email/Contact'], venue.contactEmail),
             contactPhone: getOptionalRawField(rawFields, ['Phone Number'], venue.contactPhone),
+            contactDetails: getOptionalRawField(rawFields, ['Contact Details'], venue.contactDetails),
             contactType: getOptionalRawField(rawFields, ['Contact Type'], venue.contactType),
             eventDate: getRawField(rawFields, ['Next Booked', 'upcoming event date']) || venue.eventDate,
             eventTime: getRawField(rawFields, ['upcoming event time']) || venue.eventTime,
@@ -453,6 +510,7 @@
             contactEmail: fields.contactEmail,
             contactPhone: fields.contactPhone,
             contactType: fields.contactType,
+            contactDetails: fields.contactDetails,
             eventDate: fields.eventDate,
             eventTime: fields.eventTime,
             privateEvent: Boolean(fields.privateEvent),
@@ -512,6 +570,8 @@
             return;
         }
 
+        sourceReady = false;
+        setBusy(true);
         setStatus('Loading source spreadsheet row...', 'neutral');
         const slowTimer = setTimeout(() => {
             setStatus('Still checking Google Sheets. A cold cloud connection can take a little while.', 'neutral');
@@ -529,12 +589,15 @@
             } else {
                 renderRawFields(buildInitialRawFields(activeVenue));
             }
+            sourceReady = true;
             setStatus('CRM fields loaded from the spreadsheet.', 'success');
         } catch (error) {
             console.error('[venueEditModal] failed to load source row:', error);
             renderRawFields(buildInitialRawFields(activeVenue));
             setStatus(error.message || 'Could not load source spreadsheet row.', 'error');
         } finally {
+            setBusy(!sourceReady);
+            if (qs('venue-edit-refresh')) qs('venue-edit-refresh').disabled = false;
             clearTimeout(slowTimer);
             clearTimeout(longTimer);
         }
@@ -548,6 +611,15 @@
             return;
         }
 
+        if (!sourceReady) { setStatus('Reload the spreadsheet row before saving.', 'error'); return; }
+        const modal = qs('venue-edit-modal');
+        const invalid = Array.from(modal.querySelectorAll('input')).find(input => !input.checkValidity() && !(input.hasAttribute('data-contact-value') && input.value === input.dataset.originalValue));
+        if (invalid) { invalid.reportValidity(); return; }
+        const contacts = collectContacts(modal);
+        if ([...contacts.emails, ...contacts.phones].some(item => !item.value && item.note)) {
+            setStatus('Enter an email or phone number for each contact note.', 'error');
+            return;
+        }
         const rawFields = collectRawFields();
         const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name)) {
@@ -596,6 +668,8 @@
                 try {
                     document.dispatchEvent(new CustomEvent('jddm:venue-created', { detail: { name: clean(fields.name) } }));
                 } catch (dispatchError) { /* ignore */ }
+                isCreatingVenue = false;
+                setEditorMode(false);
             }
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
@@ -613,6 +687,29 @@
         if (!modal) return;
 
         modal.addEventListener('click', event => {
+            const target = event.target;
+            if (target.matches('[data-contact-add]')) {
+                const group = target.closest('[data-contact-group]');
+                const rows = group.querySelector('[data-contact-rows]');
+                rows.insertAdjacentHTML('beforeend', contactRow(group.dataset.contactGroup, { value: '', note: '' }, rows.children.length));
+                rows.lastElementChild.querySelector('input').focus();
+            }
+            if (target.matches('[data-contact-remove]')) {
+                const group = target.closest('[data-contact-group]');
+                target.closest('[data-contact-row]').remove();
+                const details = collectContacts(modal);
+                const key = group.dataset.contactGroup;
+                group.querySelector('[data-contact-rows]').innerHTML = details[key].map((item, index) => contactRow(key, item, index)).join('');
+            }
+            if (target.matches('[data-note-done]')) {
+                const notes = target.closest('details');
+                notes.querySelector('summary').textContent = clean(notes.querySelector('textarea').value) ? 'Notes •' : 'Notes';
+                notes.open = false;
+            }
+            if (target.matches('input[type="date"]') && target.showPicker) {
+                try { target.showPicker(); } catch (_) { /* Keyboard date entry remains available. */ }
+            }
+
             if (event.target && event.target.dataset && event.target.dataset.closeVenueEdit === 'true') {
                 closeModal();
             }
@@ -658,6 +755,8 @@
             ? prefill
             : {};
         isCreatingVenue = true;
+        sourceReady = true;
+        setBusy(false);
         activeVenue = {};
         setEditorMode(true);
         renderRawFields({ ...buildNewVenueRawFields(), ...prefillFields });
@@ -687,6 +786,8 @@
         collectRawFields,
         buildNewVenueRawFields,
         toDateInputValue,
+        readContacts,
+        renderInputForHeader,
         buildLocalVenuePoint
     };
 

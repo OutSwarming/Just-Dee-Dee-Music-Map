@@ -156,6 +156,7 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
     const crmStatus = getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_STATUS);
     const played = isPlayedCrmStatus(crmStatus) || normalizePlayed(getCSVValueFromAny(row, CSV_COLUMNS.PLAYED));
     const bookingSeed = {
+        contactDetails: getCSVValueFromAny(row, ['Contact Details', 'contactDetails']),
         contactName: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_NAME),
         contactEmail: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_EMAIL),
         contactPhone: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE),

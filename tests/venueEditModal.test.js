@@ -283,3 +283,30 @@ test('venue editor builds an immediate local map point after a successful create
     assert.equal(point.contactStatus, 'Needs Review');
     assert.equal(point.info, 'New lead from the map.');
 });
+
+test('date fields always stay calendars and convert timezone strings into Eastern dates', () => {
+    const modal = loadVenueEditModal();
+    for (const [raw, expected] of [
+        ['Mon Sep 07 2026 00:00:00 GMT-0400 (Eastern Daylight Time)', '2026-09-07'],
+        ['2026-09-07T02:00:00Z', '2026-09-06'],
+        ['2026-01-07T04:00:00Z', '2026-01-06'],
+        ['2026-02-30', ''], ['not a date', '']
+    ]) {
+        assert.equal(modal.toDateInputValue(raw), expected);
+        assert.match(modal.renderInputForHeader('followup', 'Next Follow Up', raw), /type="date"/);
+        assert.doesNotMatch(modal.renderInputForHeader('followup', 'Next Follow Up', raw), /type="text"/);
+    }
+});
+
+test('multiple contacts preserve individual punctuation and multiline notes', () => {
+    const modal = loadVenueEditModal();
+    const details = { version: 1, emails: [{value:'one@example.com',note:'Jamie, booking; "manager"\nAfter 5'}, {value:'two@example.com',note:'Gig materials'}], phones:[{value:'+1 (330) 555-0123 ext 2',note:'Office'}, {value:'330-555-0124',note:'Mobile'}] };
+    const fields = {'Contact Details':JSON.stringify(details), 'Email/Contact':'one@example.com', 'Phone Number':'+1 (330) 555-0123 ext 2'};
+    assert.deepEqual(plain(modal.readContacts(fields)), details);
+    fields['Email/Contact']='new@example.com';
+    const reread=plain(modal.readContacts(fields));
+    assert.equal(reread.emails[0].value,'new@example.com');
+    assert.equal(reread.emails[0].note,details.emails[0].note);
+    assert.deepEqual(reread.emails[1],details.emails[1]);
+    assert.equal(modal.buildVenueFromRawFields(fields).contactDetails,fields['Contact Details']);
+});

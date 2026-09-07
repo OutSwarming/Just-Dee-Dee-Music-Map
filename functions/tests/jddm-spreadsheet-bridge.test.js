@@ -422,3 +422,35 @@ test('guarded cleanup only deletes marked end-to-end test rows', async () => {
     assert.equal(deleted.ok, true);
     assert.equal(gateway.sheets.Sheet1.length, 2);
 });
+
+test('old sheet appends contact column, then creates and edits multiple contacts without losing notes', async () => {
+    const gateway = createFakeGateway({ Sheet1: [CANONICAL_HEADERS.slice(0,28)] });
+    const notifier=createRecordingNotifier();
+    const service=createJddmSpreadsheetBridgeService({gateway,notifier});
+    const details={version:1, emails:[{value:'a@example.com',note:'First, "booking"\nEvenings'}, {value:'b@example.com',note:'Gig prep; songs'}], phones:[{value:'+1 (330) 555-0100 ext 2',note:'Office'}, {value:'330-555-0101',note:'Mobile'}]};
+    const made=await service.route({action:'createVenue',rawFields:{'Place Name':'Contact test','Place ID':'contact-test','Next Follow Up':'2026-09-20','Contact Details':JSON.stringify(details)}});
+    assert.equal(made.ok,true);
+    assert.equal(gateway.sheets.Sheet1[0][28],'Contact Details');
+    assert.equal(made.rawFields['Email/Contact'],'a@example.com');
+    assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1);
+    details.phones[1].note='Updated mobile note';
+    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Contact Details':JSON.stringify(details),'Next Follow Up':'Sun Sep 20 2026 00:00:00 GMT-0400 (Eastern Daylight Time)'}});
+    const read=await service.route({action:'getVenue',id:'contact-test'});
+    assert.deepEqual(JSON.parse(read.rawFields['Contact Details']),details);
+    assert.equal(notifier.events.filter(e=>e.type==='followUp').length,1,'same Eastern calendar date does not notify');
+    await service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-09-22'}});
+    assert.equal(notifier.events.at(-1).previousDate,'2026-09-20');
+    const csv=await service.route({action:'csv'});
+    assert.deepEqual(JSON.parse(parseCsv(csv.csv)[1][28]),details);
+    await assert.rejects(service.route({action:'saveVenue',id:'contact-test',rawFields:{'Next Follow Up':'2026-02-30'}}),/valid calendar date/);
+});
+
+test('follow-up confirmations identify added, changed and removed dates with the place', () => {
+    const {followUpMessage}=require('../venueFields');
+    assert.match(followUpMessage({venue:{'Place Name':'Music Hall'},date:'2026-09-20'}),/Follow-up added — Music Hall/);
+    const changed=followUpMessage({venue:{'Place Name':'Music Hall'},date:'2026-09-22',previousDate:'2026-09-20'});
+    assert.match(changed,/Follow-up changed — Music Hall/);
+    assert.match(changed,/Follow-up date: 2026-09-22 \(Eastern\)/);
+    assert.match(changed,/Previous date: 2026-09-20/);
+    assert.match(followUpMessage({venue:{'Place Name':'Music Hall'},date:'',previousDate:'2026-09-20'}),/Follow-up removed/);
+});

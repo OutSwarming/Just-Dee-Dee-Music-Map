@@ -4706,3 +4706,17 @@ body.remove-shadows .trip-overlay-bookend,
 body.ultra-low .trip-overlay-bookend {
     box-shadow: none !important;
 }
+
+/* Contact rows keep Add and note bubbles beside the contact, including on phones. */
+.venue-contact-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.venue-contact-row input { flex: 1; min-width: 0; }
+.venue-contact-number { color: #64748b; font-size: 12px; width: 16px; flex-shrink: 0; }
+.venue-contact-add, .venue-contact-remove, .venue-contact-bubble, .venue-contact-popover button { border: 1px solid #99cfc5; border-radius: 20px; background: #e6f5f0; color: #115e59; font: inherit; font-size: 13px; font-weight: 700; padding: 9px 12px; cursor: pointer; white-space: nowrap; }
+.venue-contact-remove { width: 48px; color: #9f1239; background: #fff1f2; border-color: #fecdd3; }
+.venue-contact-notes { position: relative; }
+.venue-contact-bubble { list-style: none; }
+.venue-contact-bubble::-webkit-details-marker { display: none; }
+.venue-contact-popover { position: absolute; right: 0; top: 44px; z-index: 10; width: min(300px, 65vw); padding: 14px; background: white; border: 1px solid #99cfc5; border-radius: 14px; box-shadow: 0 8px 28px #0f172a30; }
+.venue-contact-popover textarea { margin: 8px 0; }
+.venue-contact-popover button { float: right; }
+.venue-contact-popover::after { content: ''; display: block; clear: both; }

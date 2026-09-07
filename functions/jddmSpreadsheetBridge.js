@@ -1,3 +1,4 @@
+const { calendarDate, contactDetails } = require('./venueFields');
 const { createHash } = require('crypto');
 
 const SPREADSHEET_ID = '16Sp11KboYq1dyL5e4tlFKxZEc9VnPaa0eCffyG2_xBk';
@@ -34,7 +35,8 @@ const CANONICAL_HEADERS = [
     'Last Synced',
     'Venue Type',
     'Website',
-    'Notes'
+    'Notes',
+    'Contact Details'
 ];
 
 const STATUS_OPTIONS = [
@@ -92,6 +94,7 @@ const HEADER_ALIASES = {
     'Last Synced': ['Last Synced', 'CRM Last Synced', 'calendarLastSyncedAt'],
     'Venue Type': ['Venue Type', 'venue type', 'category', 'type', 'Type', 'CRM Venue Type'],
     Website: ['Website', 'website', 'website/social link', 'social link', 'link', 'CRM Website'],
+    'Contact Details': ['Contact Details', 'contactDetails'],
     Notes: ['Notes', 'notes', 'Useful/Important/Other Info', 'description', 'CRM Notes']
 };
 
@@ -360,6 +363,16 @@ function createGoogleSheetsGateway({ google, spreadsheetId = SPREADSHEET_ID }) {
         return properties;
     }
 
+    async function ensureColumns(title, width) {
+        const properties = await sheetProperties(title);
+        if (properties.gridProperties.columnCount < width) {
+            await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [{
+                updateSheetProperties: { properties: { sheetId: properties.sheetId, gridProperties: { columnCount: width } }, fields: 'gridProperties.columnCount' }
+            }] } });
+            metadataCache = null;
+        }
+    }
+
     async function getValues(range) {
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
@@ -377,21 +390,21 @@ function createGoogleSheetsGateway({ google, spreadsheetId = SPREADSHEET_ID }) {
         return getValues(`${title}!A:${columnName(width - 1)}`);
     }
 
-    async function updateValues(range, values) {
+    async function updateValues(range, values, options = {}) {
         const response = await sheets.spreadsheets.values.update({
             spreadsheetId,
             range,
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: options.raw ? 'RAW' : 'USER_ENTERED',
             requestBody: { values }
         });
         return response.data;
     }
 
-    async function appendValues(range, values) {
+    async function appendValues(range, values, options = {}) {
         const response = await sheets.spreadsheets.values.append({
             spreadsheetId,
             range,
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: options.raw ? 'RAW' : 'USER_ENTERED',
             insertDataOption: 'INSERT_ROWS',
             requestBody: { values }
         });
@@ -513,6 +526,7 @@ function createGoogleSheetsGateway({ google, spreadsheetId = SPREADSHEET_ID }) {
         ensureSheet,
         getValues,
         getSheetValues,
+        ensureColumns,
         updateValues,
         appendValues,
         clearValues,
@@ -580,20 +594,34 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
             console.error('[jddmBridge] new-place notification failed:', error && error.message ? error.message : error);
         }
     }
-    async function notifyFollowUp(venue, followUpDate) {
+    async function notifyFollowUp(venue, followUpDate, previousDate = '') {
         if (!notifier || typeof notifier.followUp !== 'function') return;
         try {
-            await notifier.followUp({ venue, date: clean(followUpDate), addedAt: now() });
+            await notifier.followUp({ venue, date: calendarDate(followUpDate), previousDate: calendarDate(previousDate), addedAt: now() });
         } catch (error) {
             console.error('[jddmBridge] follow-up notification failed:', error && error.message ? error.message : error);
         }
     }
 
     async function loadMainData() {
+        if (gateway.ensureColumns) await gateway.ensureColumns(MAIN_SHEET, CANONICAL_HEADERS.length);
         const values = await gateway.getValues(`${MAIN_SHEET}!A:${columnName(CANONICAL_HEADERS.length - 1)}`);
         const headers = padRow(values[0] || [], CANONICAL_HEADERS.length).map(clean);
+        // Upgrade the old 28-column schema by appending only the new column.
+        // Existing columns, formulas, and notes are never replaced.
+        if (headers[28] === '' && headers.slice(0, 28).every((header, index) => header === CANONICAL_HEADERS[index])) {
+            await gateway.updateValues(`${MAIN_SHEET}!AC1`, [['Contact Details']]);
+            headers[28] = 'Contact Details';
+        }
         const headerMap = makeHeaderMap(headers);
-        const rows = (values.slice(1) || []).map(row => padRow(row, headers.length));
+        const rows = (values.slice(1) || []).map(source => {
+            const row = padRow(source, headers.length);
+            for (const header of ['Next Follow Up', 'Last Contacted']) {
+                const index = headerMap.get(header);
+                if (index !== undefined) row[index] = calendarDate(row[index]) || row[index];
+            }
+            return row;
+        });
         return { headers, headerMap, rows };
     }
 
@@ -608,9 +636,20 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         Object.entries(fields || {}).forEach(([header, rawValue]) => {
             const canonical = canonicalHeader(header);
             if (!canonical) return;
-            const value = canonical === 'Status' ? normalizeStatus(rawValue) : rawValue;
+            let value = canonical === 'Status' ? normalizeStatus(rawValue) : rawValue;
+            if (canonical === 'Next Follow Up' || canonical === 'Last Contacted') {
+                value = calendarDate(rawValue);
+                if (clean(rawValue) && !value) throw new Error(`${canonical} must be a valid calendar date.`);
+            }
+            if (canonical === 'Contact Details') value = JSON.stringify(contactDetails(rawValue));
             setCell(row, headerMap, canonical, value);
         });
+        const supplied = Object.keys(fields || {}).find(header => canonicalHeader(header) === 'Contact Details');
+        if (supplied) {
+            const details = contactDetails(fields[supplied]);
+            setCell(row, headerMap, 'Email/Contact', details.emails[0]?.value || '');
+            setCell(row, headerMap, 'Phone Number', details.phones[0]?.value || '');
+        }
     }
 
     async function health() {
@@ -658,7 +697,6 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         applyFields(row, data.headerMap, payload.rawFields);
         applyFields(row, data.headerMap, payload.venue);
         if (payload.venue && payload.venue.contactStatus !== undefined) setCell(row, data.headerMap, 'Status', normalizeStatus(payload.venue.contactStatus));
-        if (payload.venue && payload.venue.nextFollowUpDate !== undefined) setCell(row, data.headerMap, 'Next Follow Up', clean(payload.venue.nextFollowUpDate));
         const changedIndexes = row.map((value, index) => value === before[index] ? -1 : index).filter(index => index >= 0);
         const groups = [];
         changedIndexes.forEach(index => {
@@ -668,7 +706,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         });
         for (const group of groups) {
             const range = `${MAIN_SHEET}!${columnName(group.start)}${rowNumber}:${columnName(group.end)}${rowNumber}`;
-            await gateway.updateValues(range, [row.slice(group.start, group.end + 1)]);
+            await gateway.updateValues(range, [row.slice(group.start, group.end + 1)], { raw: true });
         }
         const statusIndex = data.headerMap.get('Status');
         if (statusIndex !== undefined && changedIndexes.includes(statusIndex)) {
@@ -676,8 +714,9 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         }
         const followUpIndex = data.headerMap.get('Next Follow Up');
         const followUpDate = clean(getCell(row, data.headerMap, 'Next Follow Up'));
-        if (followUpIndex !== undefined && changedIndexes.includes(followUpIndex) && followUpDate) {
-            await notifyFollowUp(rowObject(row, data.headerMap), followUpDate);
+        const previousDate = calendarDate(getCell(before, data.headerMap, 'Next Follow Up'));
+        if (followUpIndex !== undefined && changedIndexes.includes(followUpIndex) && calendarDate(followUpDate) !== previousDate) {
+            await notifyFollowUp(rowObject(row, data.headerMap), followUpDate, previousDate);
         }
         return {
             ok: true,
@@ -761,7 +800,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
                     }
                 }
             }
-            const append = await gateway.appendValues(`${MAIN_SHEET}!A:${columnName(data.headers.length - 1)}`, [row]);
+            const append = await gateway.appendValues(`${MAIN_SHEET}!A:${columnName(data.headers.length - 1)}`, [row], { raw: true });
             const updatedRange = append && append.updates ? clean(append.updates.updatedRange) : '';
             const rowMatch = updatedRange.match(/![A-Z]+(\d+):/i);
             const rowNumber = rowMatch ? Number(rowMatch[1]) : data.rows.length + 2;
