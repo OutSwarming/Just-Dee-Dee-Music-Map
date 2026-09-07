@@ -71,7 +71,7 @@ function messageChunks(message){const h=message.payload?.headers||[];const from=
 function createDiscordClient(token, fetchImpl=fetch){return async(method,path,body)=>{
  for(let i=0;i<3;i++){const r=await fetchImpl('https://discord.com/api/v10'+path,{method,headers:{Authorization:'Bot '+token,'User-Agent':'DiscordBot (https://outswarming.github.io/Just-Dee-Dee-Music-Map/, 2.0)','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const d=await r.json().catch(()=>({}));if(r.ok)return d;if(r.status===429&&d.retry_after<=5&&i<2){await new Promise(resolve=>setTimeout(resolve,d.retry_after*1000+100));continue;}const e=new Error('Discord request failed ('+r.status+'): '+String(d.message||''));e.status=r.status;e.retryAfter=d.retry_after;throw e;}
 };}
-function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImpl=fetch,venueDirectory=null}){
+function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImpl=fetch,venueDirectory=null,excludeMessage=()=>false}){
  const collection=db.collection('jddmEmailConversations');
  // Serialize manual relinking and date writes across function instances so a
  // date submission cannot write a venue that was relinked during the request.
@@ -105,7 +105,7 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
   if(!acquired)return {posted:0,deferred:true};try{return await syncUnlocked(thread,options);}finally{await lock.set({until:0});}
  }
  async function syncUnlocked(thread,{budget=100}={}){
-  const id=thread.id;const messages=(thread.messages||[]).filter(m=>!m.labelIds?.includes('DRAFT')&&!m.labelIds?.includes('TRASH')).sort((a,b)=>Number(a.internalDate)-Number(b.internalDate));if(!messages.length)return {posted:0};
+  const id=thread.id;const messages=(thread.messages||[]).filter(m=>!excludeMessage(m)&&!m.labelIds?.includes('DRAFT')&&!m.labelIds?.includes('TRASH')).sort((a,b)=>Number(a.internalDate)-Number(b.internalDate));if(!messages.length)return {posted:0};
   const detectedTopics=automaticTopics(messages);let c=await get(id);const latest=messages[messages.length-1];const headers=latest.payload?.headers||[];
   if(!c){const cfg=await config();const subject=cleanHeader(getHeader(headers,'Subject')).replace(/^(?:(?:re|fwd?):\s*)+/i,'')||'(No subject)';c={gmailThreadId:id,subject,correspondent:cleanHeader(getHeader(headers,ownMessage(latest)?'To':'From')),status:latest.labelIds?.includes('SPAM')?'spam':ownMessage(latest)?'venue':'deedee',followUpDate:'',topics:detectedTopics,preview:plainBody(latest.payload).replace(/\s+/g,' ').slice(0,160),processed:[],chunks:{},latestMessageId:latest.id,createdAt:now().toISOString()};
    const post=await discord('POST',`/channels/${FORUM_ID}/threads`,{name:threadTitle(c),message:summaryMessage(c),applied_tags:appliedTags(c,cfg)});c.discordThreadId=post.id;c.starterId=post.message?.id||post.id;await collection.doc(id).set(c);
@@ -158,14 +158,15 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
  }catch(e){await ref.set({sendingUntil:0,error:e.message},{merge:true});throw e;}}
  return {config,get,syncThread,poll,setStatus:(...args)=>venueDirectory&&args[1]==='followup'?withVenueLock(args[0],()=>setStatus(...args)):setStatus(...args),setTopics,reply,daily,updateCard,tryAutoLink,linkVenue:(...args)=>withVenueLock(args[0],()=>linkVenue(...args)),refreshLinked,searchVenues:q=>venueDirectory.search(q),browseVenues:async c=>{const index=await venueDirectory.list();const matches=venueLinks.matchVenue(index,[{payload:{headers:[{name:'From',value:c.correspondent||''},{name:'Subject',value:c.subject||''}]}}]).candidates;const priority=new Set([c.venueId,...matches.map(v=>v.id)].filter(Boolean));return index.filter(v=>v.linkable!==false).sort((a,b)=>Number(priority.has(b.id))-Number(priority.has(a.id))||a.name.localeCompare(b.name));}};
 }
-function modal(id,kind,context=[]){
+function modal(id,kind,context=[],prefix='jddm2'){
  const search=kind==='venue-search',reply=kind==='reply';
- return {type:9,data:{custom_id:`jddm2:${kind}-submit:${id}${context.length?':'+context.join(':'):''}`,title:search?'Find an existing venue':reply?'Reply as Just Dee Dee':'Official venue follow-up',components:[{type:1,components:[{type:4,custom_id:'value',label:search?'Venue, city, contact name or email':reply?'Your email reply':'Follow-up date (YYYY-MM-DD)',style:reply?2:1,required:true,max_length:reply?3800:search?100:10,placeholder:search?'Part of a name or city is enough; typos are OK':reply?'This sends an email in the same conversation.':'2026-09-20',...(!search&&!reply&&validDate(context[0])?{value:context[0]}:{})}]}]}};
+ return {type:9,data:{custom_id:`${prefix}:${kind}-submit:${id}${context.length?':'+context.join(':'):''}`,title:search?'Find an existing venue':reply?'Reply as Just Dee Dee':'Official venue follow-up',components:[{type:1,components:[{type:4,custom_id:'value',label:search?'Venue, city, contact name or email':reply?'Your email reply':'Follow-up date (YYYY-MM-DD)',style:reply?2:1,required:true,max_length:reply?3800:search?100:10,placeholder:search?'Part of a name or city is enough; typos are OK':reply?'This sends an email in the same conversation.':'2026-09-20',...(!search&&!reply&&validDate(context[0])?{value:context[0]}:{})}]}]}};
 }
-function createConversationInteractions({getConfig,service,discord,db,legacy}){return async(req,res)=>{
+function createConversationInteractions({getConfig,service,discord,db,legacy,prefix='jddm2',readOnlySource=false}){return async(req,res)=>{
  const raw=req.rawBody||JSON.stringify(req.body);if(!verifyDiscordSignature({publicKey:getConfig().publicKey,signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:raw}))return res.status(401).send('invalid request signature');
- const i=req.body;if(i.type===1)return res.json({type:1});const custom=i.data?.custom_id||'';if(!custom.startsWith('jddm2:'))return legacy(req,res);const [,action,id,...context]=custom.split(':');if(i.guild_id!==GUILD_ID)return res.json({type:4,data:{content:'This control belongs to the JDDM server.',flags:64}});
- if(['reply','date','venue-query'].includes(action))return res.json(modal(id,action==='venue-query'?'venue-search':action,action==='date'?context:[]));if(action==='status'&&i.data.values?.[0]==='followup')return res.json(modal(id,'date',context));
+ const i=req.body;if(i.type===1)return res.json({type:1});const custom=i.data?.custom_id||'';if(!custom.startsWith(prefix+':'))return legacy(req,res);const [,action,id,...context]=custom.split(':');if(i.guild_id!==GUILD_ID)return res.json({type:4,data:{content:'This control belongs to the JDDM server.',flags:64}});
+ if(readOnlySource&&['reply','reply-submit'].includes(action))return res.json({type:4,data:{content:'Google Voice imports records only. Respond in Google Voice.',flags:64}});
+ if(['reply','date','venue-query'].includes(action))return res.json(modal(id,action==='venue-query'?'venue-search':action,action==='date'?context:[],prefix));if(action==='status'&&i.data.values?.[0]==='followup')return res.json(modal(id,'date',context,prefix));
  const actor=i.member?.nick||i.member?.user?.global_name||i.member?.user?.username||'Dee Dee';
  await discord('POST',`/interactions/${i.id}/${i.token}/callback`,{type:5,data:{flags:64}});
  const key=db.doc('jddmEmailActions/'+i.id);const claim=await db.runTransaction(async tx=>{const d=await tx.get(key);if(d.exists)return false;tx.set(key,{state:'started',at:new Date().toISOString()});return true;});
@@ -179,7 +180,7 @@ function createConversationInteractions({getConfig,service,discord,db,legacy}){r
   await db.doc('jddmVenueSelections/'+sessionId).set({conversationId:id,user,venueId:c.venueId||'',offered:offered.map(v=>v.id),expiresAt:Date.now()+10*60*1000});
   const approximate=offered.some(v=>v.approximateMatch);
   content=`**Choose a venue from the dropdown below.** Current link: **${c.venueName||'none'}**.\n${browsing?'Showing the first 24 choices. Use **Search venues** below to find any saved place.':`${results.length} result${results.length===1?'':'s'}${results.length>24?' — showing the best 24':''}.${approximate?' Similar spellings are included; check the name and location.':''}${!results.length?' Try a shorter name or a city with Search venues.':''}`}\nThe selected venue’s Google Sheets follow-up date is authoritative. New places are added only in the map app.`;
-  components=[{type:1,components:[{type:3,custom_id:`jddm2:venue-select:${id}:${sessionId}`,placeholder:'▼ Select an existing venue',options:[...offered.map(v=>({label:v.name.slice(0,100),value:v.id,description:((v.approximateMatch?'Similar spelling · ':'')+(v.city||'Location not recorded')+' · '+(v.date||'No follow-up date')).slice(0,100)})),{label:'Leave unlinked',value:'__unlink__',description:'Keep this conversation unlinked until you choose a venue'}]}]},{type:1,components:[{type:2,style:1,label:'Search venues',emoji:{name:'🔎'},custom_id:`jddm2:venue-query:${id}`}]}];
+  components=[{type:1,components:[{type:3,custom_id:`${prefix}:venue-select:${id}:${sessionId}`,placeholder:'▼ Select an existing venue',options:[...offered.map(v=>({label:v.name.slice(0,100),value:v.id,description:((v.approximateMatch?'Similar spelling · ':'')+(v.city||'Location not recorded')+' · '+(v.date||'No follow-up date')).slice(0,100)})),{label:'Leave unlinked',value:'__unlink__',description:'Keep this conversation unlinked until you choose a venue'}]}]},{type:1,components:[{type:2,style:1,label:'Search venues',emoji:{name:'🔎'},custom_id:`${prefix}:venue-query:${id}`}]}];
 
  }
  else if(action==='venue-select'){
@@ -200,7 +201,7 @@ function createConversationInteractions({getConfig,service,discord,db,legacy}){r
   content=action==='date-submit'&&updated.venueId?`📅 **${updated.venueName}** — official spreadsheet follow-up saved: **${updated.followUpDate}**. The daily reminders use this same date.`:`${STATES[updated.status].emoji} ${STATES[updated.status].name}${updated.followUpDate?' — '+updated.followUpDate:''}`;
  }else throw Error('Unknown conversation control');
  await key.set({state:'complete'},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content,components,allowed_mentions:ALLOWED_MENTIONS});
- }catch(e){await key.set({state:'failed',error:e.message},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content:'Could not complete this action: '+e.message+'. If an email send was interrupted, check the conversation before retrying.',components:[],allowed_mentions:ALLOWED_MENTIONS});}
+ }catch(e){await key.set({state:'failed',error:e.message},{merge:true});await discord('PATCH',`/webhooks/${i.application_id}/${i.token}/messages/@original`,{content:'Could not complete this action: '+e.message+'. Check the conversation before retrying.',components:[],allowed_mentions:ALLOWED_MENTIONS});}
  return res.status(202).send('handled');
 };}
 module.exports={GUILD_ID,FORUM_ID,MAILBOX,STATES,TOPICS,automaticTopics,threadTitle,appliedTags,dateKey,validDate,followUpDate,address,ownMessage,splitText,plainBody,messageChunks,controls,summaryMessage,mailUrl,conversationUrl,createDiscordClient,createConversationService,createConversationInteractions};

@@ -1383,7 +1383,8 @@ function buildConversationRuntime() {
     const gmail = google.gmail({ version: 'v1', auth: oauth });
     const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
     const db = admin.firestore();
-    return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory }) };
+    const voice = require('./googleVoice');
+    return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
 exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
     if (String(req.body?.data?.custom_id || '').startsWith('jddmcal:')) {
@@ -1403,6 +1404,7 @@ exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecr
         }
     }
     const runtime = buildConversationRuntime();
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmv:')) return conversations.createConversationInteractions({ ...runtime, service:runtime.voiceService, prefix:'jddmv', readOnlySource:true, getConfig:()=>({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY}), legacy:(_req,response)=>response.status(400).send('Unknown Voice control') })(req,res);
     const legacy = discordEmailInteractions.createInteractionsHandler({
         getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }),
         buildGmailGateway: buildJddmGmailGateway,
@@ -1416,6 +1418,11 @@ exports.jddmConversationPoll = functions.runWith({ secrets: conversationSecrets,
     .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async () => {
         const result = await buildConversationRuntime().service.poll();
         console.log('[jddmConversationPoll]', JSON.stringify(result));
+    });
+exports.jddmGoogleVoicePoll = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 540, maxInstances: 1 })
+    .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async () => {
+        const result = await buildConversationRuntime().voiceService.poll();
+        console.log('[jddmGoogleVoicePoll]', JSON.stringify(result));
     });
 exports.jddmDailyFollowUps = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 300, maxInstances: 1 })
     .pubsub.schedule('0 8 * * *').timeZone('America/New_York').onRun(async () => {

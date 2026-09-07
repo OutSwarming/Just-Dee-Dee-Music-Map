@@ -14,6 +14,6 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "test": "NODE_ENV=test node --test tests/ors-entitlement.test.js tests/checkout-session.test.js tests/lemonsqueezy-webhook.test.js tests/dee-dee-reminders.test.js tests/jddm-spreadsheet-bridge.test.js tests/discord-email-interactions.test.js tests/discord-email-intake.test.js tests/discord-conversations.test.js tests/venue-links.test.js tests/calendar-venue-review.test.js"
+    "test": "NODE_ENV=test node --test tests/ors-entitlement.test.js tests/checkout-session.test.js tests/lemonsqueezy-webhook.test.js tests/dee-dee-reminders.test.js tests/jddm-spreadsheet-bridge.test.js tests/discord-email-interactions.test.js tests/discord-email-intake.test.js tests/discord-conversations.test.js tests/venue-links.test.js tests/calendar-venue-review.test.js tests/google-voice.test.js"
   }
 }
