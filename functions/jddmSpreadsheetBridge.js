@@ -587,7 +587,7 @@ function createFirestoreIdempotencyStore({ firestore, Timestamp }) {
     };
 }
 
-function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date(), notifier = null, calendarReview = null, websiteState = null }) {
+function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geocode = null, now = () => new Date(), notifier = null, calendarReview = null, websiteState = null, withVenueLock = (_id, fn) => fn() }) {
     // Best-effort Discord notifications. These must never block or fail a sheet
     // write, so every call is awaited inside a try/catch that swallows errors.
     async function notifyNewPlace(venue) {
@@ -1118,10 +1118,10 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
         if (action === 'schema') return schemaPayload();
         if (action === 'csv') return { ok: true, action: 'csv', csv: await csv() };
         if (action === 'getVenue') return getVenue(payload);
-        if (action === 'saveVenue') return saveVenue(payload);
+        if (action === 'saveVenue') return withVenueLock(clean(payload.id), () => saveVenue(payload));
         if (action === 'createVenue') return createVenue(payload);
         if (action === 'deleteTestVenue') return deleteTestVenue(payload);
-        if (action === 'setPlayed') return setPlayed(payload);
+        if (action === 'setPlayed') return withVenueLock(clean(payload.id), () => setPlayed(payload));
         if (action === 'queueReminder') return queueReminder(payload);
         if (action === 'getPendingReminders') return getPendingReminders(payload);
         if (action === 'completeReminder') return completeReminder(payload);
@@ -1136,7 +1136,7 @@ function createJddmSpreadsheetBridgeService({ gateway, idempotency = null, geoco
     return { route };
 }
 
-function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [], activity = null }) {
+function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [], activity = null, verifyWorklist = () => false }) {
     const allowed = new Set(allowedOrigins);
     return async function jddmSpreadsheetBridgeHandler(req, res) {
         const origin = clean(req.get ? req.get('origin') : req.headers && req.headers.origin);
@@ -1157,7 +1157,7 @@ function createJddmSpreadsheetBridgeHandler({ service, allowedOrigins = [], acti
             const result = await service.route(payload);
             if (activity) {
                 try {
-                    await activity.record({ method: req.method, origin, payload, result });
+                    await activity.record({ method: req.method, origin, payload, result, trustedWorklist: verifyWorklist(req) });
                 } catch (error) {
                     // A saved spreadsheet change must not appear to fail because its activity log is unavailable.
                     console.error('[jddmAppActivity] Saved edit could not be counted', { action: payload.action, requestId: payload.requestId, message: error.message });

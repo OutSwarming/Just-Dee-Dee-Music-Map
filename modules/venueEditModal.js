@@ -911,4 +911,8 @@
     };
 
     document.addEventListener('DOMContentLoaded', bindAddVenueButtons);
+    document.addEventListener('DOMContentLoaded', () => {
+        const id = new URLSearchParams(window.location.search).get('editVenue');
+        if (id && id.length <= 300) openVenueEditor({id});
+    });
 })();

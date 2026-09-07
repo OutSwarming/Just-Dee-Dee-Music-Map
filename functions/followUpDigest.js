@@ -4,7 +4,7 @@ const {parseCsv}=require('./jddmSpreadsheetBridge');
 const APP='https://outswarming.github.io/Just-Dee-Dee-Music-Map/';
 function dateKey(now=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
 function plusDays(day,n){const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
-function buildDigest({rows=[],emails=[],today=dateKey()}){
+function buildDigest({rows=[],emails=[],worklist=[],today=dateKey()}){
  const horizonEnd=plusDays(today,2);
  const venues=rows.map(v=>({id:v['Place ID']||'',name:String(v['Place Name']||'Unknown place'),date:calendarDate(v['Next Follow Up']),status:String(v.Status||'')})).filter(v=>v.date&&!/^(Booked|Played in the Past|Open Microphone|Told No)/i.test(v.status));
  const mail=emails.filter(e=>!e.venueId&&e.status==='followup'&&e.followUpDate).map(e=>({name:e.subject||e.correspondent||'Email conversation',date:e.followUpDate,url:`https://discord.com/channels/1543777084265070623/${e.discordThreadId}`}));
@@ -17,6 +17,7 @@ function buildDigest({rows=[],emails=[],today=dateKey()}){
  if(!due.length)lines.push('No places are due today.');
  if(dueMail.length)lines.push('','Email conversations needing follow-up:',...dueMail.map(v=>`• ${v.name} — ${v.date}\n${v.url}`));
  if(upcoming.length||upcomingMail.length)lines.push('','On the horizon — the next 2 days:',...upcoming.map(v=>`• ${v.name} — ${v.date}${links(v)}`),...upcomingMail.map(v=>`• Email: ${v.name} — ${v.date}\n${v.url}`));
+ if(worklist.length)lines.push('','Today’s venue information worklist:',...worklist.map(t=>`• ${t.name}\nhttps://discord.com/channels/1543777084265070623/${t.threadId}`),'Open each post to update contacts, status or the official follow-up date. Press Done when reviewed.');
  lines.push('',APP);
  return {today,body:lines.join('\n'),venues:due.length,emails:dueMail.length,horizonPlaces:upcoming.length,horizonEmails:upcomingMail.length};
 }
@@ -28,7 +29,8 @@ async function loadDigest({db,fetchImpl=fetch,today=dateKey(),cache=true}){
  const rows=csv.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||''])));
  const records=await db.collection('jddmEmailConversations').get();
  const emails=records.docs.map(d=>d.data());
- const digest=buildDigest({rows,emails,today});
+ const worklist=(await db.collection('jddmVenueWorklistTasks').where('state','==','open').get()).docs.map(d=>d.data()).filter(t=>t.threadId).sort((a,b)=>a.assignedDay.localeCompare(b.assignedDay)||a.name.localeCompare(b.name));
+ const digest=buildDigest({rows,emails,worklist,today});
  // The cloud Discord sender and local Messages sender use one frozen morning list.
  if(cache)return db.runTransaction(async tx=>{const s=(await tx.get(ref)).data();if(s?.body)return s;tx.set(ref,{...digest,createdAt:new Date().toISOString()});return digest;});
  return digest;

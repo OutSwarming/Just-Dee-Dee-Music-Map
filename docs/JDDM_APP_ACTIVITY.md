@@ -7,7 +7,7 @@ Tracking began September 7, 2026 at 2:05 PM Eastern. Earlier edits are not recon
 ## Rules
 
 - One successfully saved venue change counts as one edit, regardless of how many fields changed. New places and played-status changes count too.
-- Failed writes, empty saves, replayed new-place requests, automatic calendar syncs, and edits made through Discord or directly in Sheets do not count.
+- Failed writes, empty saves, replayed new-place requests, automatic calendar syncs, and direct Sheets edits do not count. Authenticated human saves from the daily Discord venue worklist count too; other automated Discord updates do not.
 - Each real app edit resets the inactivity streak immediately.
 - At **10 PM America/New_York**, zero edits produces “No changes for 1 day,” then 2, 3, and so on. Three through ten edits produces congratulations with the count. Eleven or more produces “You are rocking today!!” One or two edits resets the streak without an extra message.
 - At **7:55 AM Eastern**, three or more consecutive inactive days produces “No new edits, what is going on?” Late-night and morning edits cancel the warning. It continues on subsequent inactive mornings until an edit is saved.

@@ -1,6 +1,15 @@
 'use strict';
 
-const {createHash, randomUUID} = require('node:crypto');
+const {createHash, createHmac, timingSafeEqual, randomUUID} = require('node:crypto');
+function verifyWorklistEdit(req, secret, now = Date.now()) {
+    if (!secret) return false;
+    const stamp = req.get?.('x-jddm-worklist-timestamp') || '';
+    const signature = req.get?.('x-jddm-worklist-signature') || '';
+    if (!/^\d+$/.test(stamp) || Math.abs(now - Number(stamp)) > 120000 || !/^[a-f0-9]{64}$/.test(signature)) return false;
+    const raw = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+    const expected = createHmac('sha256',secret).update(stamp+'.').update(raw).digest();
+    return timingSafeEqual(expected,Buffer.from(signature,'hex'));
+}
 const TIME_ZONE = 'America/New_York';
 const APP_ORIGINS = new Set([
     'https://outswarming.github.io',
@@ -17,8 +26,8 @@ function inactiveDays(day, startedDay, lastEditDay) {
     if (day < startedDay || lastEditDay >= day) return 0;
     return Math.max(0, Math.round(dayNumber(day) - dayNumber(lastEditDay && lastEditDay >= startedDay ? lastEditDay : previousDay(startedDay))));
 }
-function savedAppEdit({method, origin, payload, result}) {
-    if (method !== 'POST' || !APP_ORIGINS.has(origin) || !result?.ok || result.replayed) return false;
+function savedAppEdit({method, origin, trustedWorklist, payload, result}) {
+    if (method !== 'POST' || (!APP_ORIGINS.has(origin) && !trustedWorklist) || !result?.ok || result.replayed) return false;
     if (payload.action === 'createVenue') return true;
     return ['saveVenue', 'setPlayed'].includes(payload.action) && result.changedHeaders?.length > 0;
 }
@@ -45,7 +54,7 @@ function createAppActivity({db, discord, now = () => new Date(), prefix = 'jddmA
             const config = configSnap.data();
             if (!config?.enabled || day < config.startedDay || eventSnap.exists) return {counted:false};
             const count = (daySnap.data()?.count || 0) + 1;
-            tx.set(eventRef, {day,at:at.toISOString(),action:input.payload.action,venueId:input.payload.id || input.result.venue?.['Place ID'] || '',changedHeaders:input.result.changedHeaders || [],source:'shared-app'});
+            tx.set(eventRef, {day,at:at.toISOString(),action:input.payload.action,venueId:input.payload.id || input.result.venue?.['Place ID'] || '',changedHeaders:input.result.changedHeaders || [],source:input.trustedWorklist?'discord-worklist':'shared-app'});
             tx.set(dayRef(day), {count, lastEditAt:at.toISOString()}, {merge:true});
             if (!stateSnap.data()?.lastEditAt || at.toISOString() > stateSnap.data().lastEditAt) {
                 tx.set(stateRef, {lastEditDay:day,lastEditAt:at.toISOString()}, {merge:true});
@@ -112,4 +121,4 @@ function createAppActivity({db, discord, now = () => new Date(), prefix = 'jddmA
     }
     return {record,report};
 }
-module.exports = {TIME_ZONE,dayKey,previousDay,inactiveDays,savedAppEdit,nightlyText,createAppActivity};
+module.exports = {TIME_ZONE,dayKey,previousDay,inactiveDays,savedAppEdit,nightlyText,createAppActivity,verifyWorklistEdit};

@@ -77,6 +77,7 @@ const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
     idempotency: jddmSpreadsheetIdempotency,
     geocode: geocodeJddmSpreadsheetAddress,
     notifier: createDiscordSpreadsheetNotifier(),
+    withVenueLock: require('./venueWriteLock').createVenueWriteLock(admin.firestore()),
     calendarReview: {resolve:(events,options)=>buildCalendarReviewRuntime().service.resolve(events,options)},
     websiteState: {
         load:async()=>(await admin.firestore().doc('jddmCalendarReview/websiteOwnership').get()).data()?.dates || null,
@@ -87,6 +88,7 @@ const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
 const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
     service: jddmSpreadsheetBridgeService,
     activity: {record: input => buildAppActivityRuntime().record(input)},
+    verifyWorklist: req => require('./appActivity').verifyWorklistEdit(req,process.env.JDDM_WORKLIST_EDIT_KEY),
     allowedOrigins: [
         'https://outswarming.github.io',
         'https://just-dee-dee-music-map.web.app',
@@ -971,7 +973,7 @@ async function handlePremiumGeocode(requestOrData, context, options = {}) {
 
 exports.jddmSpreadsheetBridge = functions
     .runWith({
-        secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL", "DISCORD_EMAIL_BOT_TOKEN"],
+        secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL", "DISCORD_EMAIL_BOT_TOKEN", "JDDM_WORKLIST_EDIT_KEY"],
         timeoutSeconds: 120,
         memory: "512MB"
     })
@@ -1405,7 +1407,11 @@ function buildConversationRuntime() {
     const voice = require('./googleVoice');
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
-exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmw:')) {
+        const runtime=buildVenueWorklistRuntime();
+        return require('./venueWorklist').createInteractions({...runtime,publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
+    }
     if (String(req.body?.data?.custom_id || '').startsWith('jddmcal:')) {
         const raw=req.rawBody || JSON.stringify(req.body);
         if(!discordEmailInteractions.verifyDiscordSignature({publicKey:process.env.DISCORD_EMAIL_PUBLIC_KEY,signature:req.get('X-Signature-Ed25519'),timestamp:req.get('X-Signature-Timestamp'),rawBody:raw}))return res.status(401).send('Invalid signature');
@@ -1433,6 +1439,19 @@ exports.discordEmailInteractions = functions.runWith({ secrets: conversationSecr
         ...runtime, getConfig: () => ({ publicKey: process.env.DISCORD_EMAIL_PUBLIC_KEY }), legacy
     })(req, res);
 });
+function buildVenueWorklistRuntime() {
+    const worklist=require('./venueWorklist'),db=admin.firestore(),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const sheet=worklist.createSheetGateway();
+    return {db,discord,service:worklist.createService({db,discord,sheet})};
+}
+exports.jddmVenueWorklistDaily=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_WORKLIST_EDIT_KEY'],timeoutSeconds:300,memory:'256MB',failurePolicy:true})
+    .pubsub.schedule('50 7 * * *').timeZone('America/New_York').onRun(async()=>{
+        const {service}=buildVenueWorklistRuntime();console.log('[worklist] daily',await service.fill());await service.refresh();
+    });
+exports.jddmVenueWorklistRefresh=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_WORKLIST_EDIT_KEY'],timeoutSeconds:300,memory:'256MB',maxInstances:1})
+    .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async()=>{
+        console.log('[worklist] refresh',await buildVenueWorklistRuntime().service.refresh());
+    });
 exports.jddmConversationPoll = functions.runWith({ secrets: conversationSecrets, timeoutSeconds: 540, maxInstances: 1 })
     .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async () => {
         const result = await buildConversationRuntime().service.poll();
