@@ -20,10 +20,10 @@ Draft links use an opaque per-review token, and public draft responses are uncac
 
 ## Verification — September 7, 2026
 
-- 263 backend tests and 19 app/spreadsheet service tests passed.
+- 264 backend tests and 19 app/spreadsheet service tests passed.
 - Live Chrome: popup search for `Filia Celars` found Filia Cellars; the dropdown and save confirmation remained on the original card. Re-selecting the already verified calendar link saved successfully.
 - Live Chrome: Ignore and Review again changed one Google Voice review in place and restored it to pending.
 - Live Chrome: Add in app opened the actual form with a formatted US phone number, Google Voice contact preference, and blank placeholders for unknown name/email. The form was closed without creating a fictitious venue.
-- 92 existing review records synchronized; no rate-limited publication remained queued at the migration check.
+- 91 existing review records synchronized after removing a retired test card recovered during migration. The final check confirmed no queued publication.
 - The official spreadsheet export remained byte-identical: 517 venue rows, 28 columns.
 - New-place saving and automatic linking back were exercised by automated tests. A fabricated venue was not added to the production sheet. Instagram routing is covered by tests; there were no imported Instagram conversations available for a live review-card test.
