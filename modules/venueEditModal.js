@@ -636,6 +636,8 @@
             const result = await service.getVenue(venue.id);
             if (session !== editorSession) return;
             if (result && result.rawFields) {
+                // Discord links supply only an ID; hydrate the identity before CRM-only saves.
+                activeVenue = buildVenueFromRawFields(result.rawFields, activeVenue);
                 renderRawFields({
                     ...buildInitialRawFields(activeVenue),
                     ...result.rawFields

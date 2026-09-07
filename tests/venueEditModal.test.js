@@ -54,6 +54,23 @@ function plain(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+test('ID-only Discord links retain loaded identity through CRM-only edits', () => {
+    const modal = loadVenueEditModal();
+    const loaded = modal.buildVenueFromRawFields({
+        'Place ID': 'linked-venue', 'Place Name': 'Linked Venue',
+        Address: '123 Music Lane', Latitude: '41.1', Longitude: '-81.2',
+        'Email/Contact': 'venue@example.com'
+    }, {id: 'linked-venue'});
+    const edited = modal.buildVenueFromRawFields({
+        Status: 'Needs Review', 'Contact Name': 'Booking contact'
+    }, loaded);
+    assert.equal(edited.name, 'Linked Venue');
+    assert.equal(edited.id, 'linked-venue');
+    assert.equal(edited.address, '123 Music Lane');
+    assert.equal(edited.lat, '41.1');
+    assert.equal(edited.contactName, 'Booking contact');
+});
+
 test('venue editor renders only focused pin CRM fields it receives', () => {
     const modal = loadVenueEditModal();
     const headers = modal.getRenderableHeaders({
