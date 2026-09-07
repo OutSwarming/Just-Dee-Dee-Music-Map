@@ -7,6 +7,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { dailyDigest, postNotification, retryNotifications } from './lib/notificationClient.mjs';
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -735,34 +736,44 @@ async function sendMessages({ body, recipients, servicePriority = SERVICE_PRIORI
     return results;
 }
 
-async function sendReminder(reminder, options = {}) {
+export async function sendReminder(reminder, options = {}) {
     const recipients = options.recipients || RECIPIENTS;
     const servicePriority = options.servicePriority || SERVICE_PRIORITY;
     let body = reminder.body;
     let snapshot = null;
     try {
-        snapshot = await loadPlannerSnapshot();
+        let plannerOptions = {};
+        try {
+            const live = await dailyDigest();
+            if (live.calendar) {
+                const easternDate = value => new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
+                const all = live.calendar.calendars.flatMap(c => c.events).map(e => ({eventDate:easternDate(e.start),eventEndDate:easternDate(e.end),venueName:e.title,title:e.title,summary:e.title,isAllDay:e.allDay,blocked:/\b(hold|proposed|vacation|birthday|flight|camping|holiday|unavailable)\b/i.test(e.title)}));
+                plannerOptions.calendarPayload = {gigs:all.filter(e=>!e.blocked),blockedEvents:all.filter(e=>e.blocked),generatedAt:live.calendar.capturedAt};
+            }
+        } catch(error) { await appendLog('live-calendar-unavailable '+error.message); }
+        snapshot = await loadPlannerSnapshot(plannerOptions);
         body = appendArtistSyncWarning(buildReminderBody(reminder, snapshot), snapshot);
     } catch (error) {
         await appendLog(`smart-body-fallback ${reminder.id} ${error && error.message ? error.message : String(error)}`);
     }
 
-    if (options.dryRun) {
-        console.log(`[dry-run] ${reminder.label} -> ${recipients.join(", ")}`);
-        console.log(body);
-        return { results: [], snapshot, body, dryRun: true };
+    const kinds = {'today-plan':'booking-plan','available-dates':'open-weekend-dates','follow-ups':options.scheduled?'upcoming-gigs':'daily-follow-ups','calendar-cleanup':'daily-cleanup'};
+    if (reminder.id === 'follow-ups') {
+        if(options.scheduled && snapshot) body = ['Upcoming gigs', ...snapshot.futureGigs.slice(0,15).map(g => `${g.eventDate} — ${g.venueName || g.title || 'Venue TBD'}`), APP_URL].join('\n');
+        else if(!options.scheduled) body = (await dailyDigest()).body;
     }
-    const results = await sendMessages({ body, recipients, servicePriority });
-    const serviceSummary = results.map(result => `${result.recipient}:${result.service}`).join(",");
-    const verifiedCount = results.filter(result => result.verified).length;
-    const acceptedCount = results.filter(result => result.verified || result.verificationUnavailable).length;
-    const source = snapshot ? snapshot.venueDataSource : "static-body";
-    await appendLog(`${reminder.id} sent ${results.length} accepted ${acceptedCount} verified ${verifiedCount} source ${source} via ${serviceSummary}`);
-    console.log(`${reminder.label}: sent ${results.length}, accepted ${acceptedCount}, verified ${verifiedCount}, source ${source}, via ${serviceSummary}`);
-    return { results, snapshot, body, dryRun: false };
+    if(options.dryRun) {
+        console.log(`[dry-run] ${reminder.label} -> Discord #${kinds[reminder.id]} (no texts)`);
+        console.log(body);
+        return {results:[],snapshot,body,dryRun:true};
+    }
+    const posted = await postNotification(kinds[reminder.id], body, {key:getTodayKey()+'|'+reminder.id+'|'+body});
+    await appendLog(`${reminder.id} routed to Discord ${kinds[reminder.id]}`);
+    return {results:[],snapshot,body,dryRun:false,discord:posted};
 }
 
 async function runScheduled() {
+    await retryNotifications();
     const reminder = selectScheduledReminder();
     const runKey = `${getTodayKey()}_${reminder.slot}`;
     const state = await readState();
@@ -776,7 +787,7 @@ async function runScheduled() {
     if (state._deliveryHealth.fallbackRecommended) {
         await appendLog(`delivery-fallback-active SMS-first recipients ${state._deliveryHealth.staleRecipients.join(",")}`);
     }
-    const sendResult = await sendReminder(reminder, { servicePriority });
+    const sendResult = await sendReminder(reminder, { servicePriority, scheduled:true });
     state._deliveryHealth = updateDeliveryHealth(state._deliveryHealth, sendResult.results);
     if (state._deliveryHealth.fallbackRecommended) {
         await appendLog(`delivery-fallback-recommended 48h recipients ${state._deliveryHealth.staleRecipients.join(",")}`);
@@ -835,7 +846,7 @@ export async function processReminderQueue(options = {}) {
                 state._processedReminderRequests = Object.fromEntries(entries);
                 if (!options.state) await writeState(state);
             }
-            await postReminderBridge("completeReminder", { requestId, status: "sent", result: "Messages worker sent the reminder." }, bridgeOptions);
+            await postReminderBridge("completeReminder", { requestId, status: "sent", result: "Reminder routed to its Discord channel." }, bridgeOptions);
             sent += 1;
         } catch (error) {
             failed += 1;
@@ -885,7 +896,7 @@ async function main() {
     if (hasFlag("--scheduled")) {
         if (dryRun) {
             const reminder = selectScheduledReminder();
-            await sendReminder(reminder, { dryRun });
+            await sendReminder(reminder, { dryRun, scheduled:true });
             return;
         }
         await runScheduled();
@@ -893,6 +904,7 @@ async function main() {
     }
 
     if (hasFlag("--process-queue")) {
+        await retryNotifications();
         await processReminderQueue();
         return;
     }

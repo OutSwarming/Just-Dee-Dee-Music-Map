@@ -915,22 +915,9 @@ class GoogleLiveMusicScraper:
 
 
 def send_text_via_messages(phone: str, body: str) -> None:
-    helper = REPO_ROOT / "scripts" / "send-local-message.mjs"
-    node_bin = find_node_binary()
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix=".txt") as handle:
-        handle.write(body)
-        message_path = handle.name
-    try:
-        subprocess.run(
-            [node_bin, str(helper), "--phone", phone, "--message-file", message_path],
-            check=True,
-            timeout=120,
-        )
-    finally:
-        try:
-            os.unlink(message_path)
-        except OSError:
-            pass
+    # Receipt deduplication prevents repeats when legacy callers loop recipients.
+    from discord_notifications import post_notification
+    post_notification('local-gig-leads', body)
 
 
 def find_node_binary() -> str:

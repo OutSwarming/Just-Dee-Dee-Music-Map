@@ -102,6 +102,8 @@ async function main() {
 
     if (!phone || !body) throw new Error("Usage: send-local-message.mjs --phone +14403054062 --message-file /tmp/message.txt");
 
+    if (!['+14403054062', '+12168499292'].includes(phone)) throw new Error('Automated texts are limited to Dee Dee and Carter.');
+    if (!process.argv.includes('--daily-follow-up')) throw new Error('Only the daily follow-up digest is enabled for automated texts. Other notifications belong in Discord.');
     const result = await sendMessage({ body, recipient: phone });
     console.log(`sent ${result.recipient} via ${result.service}`);
 }

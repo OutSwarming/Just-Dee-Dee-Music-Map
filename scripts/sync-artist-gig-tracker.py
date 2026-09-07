@@ -4474,45 +4474,10 @@ def apple_string(value: object) -> str:
     return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def send_message_via_service(body: str, recipient: str, service_type: str) -> str:
-    service_test = "SMS" if service_type == "SMS" else "iMessage"
-    script = f"""
-        set alertBody to {apple_string(body)}
-        set targetNumber to {apple_string(recipient)}
-
-        tell application "Messages"
-            set selectedService to missing value
-            repeat with svc in services
-                try
-                    if service type of svc is {service_test} then
-                        set selectedService to svc
-                        exit repeat
-                    end if
-                end try
-            end repeat
-            if selectedService is missing value then error "No {service_type} service is available."
-            send alertBody to buddy targetNumber of selectedService
-        end tell
-        return "{service_type}"
-    """
-    result = subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True, timeout=30)
-    return clean(result.stdout)
-
-
 def send_text_message(body: str, recipients: list[str], logger: logging.Logger) -> list[str]:
-    sent: list[str] = []
-    for recipient in recipients:
-        errors: list[str] = []
-        for service_type in SERVICE_PRIORITY:
-            try:
-                service = send_message_via_service(body, recipient, service_type)
-                sent.append(f"{recipient}:{service}")
-                break
-            except Exception as exc:
-                errors.append(f"{service_type} {exc}")
-        else:
-            logger.warning("Could not send new venue text to %s: %s", recipient, "; ".join(errors))
-    return sent
+    # Legacy function name retained for callers; this path never sends phone texts.
+    from discord_notifications import post_notification
+    return post_notification('other-artists', body)
 
 
 def format_alert_date(value: object) -> str:

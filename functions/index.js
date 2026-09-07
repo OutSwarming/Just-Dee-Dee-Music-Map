@@ -1414,3 +1414,12 @@ exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOK
         run:input=>calendarMonitor.createCalendarMonitor({db:admin.firestore(),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input)
     })
 );
+
+// Private daily digest for the already-authorized local Messages delivery worker.
+exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_KEY'],timeoutSeconds:60,maxInstances:2}).https.onRequest(async(req,res)=>{
+    const received=Buffer.from(req.get('x-jddm-key')||''),expected=Buffer.from(process.env.JDDM_NOTIFICATION_KEY||'');
+    if(!expected.length||received.length!==expected.length||!timingSafeEqual(received,expected))return res.status(401).json({ok:false});
+    if(req.method!=='GET')return res.status(405).json({ok:false});
+    try{const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));const digest=await require('./followUpDigest').loadDigest({db:admin.firestore(),cache:hour>=8});const state=(await admin.firestore().doc('jddmCalendarMonitor/state').get()).data();const calendar=state?.baseline?calendarMonitor.unpack(state.baseline):null;res.json({ok:true,...digest,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<20*60*1000?calendar:null});}
+    catch(e){console.error('[jddmNotificationDigest]',e.message);res.status(503).json({ok:false,error:'Daily follow-ups are temporarily unavailable; retry shortly.'});}
+});
