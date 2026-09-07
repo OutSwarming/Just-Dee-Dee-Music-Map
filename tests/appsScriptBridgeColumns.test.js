@@ -269,6 +269,9 @@ function loadBridge(sheet, options = {}) {
             }
         },
         PropertiesService: {
+            getScriptProperties() {
+                return { getProperty() { return null; } };
+            },
             getDocumentProperties() {
                 return {
                     getProperty(key) {
@@ -1114,4 +1117,18 @@ test('calendar review outage and legacy addMissing=true cannot create a venue or
     assert.equal(sheet.values.length,2);
     assert.equal(sheet.values[1][2],'Keep me');
     assert.throws(()=>bridge.appendVenueFromEvent_(),/cannot create/);
+});
+
+test('calendar sync maintenance pause expires and does not touch the sheet', () => {
+    const sheet = createFakeSheet(['Place Name', 'Place ID'], [['Test venue', 'test-venue']]);
+    const bridge = loadBridge(sheet);
+    let until = Date.now() + 60000;
+    bridge.PropertiesService.getScriptProperties = () => ({ getProperty: () => String(until) });
+    const before = JSON.stringify(sheet.values);
+    assert.equal(bridge.syncCalendarGigEvents_({}).paused, true);
+    assert.equal(JSON.stringify(sheet.values), before);
+    assert.equal(sheet.writes.length, 0);
+    bridge.getData_ = () => { throw new Error('normal sync resumed'); };
+    until = Date.now() - 1;
+    assert.throws(() => bridge.syncCalendarGigEvents_({}), /normal sync resumed/);
 });

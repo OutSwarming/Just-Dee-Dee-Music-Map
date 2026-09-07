@@ -1980,6 +1980,8 @@ function todayIso_() {
 }
 
 function syncCalendarGigEvents_(payload) {
+  // A short, expiring pause protects reviewed venue merges from concurrent sync writes.
+  if (Number(PropertiesService.getScriptProperties().getProperty("JDDM_VENUE_MERGE_UNTIL") || 0) > Date.now()) return {ok:true,paused:true,reason:"Venue merge maintenance"};
   // Preserve the existing sheet and contact columns; do not run setup during sync or saves.
   var data = getData_();
   var today = todayIso_();
