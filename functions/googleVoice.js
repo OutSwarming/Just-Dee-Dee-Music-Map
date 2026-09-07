@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const email = require('./discordConversations');
+const identity=require('./venueIdentity');
 const {getHeader} = require('./discordEmailInteractions');
 const PREFIX = 'jddmv';
 const KINDS = {text:{name:'Text',label:'Received text',path:'messages'},calls:{name:'Missed call',label:'Missed-call notice',path:'calls'},voicemail:{name:'Voicemail',label:'Voicemail transcript',path:'voicemail'}};
@@ -66,6 +67,9 @@ function createService({db,gmail,discord,venueDirectory,now=()=>new Date()}) {
   await db.runTransaction(async tx=>{const d=(await tx.get(ref)).data();if(d?.until>Date.now())throw Error('Another Google Voice update is in progress. Try again shortly.');tx.set(ref,{owner,until:Date.now()+500000});});
   try{return await fn();}finally{await db.runTransaction(async tx=>{if((await tx.get(ref)).data()?.owner===owner)tx.set(ref,{until:0},{merge:true});});}
  }
+ const linkMemory=identity.createMemory(db);
+ async function tryAutoLink(c){if(!venueDirectory||c.venueLinkMode==='manual')return c;try{const e=identity.voiceEvidence(c),found=identity.resolve(await venueDirectory.list(),e,await linkMemory.lookup(e.identities)),v=found.venue;return {...c,linkVersion:identity.VERSION,linkEvidence:e,venueCandidates:found.candidates.slice(0,12).map(v=>v.id),venueLinkReason:found.reason,venueLinkIssue:v?'':found.reason,...(v?{venueId:v.id,venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkMode:'automatic'}:c.venueLinkMode==='automatic'?{previousAutomaticVenueId:c.venueId||'',venueId:'',venueName:'',venueCity:'',followUpDate:'',venueLinkMode:'review'}:{})};}catch{return {...c,venueLinkIssue:'Venue matching is temporarily unavailable; messages continue to arrive.'};}}
+ async function rematchUnlinked(){if(!venueDirectory)return;const docs=await collection.get();for(const doc of docs.docs)await locked(doc.id,async()=>{const c=await get(doc.id);if(c.venueLinkMode==='manual')return;const next=await tryAutoLink(c);await collection.doc(doc.id).set(next);await updateCard(next);});}
  async function updateCard(c){
   const cfg=channelConfig(await config(),c.kind),path='/channels/'+c.discordThreadId;
   const current=await discord('GET',path),tags=email.appliedTags(c,cfg),patch={};
@@ -85,7 +89,7 @@ function createService({db,gmail,discord,venueDirectory,now=()=>new Date()}) {
   if(state.complete)return {duplicate:true};
   let c=await get(text.key);
   if(!c){c={key:text.key,kind:text.kind,caller:text.caller||'',phone:text.phone,source:'google-voice-'+text.kind,gmailThreadId:text.key,status:'deedee',topics:text.kind==='text'?['textmessage']:[],venueId:'',followUpDate:'',createdAt:now().toISOString()};
-   if(venueDirectory&&text.phone){const matches=(await venueDirectory.list()).filter(v=>(v.phones||[]).includes(text.phone));if(matches.length===1&&matches[0].linkable!==false){const v=matches[0];Object.assign(c,{venueId:v.id,venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkMode:'automatic'});}}
+   c=await tryAutoLink(c);
    // Recover a thread if Discord accepted creation before the database write.
    const active=await discord('GET',`/guilds/${email.GUILD_ID}/threads/active`);
    let post=(active.threads||[]).find(t=>t.parent_id===cfg.forumId&&t.name===title(c));
@@ -98,11 +102,11 @@ function createService({db,gmail,discord,venueDirectory,now=()=>new Date()}) {
    state={...state,phone:text.phone,nextPart:i+1,discordThreadId:c.discordThreadId,messageIds:[...(state.messageIds||[]),posted.id]};await receipt.set(state);
   }
   if(text.time>Number(c.lastMessageAt||0)){c={...c,status:message.labelIds?.includes('SPAM')?'spam':'deedee',lastMessageAt:text.time,preview:text.body.slice(0,160),latestSourceThreadId:text.gmailThreadId};await collection.doc(text.key).set(c);}
-  await updateCard(c);await receipt.set({complete:true,completedAt:now().toISOString()},{merge:true});
+  c=await tryAutoLink(c);await collection.doc(text.key).set(c);await updateCard(c);await receipt.set({complete:true,completedAt:now().toISOString()},{merge:true});
   return {posted:parts.length,phone:text.phone,discordThreadId:c.discordThreadId};
  });}
  async function refreshLinked(){if(!venueDirectory)return;const index=await venueDirectory.list({fresh:true});const docs=await collection.where('venueId','>','').get();for(const d of docs.docs)await locked(d.id,async()=>{const c=await get(d.id),v=index.find(v=>v.id===c.venueId&&v.linkable!==false);const patch=v?{venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:''}:{venueLinkIssue:'Linked venue is unavailable. Use Change linked venue.'};if(Object.entries(patch).some(([k,v])=>c[k]!==v)){await collection.doc(d.id).set(patch,{merge:true});await updateCard({...c,...patch});}});}
- async function linkVenue(id,venueId,actor,expected){return locked(id,async()=>{const c=await get(id);if(!c)throw Error('Conversation is not ready');if((c.venueId||'')!==expected)throw Error('Venue link changed; search again');const v=venueId?await venueDirectory.get(venueId):null;const updated={...c,venueId:v?.id||'',venueName:v?.name||'',venueCity:v?.city||'',followUpDate:v?.date||'',venueLinkMode:'manual',venueLinkIssue:'',lastActor:actor};await collection.doc(id).set(updated);await updateCard(updated);return updated;});}
+ async function linkVenue(id,venueId,actor,expected){return locked(id,async()=>{const c=await get(id);if(!c)throw Error('Conversation is not ready');if((c.venueId||'')!==expected)throw Error('Venue link changed; search again');const v=venueId?await venueDirectory.get(venueId):null;const updated={...c,venueId:v?.id||'',venueName:v?.name||'',venueCity:v?.city||'',followUpDate:v?.date||'',venueLinkMode:'manual',venueLinkIssue:'',lastActor:actor};await collection.doc(id).set(updated);await linkMemory.remember(identity.voiceEvidence(c).identities,'voice:'+id,venueId);await updateCard(updated);return updated;});}
  async function setStatus(id,status,actor,date,expected={}){return locked(id,async()=>{let c=await get(id);if(!c||!email.STATES[status])throw Error('Unknown conversation or status');if(status==='followup'){
   if(!email.validDate(date)||date<email.dateKey(now()))throw Error('Choose today or a future date');if(!c.venueId)throw Error('Link an existing venue first. New places are added in the map app');if(expected.hash!==hash(c.venueId))throw Error('Venue link changed. Reopen the date form');
   const v=await locked('place-'+hash(c.venueId),()=>venueDirectory.setDate(c.venueId,date,expected.date));c={...c,followUpDate:v.date,lastActor:actor};
@@ -118,8 +122,8 @@ function createService({db,gmail,discord,venueDirectory,now=()=>new Date()}) {
    pending.shift();processed++;await ref.set({pending},{merge:true});}
   const more=!!(pending.length||state.pageToken);
   if(!more)await ref.set({after:state.scanStarted-300,scanStarted:0,scanAfter:0,pageToken:'',pending:[]});
-  await refreshLinked();return {processed,posted,more,pending:pending.length};
+  await rematchUnlinked();await refreshLinked();return {processed,posted,more,pending:pending.length};
  });}
- return {config,get,syncMessage,poll,updateCard,refreshLinked,linkVenue,setStatus,setTopics,reply:async()=>{throw Error('Google Voice intake does not send texts');},searchVenues:q=>venueDirectory.search(q),browseVenues:async c=>(await venueDirectory.list()).filter(v=>v.linkable!==false).sort((a,b)=>Number(b.id===c.venueId)-Number(a.id===c.venueId)||a.name.localeCompare(b.name))};
+ return {config,get,tryAutoLink,rematchUnlinked,syncMessage,poll,updateCard,refreshLinked,linkVenue,setStatus,setTopics,reply:async()=>{throw Error('Google Voice intake does not send texts');},searchVenues:q=>venueDirectory.search(q),browseVenues:async c=>(await venueDirectory.list()).filter(v=>v.linkable!==false).sort((a,b)=>Number([c.venueId,...(c.venueCandidates||[])].includes(b.id))-Number([c.venueId,...(c.venueCandidates||[])].includes(a.id))||a.name.localeCompare(b.name))};
 }
 module.exports={PREFIX,KINDS,phone,displayPhone,parseText,parseRecord,title,card,chunks,createService};

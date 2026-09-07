@@ -53,14 +53,18 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
             });
             const e = group[0], saved = (await ref(id).get()).data(), matching = matchEvent(rows,e);
             if (saved?.status === 'ignored') { mappings[id] = ''; if(enqueue)await publish(id,saved); continue; }
-            if (saved?.status === 'linked' && rows.filter(r => r['Place ID'] === saved.venueId).length === 1) { mappings[id] = saved.venueId; if(enqueue)await publish(id,saved); continue; }
-            if (!saved && matching.venue) { mappings[id] = matching.venue['Place ID']; continue; }
+            if (saved?.status === 'linked' && saved.linkMode !== 'automatic' && rows.filter(r => r['Place ID'] === saved.venueId).length === 1) { mappings[id] = saved.venueId; if(enqueue)await publish(id,saved); continue; }
+            if ((!saved || saved.linkMode === 'automatic' || saved.status === 'pending' && !saved.actor) && matching.venue) {
+                mappings[id] = matching.venue['Place ID'];
+                if(saved&&enqueue)await lock(id,async()=>{const current=(await ref(id).get()).data();if(current?.status!=='pending'&&current?.linkMode!=='automatic'||current.actor){mappings[id]=current?.status==='linked'?current.venueId:'';return;}const next={...current,status:'linked',linkMode:'automatic',venueId:matching.venue['Place ID'],venueName:matching.venue['Place Name'],revision:(current.revision||0)+(current.venueId!==matching.venue['Place ID']||current.status!=='linked'?1:0),reason:'Now uniquely matched to the existing spreadsheet venue.'};await ref(id).set(next);await publish(id,next);});
+                continue;
+            }
             mappings[id] = '';
             const future = group.filter(e => e.date >= dateKey(new Date(now())));
             if (!enqueue || !future.length) continue;
             await lock(id, async () => {
                 const current = (await ref(id).get()).data();
-                if (current?.status === 'ignored' || (current?.status === 'linked' && rows.filter(r=>r['Place ID']===current.venueId).length===1)) { mappings[id] = current.venueId || ''; return; }
+                if (current?.status === 'ignored' || (current?.status === 'linked' && current.linkMode !== 'automatic' && rows.filter(r=>r['Place ID']===current.venueId).length===1)) { mappings[id] = current.venueId || ''; return; }
                 const sources = {...current?.sources,[source]:futureDates};
                 const r = {...current,sources,active:true,status:'pending',name:String(e.venueName || venueName(e.title)).slice(0,200),location:String(e.location || '').slice(0,1000),dates:[...new Set(Object.values(sources).flat())].sort(),reason:matching.reason,updatedAt:new Date(now()).toISOString(),createdAt:current?.createdAt || new Date(now()).toISOString()};
                 await ref(id).set(r); await publish(id,r); reviews.push(id);
@@ -98,7 +102,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
             } else if (action === 'link') {
                 const matches = rows.filter(v=>v['Place ID']===venueId); if (matches.length !== 1) throw Error('That venue is missing or its Place ID is duplicated. Choose another venue'); venue = matches[0];
             } else if (action !== 'ignore') throw Error('Unknown calendar decision');
-            const next = {...r,status:action==='ignore'?'ignored':'linked',venueId:venue?.['Place ID'] || '',venueName:venue?.['Place Name'] || '',actor,revision:(r.revision||0)+1,decidedAt:new Date(now()).toISOString()};
+            const next = {...r,linkMode:'manual',status:action==='ignore'?'ignored':'linked',venueId:venue?.['Place ID'] || '',venueName:venue?.['Place Name'] || '',actor,revision:(r.revision||0)+1,decidedAt:new Date(now()).toISOString()};
             await ref(id).set(next); await publish(id,next); return next;
         }));
     }

@@ -34,3 +34,23 @@ test('years are not mistaken for street suffixes and dated placeholders never au
  assert.equal(matchEvent([row('b','Festival 2026')],event('Festival 2027')).venue,null);
  assert.equal(matchEvent([row('c','Dee Dee and KLOS Guitars')],event('Dee Dee and KLOS Guitars','Google Meet (instructions in description)')).venue,null);
 });
+
+test('calendar full street and geography conflicts are rejected, abbreviations and legacy addresses work',()=>{
+ const a=row('a','Filia Cellars','10 North Main Street, Wadsworth, OH 44281');
+ assert.equal(matchEvent([a],event('Filia Cellars','10 N Main St, Wadsworth, OH 44281')).venue['Place ID'],'a');
+ for(const address of ['10 Oak Street, Wadsworth, OH 44281','10 South Main St, Wadsworth, OH 44281','10 N Main St, Somewhere, PA 44281','10 N Main St, Akron, OH 44301'])assert.equal(matchEvent([a],event('Filia Cellars',address)).venue,null,address);
+ assert.equal(matchEvent([row('a','Filia Cellars 3059 Greenwich Rd','Wadsworth')],event('Filia Cellars','3060 Greenwich Road')).venue,null);
+});
+test('a fully known branch can be selected, while a duplicate without an address needs review',()=>{
+ const a=row('a','Same Winery','10 Main St'),b=row('b','Same Winery','20 Main St');
+ assert.equal(matchEvent([a,b],event('Same Winery','10 Main Street')).venue['Place ID'],'a');
+ assert.equal(matchEvent([a,{...b,Address:''}],event('Same Winery','10 Main Street')).venue,null);
+ assert.equal(matchEvent([a,b],event('Same Winery')).venue,null);
+ assert.equal(matchEvent([a],event('Different Winery','10 Main St')).venue,null);
+});
+test('new directory evidence resolves a pending review, later conflict reopens it, manual choice remains authoritative',async()=>{
+ const s=setup(),e=event('Same Winery','10 Main St'),id=keyFor(e);await s.service.resolve([e]);s.rows.push(row('a','Same Winery','10 Main St'));
+ assert.equal((await s.service.resolve([e])).mappings[id],'a');assert.equal((await s.service.get(id)).linkMode,'automatic');
+ s.rows.push(row('b','Same Winery','10 Main St'));assert.equal((await s.service.resolve([e])).mappings[id],'');assert.equal((await s.service.get(id)).status,'pending');
+ const r=await s.service.get(id);await s.service.choose(id,'link','b','Dee Dee',r.revision);s.rows[1].Address='99 Other St';assert.equal((await s.service.resolve([e])).mappings[id],'b');assert.equal(s.writes.length,0);
+});

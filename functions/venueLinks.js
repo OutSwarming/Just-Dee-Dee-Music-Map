@@ -2,23 +2,23 @@
 const {parseCsv}=require('./jddmSpreadsheetBridge');
 const contacts=require('./contactRecords');
 const {calendarDate}=require('./venueFields');
+const identity=require('./venueIdentity');
 const BRIDGE='https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
 const MAILBOX='justdeedeemusic@gmail.com';
 const norm=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-const emails=s=>[...new Set((String(s||'').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(e=>e.toLowerCase()).filter(e=>e!==MAILBOX))];
-const SHARED_DOMAINS=new Set(['gmail.com','googlemail.com','google.com','yahoo.com','outlook.com','hotmail.com','live.com','icloud.com','aol.com','msn.com','facebook.com','instagram.com','youtube.com','yelp.com','wixsite.com','square.site','godaddysites.com','sites.google.com','justdeedeemusic.com']);
-function domain(raw){try{const host=new URL(/^https?:\/\//i.test(raw)?raw:'https://'+raw).hostname.toLowerCase().replace(/^www\./,'');return host.includes('.')&&![...SHARED_DOMAINS].some(d=>host===d||host.endsWith('.'+d))?host:'';}catch{return '';}}
-function phones(raw){return [...new Set((String(raw||'').match(/(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}/g)||[]).map(p=>p.replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'')))];}
+const emails=identity.emails, phones=identity.phones;
 function messageText(payload){const texts=[];function walk(p){if(!p)return;if(p.body?.data&&['text/plain','message/delivery-status','message/rfc822'].includes(p.mimeType))texts.push(Buffer.from(p.body.data,'base64url').toString('utf8'));(p.parts||[]).forEach(walk);}walk(payload);return texts.join('\n');}
 function venueName(raw){return norm(String(raw||'').replace(/\s+\d+\s+.*$/,''));}
 function indexRows(rows){
  const counts=new Map();for(const r of rows){const id=String(r['Place ID']||'').trim();if(id)counts.set(id,(counts.get(id)||0)+1);}
  return rows.filter(r=>r['Place Name']&&String(r['Place ID']||'').trim()).map(r=>{
-  let people=[];try{people=contacts.read(r).contacts||[];}catch{};
+  let people=[],autoLinkable=true;try{people=contacts.read(r).contacts||[];}catch{autoLinkable=false;}
   const contactEmails=[...emails(r['Email/Contact']),...people.flatMap(p=>p.emails.flatMap(e=>emails(e.value)))];
-  const text=[r['Place Name'],r.Address,r.City,r.State,r.Zip,r['Contact Name'],r['Email/Contact'],r['Phone Number'],...people.flatMap(p=>[p.name,...p.emails.map(e=>e.value),...p.phones.map(e=>e.value)])].join(' ');
-  const domains=[...new Set([r.Website,...people.flatMap(p=>p.others.map(x=>x.value)),...contactEmails.map(e=>e.split('@')[1])].map(domain).filter(Boolean))];
-  return {names:[...new Set([norm(r['Place Name']),venueName(r['Place Name']),venueName(r['Place Name']).replace(/ (?:company|co|inc|llc)$/,'')])],domains,phones:[...new Set([r['Phone Number'],...people.flatMap(p=>p.phones.map(x=>x.value))].flatMap(phones))],linkable:counts.get(String(r['Place ID']).trim())===1,id:String(r['Place ID']).trim(),name:r['Place Name'],city:(/^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(String(r.City||'').trim())&&r.Address&&!/\d/.test(r.Address)?[r.Address,r.City]:[r.City,r.State]).filter(Boolean).join(', '),emails:[...new Set(contactEmails)],search:norm(text),date:calendarDate(r['Next Follow Up']),rawDate:r['Next Follow Up']||''};
+  const text=[r['Place Name'],r.Address,r.City,r.State,r.Zip,r['Contact Name'],r['Email/Contact'],r['Phone Number'],...people.flatMap(p=>[p.name,...p.emails.map(e=>e.value),...p.phones.map(e=>e.value),...p.others.map(e=>e.type+' '+e.value)])].join(' ');
+  const contactNames=[...new Set([r['Contact Name'],...people.map(p=>p.name)].map(norm).filter(Boolean))];
+  const socialProfiles=[...new Set([identity.socialProfile(r.Website),...people.flatMap(p=>p.others.map(o=>identity.socialProfile(o.value,/insta/i.test(o.type)?'instagram':undefined)))].filter(Boolean))];
+  const domains=[...new Set([r.Website,...people.flatMap(p=>p.others.filter(x=>!/insta|facebook|messenger/i.test(x.type)).map(x=>x.value)),...contactEmails.map(e=>e.split('@')[1])].map(identity.domain).filter(Boolean))];
+  return {calendarRow:{'Place ID':String(r['Place ID']).trim(),'Place Name':r['Place Name'],Address:r.Address||'',City:r.City||'',State:r.State||'',Zip:r.Zip||''},autoLinkable,contactNames,socialProfiles,address:r.Address||'',state:r.State||'',zip:r.Zip||'',names:[...new Set([norm(r['Place Name']),venueName(r['Place Name']),venueName(r['Place Name']).replace(/ (?:company|co|inc|llc)$/,'')])],domains,phones:[...new Set([r['Phone Number'],...people.flatMap(p=>p.phones.map(x=>x.value))].flatMap(phones))],linkable:counts.get(String(r['Place ID']).trim())===1,id:String(r['Place ID']).trim(),name:r['Place Name'],city:(/^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(String(r.City||'').trim())&&r.Address&&!/\d/.test(r.Address)?[r.Address,r.City]:[r.City,r.State]).filter(Boolean).join(', '),emails:[...new Set(contactEmails)],search:norm(text),date:calendarDate(r['Next Follow Up']),rawDate:r['Next Follow Up']||''};
  });
 }
 // Manual suggestions only: spelling similarity never establishes an automatic link.
@@ -57,16 +57,22 @@ function searchVenues(index,query){
  }
  return results.sort((a,b)=>a.searchScore-b.searchScore||a.name.localeCompare(b.name));
 }
-function matchVenue(index,messages){
- const participants=new Set(),voicePhones=new Set(),subjects=[];
+function emailEvidence(messages){
+ const participants=new Set(),voicePhones=new Set(),subjects=[],calendarEvents=[];
  for(const m of messages||[]){if(m.labelIds?.some(l=>['DRAFT','TRASH'].includes(l)))continue;
-  const headers=m.payload?.headers||[],get=name=>headers.find(h=>h.name.toLowerCase()===name)?.value||'';
+  const headers=m.payload?.headers||[],get=name=>headers.find(h=>h.name.toLowerCase()===name.toLowerCase())?.value||'';
   for(const h of headers)if(['from','to','cc','reply-to'].includes(h.name.toLowerCase()))for(const e of emails(h.value))participants.add(e);
   subjects.push(norm(get('subject')));
   const forwarded=messageText(m.payload).match(/(?:Begin forwarded message:|-{2,}\s*Forwarded message\s*-{2,})([\s\S]{0,3000})/i);
   if(forwarded){const block=forwarded[1].replace(/^\s+/, '').split(/\r?\n\s*\r?\n/)[0];for(const h of block.matchAll(/^(?:From|To|Cc|Reply-To):[ \t]*(.+)$/gim))for(const e of emails(h[1]))participants.add(e);}
 
-  const from=emails(get('from'));
+  const from=(get('from').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).map(e=>e.toLowerCase());
+  // Use the event's structured body and Google's authentication result, never an arbitrary subject mention.
+  if(from.includes('calendar-notification@google.com')&&/^mx\.google\.com;[\s\S]*\bdkim=pass\s+header\.i=@google\.com\b/i.test(get('Authentication-Results'))){
+   const body=messageText(m.payload),title=body.trim().split(/\r?\n/)[0]||'',location=body.match(/(?:^|\n)Location\r?\n([^\r\n]+)/)?.[1]?.trim()||'';
+   if(/^just\s*dee\s*dee\s*music\s+live\s*@\s*/i.test(title)&&location)calendarEvents.push({title,location});
+  }
+
   if(from.some(e=>e.endsWith('@txt.voice.google.com'))&&/^(?:(?:re|fwd?):\s*)*new text message from\b/i.test(get('subject')))for(const p of phones(get('subject')))voicePhones.add(p);
   // Delivery notices carry their recipient outside normal From/To headers.
   if(from.some(e=>/^mailer-daemon@(?:googlemail|google)\.com$/.test(e))){
@@ -74,17 +80,11 @@ function matchVenue(index,messages){
    for(const match of text.matchAll(/(?:Final-Recipient:\s*rfc822;\s*|problem delivering your message to\s+|Your message (?:wasn't delivered|couldn't be delivered) to\s+)([^\s<>]+)/gi))for(const e of emails(match[1]))participants.add(e);
   }
  }
- const participantDomains=new Set([...participants].map(e=>domain(e.split('@')[1])).filter(Boolean));
- const hasExactEmail=index.some(v=>v.emails.some(e=>participants.has(e)));
- const evidence=index.map(v=>({v,reasons:[
-  v.emails.some(e=>participants.has(e))?'exact saved email address':'',
-  !hasExactEmail&&(v.domains||[]).some(d=>participantDomains.has(d))?'saved business email/website domain':'',
-  (v.phones||[]).some(p=>voicePhones.has(p))?'exact Google Voice sender phone':'',
-  (v.names||[venueName(v.name)]).some(n=>n.length>=8&&n.split(' ').length>=2&&subjects.some(subject=>(' '+subject+' ').includes(' '+n+' ')))?'venue name in subject':''
- ].filter(Boolean)})).filter(x=>x.reasons.length);
- const matches=evidence.map(x=>x.v),one=matches.length===1&&matches[0].linkable!==false;
- return {venue:one?matches[0]:null,candidates:matches,reason:one?'Unique match: '+evidence[0].reasons.join(', ')+'.':matches.length>1?'Multiple spreadsheet venues match. Choose the correct place with Link venue.':matches.length===1?'Matching venue has a duplicate Place ID; correct it in the app.':'No reliable saved venue match. Use Link venue to search.'};
+ const identityEmails=[...participants].filter(e=>!/(?:^|[._-])(?:no-?reply|notification|mailer-daemon|calendar-notification)(?:[._@-]|$)/i.test(e)&&!e.endsWith('@google.com')&&!e.endsWith('@googlemail.com'));
+ return {source:'email',calendarEvents,emails:[...participants],phones:[...voicePhones],domains:[...new Set([...participants].map(e=>identity.domain(e.split('@')[1])).filter(Boolean))],subjects,identities:identityEmails.length===1?identityEmails.map(e=>'email:'+e):[],names:[],profiles:[],text:''};
 }
+function matchVenue(index,messages,memory=[]){return identity.resolve(index,emailEvidence(messages),memory);}
+
 function createVenueDirectory({fetchImpl=fetch,now=()=>Date.now()}={}){
  let cached,until=0;
  async function list({fresh=false}={}){if(cached&&!fresh&&now()<until)return cached;const r=await fetchImpl(BRIDGE+'?action=csv',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('Venue search is temporarily unavailable.');const data=parseCsv(await r.text()),headers=data.shift();if(!headers?.includes('Place ID')||!headers.includes('Next Follow Up'))throw Error('Venue spreadsheet headers are unavailable.');cached=indexRows(data.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||'']))));until=now()+60000;return cached;}
@@ -92,4 +92,4 @@ function createVenueDirectory({fetchImpl=fetch,now=()=>Date.now()}={}){
  async function setDate(id,date,expected){const v=await get(id);if(v.date!==expected)throw Error('The venue follow-up changed. Reopen Set follow-up date to review the latest date.');const r=await fetchImpl(BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(25000),body:JSON.stringify({action:'saveVenue',id,rawFields:{'Next Follow Up':date},expectedRawFields:{'Next Follow Up':v.rawDate}})});const result=await r.json();if(!r.ok||!result.ok)throw Error(result.message||'The spreadsheet could not save this date.');until=0;const saved=await get(id);if(saved.date!==date)throw Error('The saved date could not be verified. Reopen the venue before retrying.');return saved;}
  return {list,get,setDate,search:async q=>searchVenues(await list(),q)};
 }
-module.exports={BRIDGE,indexRows,searchVenues,matchVenue,createVenueDirectory};
+module.exports={BRIDGE,indexRows,searchVenues,matchVenue,emailEvidence,createVenueDirectory};
