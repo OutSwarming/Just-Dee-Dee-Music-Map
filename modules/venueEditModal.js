@@ -37,6 +37,21 @@
     let activeRawFields = {};
     let isCreatingVenue = false;
     let sourceReady = false;
+    let savedSnapshot = '';
+    let savePromise = null;
+    let closePromise = null;
+    let editorSession = 0;
+    let createRequestId = '';
+
+    function formSnapshot() {
+        try { return JSON.stringify(collectRawFields()); }
+        catch (_) {
+            const modal = qs('venue-edit-modal');
+            return JSON.stringify(Array.from(modal.querySelectorAll('input,textarea,select')).map(i=>[i.id,i.value,i.checked]));
+        }
+    }
+    function captureSavedState() { savedSnapshot = formSnapshot(); }
+
 
     function qs(id) {
         return document.getElementById(id);
@@ -71,6 +86,8 @@
         const refreshBtn = qs('venue-edit-refresh');
         if (saveBtn) saveBtn.disabled = Boolean(isBusy);
         if (refreshBtn) refreshBtn.disabled = Boolean(isBusy);
+        const fields = qs('venue-edit-source-fields');
+        if (fields) fields.inert = Boolean(isBusy);
     }
 
     function setEditorMode(isCreating) {
@@ -97,15 +114,32 @@
         if (firstInput) firstInput.focus({ preventScroll: true });
     }
 
-    function closeModal() {
+    function hideModal() {
         const modal = qs('venue-edit-modal');
         if (!modal) return;
         modal.hidden = true;
         document.body.classList.remove('venue-edit-open');
+        editorSession++;
+        sourceReady = false;
         activeVenue = null;
         activeRawFields = {};
         isCreatingVenue = false;
         setEditorMode(false);
+    }
+
+    function closeModal() {
+        if (closePromise) return closePromise;
+        closePromise = (async () => {
+            const modal = qs('venue-edit-modal');
+            if (!modal || modal.hidden) return true;
+            if (savePromise && !(await savePromise)) return false;
+            if (sourceReady && formSnapshot() !== savedSnapshot) {
+                if (!(await saveVenueEdit())) return false;
+            }
+            hideModal();
+            return true;
+        })().finally(() => { closePromise = null; });
+        return closePromise;
     }
 
     function getSchemaOptions(type) {
@@ -262,11 +296,12 @@
     const contactCodec = window.JDDMContacts;
     function readContacts(fields) { return contactCodec.read(fields); }
     function contactRow(key, item, index, personIndex) {
+        if (key === 'phones') item = {...item,value:contactCodec.formatPhone(item.value)};
         const kind = key === 'emails' ? 'Email' : key === 'phones' ? 'Phone' : 'Other contact';
         const id = `venue-contact-${personIndex}-${key}-${index}`;
         return `<div class="venue-contact-row" data-contact-row data-method-index="${index}">
             ${key === 'others' ? `<input class="venue-contact-kind" data-contact-kind aria-label="Contact type" placeholder="Type (Facebook, website…)" value="${escapeHtml(item.type || '')}">` : `<span class="venue-contact-number">${index+1}</span>`}
-            <input id="${id}" type="${key === 'emails' ? 'email' : key === 'phones' ? 'tel' : 'text'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index+1}" placeholder="${key === 'emails' ? 'name@example.com' : key === 'phones' ? 'Phone number' : 'Address, username, link, or instructions'}">
+            <input id="${id}" type="${key === 'emails' ? 'email' : key === 'phones' ? 'tel' : 'text'}" data-contact-value data-original-value="${escapeHtml(item.value)}" value="${escapeHtml(item.value)}" aria-label="${kind} ${index+1}" placeholder="${key === 'emails' || key === 'phones' ? 'Not known yet — optional' : 'Not known yet — link, username, or instructions'}">
             <details class="venue-contact-notes"><summary class="venue-contact-bubble" aria-label="Notes for ${kind.toLowerCase()} ${index+1}">${item.note ? 'Notes •' : 'Notes'}</summary><div class="venue-contact-popover"><label for="${id}-note">${kind} notes</label><textarea id="${id}-note" data-contact-note rows="3">${escapeHtml(item.note)}</textarea><button type="button" data-note-done>Done</button></div></details>
             ${index === 0 ? `<button type="button" class="venue-contact-add" data-contact-add="${key}">Add</button>` : '<button type="button" class="venue-contact-remove" data-contact-remove aria-label="Remove this method">×</button>'}
         </div>`;
@@ -274,20 +309,20 @@
     function personCard(person, index) {
         return `<section class="venue-person-card" data-person-index="${index}">
             <div class="venue-person-heading"><strong>Contact ${index+1}</strong><button type="button" data-person-remove class="venue-contact-remove">Remove contact</button></div>
-            <label>Name / person or venue<input data-person-name type="text" aria-label="Contact name" placeholder="Any name or description" value="${escapeHtml(person.name)}"></label>
+            <label>Name / person or venue (optional)<input data-person-name type="text" aria-label="Contact name" placeholder="Name not known yet — add when known" value="${escapeHtml(person.name)}"></label>
             <label>Preferred method / contact type<input data-person-preferred type="text" aria-label="Preferred contact method" placeholder="Email, text, call, stop in, or anything else" value="${escapeHtml(person.preferredMethod)}"></label>
             <details class="venue-person-notes"><summary class="venue-contact-bubble">${person.notes ? 'Contact notes •' : 'Contact notes'}</summary><textarea data-person-notes aria-label="Contact notes" rows="3">${escapeHtml(person.notes)}</textarea></details>
             ${['emails','phones','others'].map(key=>`<div class="venue-contact-group" data-contact-group="${key}"><label>${key === 'emails' ? 'Email addresses' : key === 'phones' ? 'Phone numbers' : 'Other ways to contact'}</label><div data-contact-rows>${(person[key].length ? person[key] : [{value:'',note:''}]).map((item,i)=>contactRow(key,item,i,index)).join('')}</div></div>`).join('')}
         </section>`;
     }
     function renderPeople(data) {
-        return `<div class="venue-edit-field--wide venue-people"><div data-people>${(data.contacts.length ? data.contacts : [contactCodec.empty()]).map(personCard).join('')}</div><button type="button" class="venue-contact-add" data-person-add>Add contact</button>${data.legacyBookingContact ? `<label>Previous booking notes<textarea data-legacy-booking rows="3">${escapeHtml(data.legacyBookingContact)}</textarea></label>` : ''}</div>`;
+        return `<div class="venue-edit-field--wide venue-people"><p class="venue-edit-help">Fill in what you know. Names, emails, and phone numbers can be left blank. Notes stay with each contact.</p><div data-people>${(data.contacts.length ? data.contacts : [contactCodec.empty()]).map(personCard).join('')}</div><button type="button" class="venue-contact-add" data-person-add>Add contact</button>${data.legacyBookingContact ? `<label>Previous booking notes<textarea data-legacy-booking rows="3">${escapeHtml(data.legacyBookingContact)}</textarea></label>` : ''}</div>`;
     }
     function collectContacts(modal) {
         const contacts = Array.from(modal.querySelectorAll('[data-person-index]')).map(card=>{
             const person={name:clean(card.querySelector('[data-person-name]').value),preferredMethod:clean(card.querySelector('[data-person-preferred]').value),notes:clean(card.querySelector('[data-person-notes]').value)};
             card.querySelectorAll('[data-contact-group]').forEach(group=>{
-                person[group.dataset.contactGroup]=Array.from(group.querySelectorAll('[data-contact-row]')).map(row=>({value:clean(row.querySelector('[data-contact-value]').value),note:clean(row.querySelector('[data-contact-note]').value),...(group.dataset.contactGroup === 'others' ? {type:clean(row.querySelector('[data-contact-kind]').value)} : {})})).filter(i=>i.value || i.note || i.type);
+                person[group.dataset.contactGroup]=Array.from(group.querySelectorAll('[data-contact-row]')).map(row=>({value:group.dataset.contactGroup === 'phones' ? contactCodec.formatPhone(row.querySelector('[data-contact-value]').value) : clean(row.querySelector('[data-contact-value]').value),note:clean(row.querySelector('[data-contact-note]').value),...(group.dataset.contactGroup === 'others' ? {type:clean(row.querySelector('[data-contact-kind]').value)} : {})})).filter(i=>i.value || i.note || i.type);
             });
             return person;
         });
@@ -553,8 +588,11 @@
 
     async function loadSourceRow() {
         if (isCreatingVenue) return;
+        const session = editorSession;
+        const venue = activeVenue;
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
+            sourceReady = false;
             renderRawFields(buildInitialRawFields(activeVenue));
             setStatus('Spreadsheet save is not connected yet. Deploy the Firebase spreadsheet bridge and paste its URL into config/firebaseConfig.example.js.', 'warning');
             return;
@@ -564,13 +602,16 @@
         setBusy(true);
         setStatus('Loading source spreadsheet row...', 'neutral');
         const slowTimer = setTimeout(() => {
+            if (session !== editorSession) return;
             setStatus('Still checking Google Sheets. A cold cloud connection can take a little while.', 'neutral');
         }, 1800);
         const longTimer = setTimeout(() => {
+            if (session !== editorSession) return;
             setStatus('Still loading the spreadsheet row. You can wait here; the map will keep using the current data until Sheets responds.', 'neutral');
         }, 6000);
         try {
-            const result = await service.getVenue(activeVenue.id);
+            const result = await service.getVenue(venue.id);
+            if (session !== editorSession) return;
             if (result && result.rawFields) {
                 renderRawFields({
                     ...buildInitialRawFields(activeVenue),
@@ -580,20 +621,30 @@
                 renderRawFields(buildInitialRawFields(activeVenue));
             }
             sourceReady = true;
+            captureSavedState();
             setStatus('CRM fields loaded from the spreadsheet.', 'success');
         } catch (error) {
+            if (session !== editorSession) return;
             console.error('[venueEditModal] failed to load source row:', error);
             renderRawFields(buildInitialRawFields(activeVenue));
             setStatus(error.message || 'Could not load source spreadsheet row.', 'error');
         } finally {
-            setBusy(!sourceReady);
-            if (qs('venue-edit-refresh')) qs('venue-edit-refresh').disabled = false;
+            if (session === editorSession) {
+                setBusy(!sourceReady);
+                if (qs('venue-edit-refresh')) qs('venue-edit-refresh').disabled = false;
+            }
             clearTimeout(slowTimer);
             clearTimeout(longTimer);
         }
     }
 
-    async function saveVenueEdit() {
+    function saveVenueEdit() {
+        if (savePromise) return savePromise;
+        savePromise = performSave().finally(() => { savePromise = null; });
+        return savePromise;
+    }
+
+    async function performSave() {
         const service = getSpreadsheetService();
         if (!activeVenue) return;
         if (!service || !service.isConfigured()) {
@@ -604,10 +655,11 @@
         if (!sourceReady) { setStatus('Reload the spreadsheet row before saving.', 'error'); return; }
         const modal = qs('venue-edit-modal');
         const invalid = Array.from(modal.querySelectorAll('input')).find(input => !input.checkValidity() && !(input.hasAttribute('data-contact-value') && input.value === input.dataset.originalValue));
-        if (invalid) { invalid.reportValidity(); return; }
+        if (invalid) { setStatus('Please finish the highlighted field. Your changes are still here.', 'error'); invalid.reportValidity(); return false; }
         let rawFields;
         try { rawFields = collectRawFields(); }
         catch (error) { setStatus(error.message, 'error'); return; }
+        const submittedSnapshot = formSnapshot();
         const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name)) {
             setStatus('Place Name is required.', 'error');
@@ -617,10 +669,21 @@
         setBusy(true);
         setStatus('Saving to spreadsheet...', 'neutral');
 
+        const wasCreating = isCreatingVenue;
         try {
-            const result = isCreatingVenue
-                ? await service.createVenue({ rawFields })
+            let result = wasCreating
+                ? await service.createVenue({ rawFields, requestId: createRequestId })
                 : await service.saveVenue({ id: activeVenue.id, rawFields });
+            if (wasCreating && result?.venue?.['Place ID']) {
+                activeVenue = {...activeVenue, id:result.venue['Place ID']};
+                isCreatingVenue = false;
+                setEditorMode(false);
+                // A retry can replay a create that succeeded before its response was lost.
+                // Apply any edits made since that attempt to the same venue.
+                if (result.replayed && Object.entries(rawFields).some(([h,v])=>v !== result.rawFields?.[h])) {
+                    result = await service.saveVenue({id:activeVenue.id,rawFields});
+                }
+            }
 
             if (window.JDDM_VENUE_CSV_URL && result && result.csv && typeof window.BARK.parseCSVString === 'function') {
                 window.BARK.parseCSVString(result.csv, { cacheTime: Date.now(), source: 'Spreadsheet Save' });
@@ -632,35 +695,38 @@
                         id: (result && result.venue && result.venue['Place ID']) || fields.id || (activeVenue && activeVenue.id)
                     }
                 );
-                if (!isCreatingVenue || (result && result.hasCoordinates !== false)) upsertLocalVenue(resultFields);
+                if (!wasCreating || (result && result.hasCoordinates !== false)) upsertLocalVenue(resultFields);
                 activeVenue = resultFields;
                 refreshSpreadsheetMapInBackground();
             }
 
-            if (isCreatingVenue && result && result.venue && (!activeVenue || !activeVenue.id)) {
+            if (wasCreating && result && result.venue) {
                 activeVenue = buildVenueFromRawFields(result.rawFields || result.venue, fields);
             }
 
-            const coordinateNote = isCreatingVenue && result && result.hasCoordinates === false
+            const coordinateNote = wasCreating && result && result.hasCoordinates === false
                 ? ' The row was added, but it needs a complete address or coordinates before a pin can appear.'
                 : '';
             const syncMessage = window.JDDM_VENUE_CSV_URL
-                ? `${isCreatingVenue ? 'Place added' : 'Saved'} to spreadsheet. The map is refreshing in the background.${coordinateNote}`
+                ? `${wasCreating ? 'Place added' : 'Saved'} to spreadsheet. The map is refreshing in the background.${coordinateNote}`
                 : 'Saved to spreadsheet. This pin is updated locally; full sheet sync can be enabled after the live sheet has coordinates.';
             setStatus(syncMessage, 'success');
 
             // Signal the map (e.g. Ohio place search) that a place is now official,
             // so its blue candidate pin can be cleared.
-            if (isCreatingVenue) {
+            if (wasCreating) {
                 try {
                     document.dispatchEvent(new CustomEvent('jddm:venue-created', { detail: { name: clean(fields.name) } }));
                 } catch (dispatchError) { /* ignore */ }
                 isCreatingVenue = false;
                 setEditorMode(false);
             }
+            savedSnapshot = submittedSnapshot;
+            return true;
         } catch (error) {
             console.error('[venueEditModal] save failed:', error);
-            setStatus(error.message || 'Save failed. Check the Apps Script deployment and try again.', 'error');
+            setStatus('Not saved yet. ' + (error.message || 'Check your connection and try again.') + ' Your changes are still here; press Save or X to retry.', 'error');
+            return false;
         } finally {
             setBusy(false);
         }
@@ -673,8 +739,12 @@
         const modal = qs('venue-edit-modal');
         if (!modal) return;
 
+        modal.addEventListener('focusout', event => {
+            if (event.target.matches('[data-contact-group="phones"] [data-contact-value]')) event.target.value = contactCodec.formatPhone(event.target.value);
+        });
         modal.addEventListener('click', event => {
             const target = event.target;
+            if (savePromise && !target.closest('[data-close-venue-edit]')) return;
             if (target.matches('[data-person-add]')) {
                 const people=modal.querySelector('[data-people]');
                 const next=Math.max(-1,...Array.from(people.children).map(p=>Number(p.dataset.personIndex)))+1;
@@ -702,7 +772,7 @@
                 try { event.preventDefault(); target.showPicker(); } catch (_) { /* Keyboard date entry remains available. */ }
             }
 
-            if (event.target && event.target.dataset && event.target.dataset.closeVenueEdit === 'true') {
+            if (target.closest('[data-close-venue-edit="true"]')) {
                 closeModal();
             }
         });
@@ -711,10 +781,18 @@
         if (saveBtn) saveBtn.addEventListener('click', saveVenueEdit);
 
         const refreshBtn = qs('venue-edit-refresh');
-        if (refreshBtn) refreshBtn.addEventListener('click', loadSourceRow);
+        if (refreshBtn) refreshBtn.addEventListener('click', async () => {
+            if (sourceReady && formSnapshot() !== savedSnapshot && !(await saveVenueEdit())) return;
+            await loadSourceRow();
+        });
 
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && modal && !modal.hidden) closeModal();
+            if (event.key === 'Escape' && modal && !modal.hidden) {
+                const note = event.target.closest && event.target.closest('details[open]');
+                if (note) { note.open = false; return; }
+                event.preventDefault();
+                closeModal();
+            }
         });
     }
 
@@ -724,17 +802,25 @@
             return;
         }
 
+        if (qs('venue-edit-modal') && !qs('venue-edit-modal').hidden && !(await closeModal())) return;
+        editorSession++;
+        sourceReady = false;
         isCreatingVenue = false;
         setEditorMode(false);
         activeVenue = { ...venue };
         renderRawFields(buildInitialRawFields(activeVenue));
+        captureSavedState();
+        setBusy(true);
         bindModalEvents();
         setStatus('', 'neutral');
         openModal();
         await loadSourceRow();
     }
 
-    function openNewVenueEditor(prefill) {
+    async function openNewVenueEditor(prefill) {
+        if (qs('venue-edit-modal') && !qs('venue-edit-modal').hidden && !(await closeModal())) return;
+        editorSession++;
+        createRequestId = `contact-create-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const service = getSpreadsheetService();
         if (!service || !service.isConfigured()) {
             alert('The spreadsheet bridge must be connected before adding a place.');
@@ -753,6 +839,7 @@
         setEditorMode(true);
         renderRawFields({ ...buildNewVenueRawFields(), ...prefillFields });
         bindModalEvents();
+        captureSavedState();
         const prefilled = Object.keys(prefillFields).length > 0;
         setStatus(prefilled
             ? 'Pre-filled from Google Places. Review the details, then add the place to the map.'

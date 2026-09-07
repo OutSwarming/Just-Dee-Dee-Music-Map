@@ -8,6 +8,17 @@
     const clean = value => String(value ?? '').trim();
     const emailPattern = /[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
     const empty = () => ({name:'', preferredMethod:'', notes:'', emails:[], phones:[], others:[]});
+    function formatPhone(value) {
+        const text = clean(value);
+        const extension = text.match(/\s*(?:ext(?:ension)?\.?|x|#)\s*(\d+)$/i);
+        const base = extension ? text.slice(0, extension.index).trim() : text;
+        if (!/^[+\d\s().-]+$/.test(base)) return text;
+        const digits = base.replace(/\D/g, '');
+        if (base.startsWith('+') && !base.startsWith('+1')) return text;
+        const national = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+        if (national.length !== 10 || (digits.length !== 10 && digits.length !== 11)) return text;
+        return `(${national.slice(0,3)}) ${national.slice(3,6)}-${national.slice(6)}${extension ? ' ext. ' + extension[1] : ''}`;
+    }
     function normalize(data) {
         if (!data || data.version !== 2 || !Array.isArray(data.contacts)) throw Error('Contact groups could not be read. Reload before saving.');
         const contacts = data.contacts.map(person => {
@@ -16,7 +27,6 @@
             for (const key of ['emails','phones','others']) {
                 if (person[key] !== undefined && !Array.isArray(person[key])) throw Error('Invalid contact methods.');
                 result[key] = (person[key] || []).map(item => ({value:clean(item.value),note:clean(item.note),...(key === 'others' ? {type:clean(item.type)} : {})})).filter(item=>item.value || item.note || item.type);
-                if (result[key].some(item=>!item.value)) throw Error('Enter a value for each contact method, or remove it.');
             }
             return result;
         }).filter(p=>p.name || p.preferredMethod || p.notes || p.emails.length || p.phones.length || p.others.length);
@@ -48,10 +58,11 @@
                 if (!stored.contacts.length) stored.contacts.push(empty());
                 if (key === 'name' || key === 'preferredMethod') stored.contacts[0][key] = clean(fields[header]);
                 else {
-                    const owner = stored.contacts.find(p=>p[key].length) || stored.contacts[0];
-                    const previous = owner[key][0] || {note:''};
-                    if (clean(fields[header])) owner[key][0] = {...previous,value:clean(fields[header])};
-                    else owner[key].shift();
+                    const owner = stored.contacts.find(p=>p[key].some(i=>i.value)) || stored.contacts[0];
+                    const index = Math.max(0,owner[key].findIndex(i=>i.value));
+                    const previous = owner[key][index] || {note:''};
+                    if (clean(fields[header]) || previous.note) owner[key][index] = {...previous,value:clean(fields[header])};
+                    else owner[key].splice(index,1);
                 }
             }
             return stored;
@@ -81,8 +92,8 @@
     function summary(data) {
         const first = data.contacts[0] || empty();
         return {'Contact Name':first.name,'Contact Type':first.preferredMethod,
-            'Email/Contact':data.contacts.flatMap(p=>p.emails)[0]?.value || '',
-            'Phone Number':data.contacts.flatMap(p=>p.phones)[0]?.value || ''};
+            'Email/Contact':data.contacts.flatMap(p=>p.emails).find(i=>i.value)?.value || '',
+            'Phone Number':data.contacts.flatMap(p=>p.phones).find(i=>i.value)?.value || ''};
     }
     function encode(data, baseline) {
         const result = normalize(data);
@@ -94,7 +105,7 @@
     function display(value) {
         const data = decode(value);
         if (!data) return clean(value);
-        return [data.legacyBookingContact, ...data.contacts.map(p=>[p.name,p.preferredMethod,...p.emails.map(i=>i.value),...p.phones.map(i=>i.value),...p.others.map(i=>`${i.type || 'Other'}: ${i.value}`)].filter(Boolean).join(' | '))].filter(Boolean).join('\n');
+        return [data.legacyBookingContact, ...data.contacts.map(p=>[p.name,p.preferredMethod,...p.emails.map(i=>i.value),...p.phones.map(i=>formatPhone(i.value)),...p.others.map(i=>`${i.type || 'Other'}: ${i.value}`)].filter(Boolean).join(' | '))].filter(Boolean).join('\n');
     }
-    return {PREFIX,empty,normalize,decode,read,summary,encode,display};
+    return {PREFIX,empty,normalize,decode,read,summary,encode,display,formatPhone};
 });

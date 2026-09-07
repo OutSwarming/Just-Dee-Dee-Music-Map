@@ -27,7 +27,7 @@ function loadBookingModules() {
     context.global = context;
 
     vm.createContext(context);
-    ['modules/bookingSchema.js', 'modules/bookingEmailTemplates.js'].forEach((relativePath) => {
+    ['functions/contactRecords.js', 'modules/bookingSchema.js', 'modules/bookingEmailTemplates.js'].forEach((relativePath) => {
         vm.runInContext(
             fs.readFileSync(path.join(ROOT, relativePath), 'utf8'),
             context,
@@ -190,4 +190,13 @@ test('template options expose manual choices and explicit template overrides', (
     const params = new URLSearchParams(href.split('?')[1]);
     assert.match(params.get('subject'), /Following up/);
     assert.match(params.get('body'), /Follow Up Room/);
+});
+
+test('email drafts greet the email owner, not a different phone-only contact', () => {
+ const bark=loadBookingModules(),codec=require('../functions/contactRecords');
+ const people={version:2,contacts:[{...codec.empty(),name:'Pat phone only',phones:[{value:'3305550100',note:''}]},{...codec.empty(),name:'Jamie email only',emails:[{value:'jamie@example.com',note:''}]}]};
+ const venue={contactName:'Pat phone only',contactEmail:'jamie@example.com',contactRecord:codec.encode(people)};
+ assert.equal(bark.bookingEmailTemplates.buildContext(venue).contactName,'Jamie email only');
+ people.contacts[1].name='';venue.contactRecord=codec.encode(people);
+ assert.equal(bark.bookingEmailTemplates.buildContext(venue).contactName,'there');
 });

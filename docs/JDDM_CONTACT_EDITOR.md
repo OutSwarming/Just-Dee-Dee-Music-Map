@@ -23,3 +23,13 @@ The old Apps Script sync ran destructive spreadsheet setup every five minutes. T
 ## Verification
 
 `npm run test:booking`, `npm test --prefix functions`, and `node tests/venueEditModal.browser.cjs` cover contact storage, legacy migration, Add/Edit, multiple people, notes, removal, calendars and desktop/mobile layout. Live verification creates a temporary marked venue, edits multiple people and notes, runs the deployed calendar sync, checks fresh spreadsheet reads and Discord new-place/follow-up confirmations, and removes the test row.
+
+## Incomplete contacts and saving on close (v20)
+
+Names and methods are optional. A person can have only a phone, only an email, or notes while the missing method remains blank. Placeholders describe missing information without inserting fake values into the spreadsheet. Primary phone/email summaries skip empty methods; email greetings use the name of the email owner rather than a different phone-only contact.
+
+Complete US numbers display and save as (330) 555-0123, dropping an optional leading 1 and preserving extensions. Incomplete or ambiguous legacy text remains intact rather than inventing digits.
+
+X, the backdrop and Escape save changed fields before closing. Failed saves and invalid fields leave the editor open with the draft intact. Unchanged editors and untouched new-place forms close without writing. Duplicate close requests and Save followed by X share a single in-flight save. Fields cannot change during that write. A new-place retry reuses its request ID and applies subsequent edits to the same created venue if the original response was lost. Late loading responses cannot overwrite another editor. Reload saves current edits before fetching fresh data.
+
+`node tests/venueEditModal.edges.browser.cjs` covers fragmented contacts, unknown names, missing-method notes, formatting, save-on-close, failed saves/retries, repeated X, Save+X, empty new forms, invalid email, interrupted create responses and stale loads.

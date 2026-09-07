@@ -161,7 +161,7 @@ function normalizeCSVRow(rawItem, rowIndex = 0) {
         contactDetails: getCSVValueFromAny(row, ['Contact Details', 'contactDetails']),
         contactName: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_NAME),
         contactEmail: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_EMAIL),
-        contactPhone: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE),
+        contactPhone: window.JDDMContacts ? window.JDDMContacts.formatPhone(getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE)) : getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_PHONE),
         contactType: getCSVValueFromAny(row, CSV_COLUMNS.CONTACT_TYPE),
         facebookUrl: getCSVValueFromAny(row, CSV_COLUMNS.FACEBOOK_URL),
         instagramUrl: getCSVValueFromAny(row, CSV_COLUMNS.INSTAGRAM_URL),

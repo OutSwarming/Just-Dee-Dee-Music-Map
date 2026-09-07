@@ -470,3 +470,10 @@ test('gateway expands the current tab after a warm instance cached a replaced Sh
     await gateway.ensureColumns('Sheet1',29);
     assert.equal(updates.length,1,'already expanded tab is not rewritten');
 });
+
+test('fragmented people and missing-method notes save and clear within 28 columns',async()=>{
+ const codec=require('../contactRecords');const gateway=createFakeGateway({Sheet1:[CANONICAL_HEADERS.slice()]});const service=createJddmSpreadsheetBridgeService({gateway});
+ const data={version:2,contacts:[{...codec.empty(),phones:[{value:'(330) 555-0123',note:'Only phone known'}],emails:[{value:'',note:'Ask for email'}]},{...codec.empty(),emails:[{value:'venue@example.com',note:'Only email known'}],phones:[{value:'',note:'Ask for phone'}]}]};
+ let result=await service.route({action:'createVenue',rawFields:{'Place ID':'fragmented','Place Name':'Fragmented','Booking Contact':codec.encode(data)}});assert.equal(result.ok,true);assert.equal(result.rawFields['Contact Name'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert.equal(result.rawFields['Phone Number'],'(330) 555-0123');assert.deepEqual(codec.read(result.rawFields).contacts,data.contacts);
+ data.contacts.shift();result=await service.route({action:'saveVenue',id:'fragmented',rawFields:{'Booking Contact':codec.encode(data)}});assert.equal(result.rawFields['Phone Number'],'');assert.equal(result.rawFields['Email/Contact'],'venue@example.com');assert.equal(codec.read(result.rawFields).contacts[0].phones[0].note,'Ask for phone');assert.equal(gateway.sheets.Sheet1[0].length,28);assert.equal(gateway.sheets.Sheet1[1].length,28);
+});

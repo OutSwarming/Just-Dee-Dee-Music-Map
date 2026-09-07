@@ -148,9 +148,12 @@
 
     function buildContext(venue = {}) {
         const booking = venue.booking || {};
+        const email = clean(booking.contactEmail || venue.contactEmail);
+        const contacts = window.JDDMContacts?.decode(venue.contactRecord || '');
+        const owner = contacts?.contacts.find(p=>p.emails.some(i=>i.value.toLowerCase() === email.toLowerCase()));
         return {
             venueName: clean(venue.name) || 'your venue',
-            contactName: clean(booking.contactName || venue.contactName) || 'there',
+            contactName: owner ? (clean(owner.name) || 'there') : (clean(booking.contactName || venue.contactName) || 'there'),
             venueType: clean(venue.venueType || venue.category) || 'venue',
             city: clean(venue.city) || 'Northeast Ohio',
             bookingUrl: clean(booking.bookingUrl || venue.bookingUrl),

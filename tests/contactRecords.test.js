@@ -12,5 +12,21 @@ test('legacy free text becomes an Other method; email comments and AC notes are 
 });
 test('empty contacts clear summaries; invalid or oversized records fail safely',()=>{
  assert.deepEqual(codec.summary(codec.normalize({version:2,contacts:[]})),{'Contact Name':'','Contact Type':'','Email/Contact':'','Phone Number':''});
- assert.throws(()=>codec.decode(codec.PREFIX+'broken'));assert.throws(()=>codec.encode({version:2,contacts:[{...codec.empty(),emails:[{value:'',note:'orphan'}]}]}));assert.throws(()=>codec.encode({version:2,contacts:[{...codec.empty(),notes:'x'.repeat(45000)}]}));
+ assert.throws(()=>codec.decode(codec.PREFIX+'broken'));assert.equal(codec.decode(codec.encode({version:2,contacts:[{...codec.empty(),emails:[{value:'',note:'Ask for address'}]}]})).contacts[0].emails[0].note,'Ask for address');assert.throws(()=>codec.encode({version:2,contacts:[{...codec.empty(),notes:'x'.repeat(45000)}]}));
+});
+
+test('US phones format consistently without changing partial or ambiguous legacy values',()=>{
+ for(const input of ['3305550123','330-555-0123','(330)555.0123','1 330 555 0123','+1 (330) 555-0123']) assert.equal(codec.formatPhone(input),'(330) 555-0123');
+ for(const suffix of ['x2',' ext 2',' ext. 2',' extension 2',' #2']) assert.equal(codec.formatPhone('3305550123'+suffix),'(330) 555-0123 ext. 2');
+ for(const input of ['','330','216216216','Call front desk','330-555-0123 / 440-555-0199'])assert.equal(codec.formatPhone(input),input);
+ assert.equal(codec.formatPhone(codec.formatPhone('13305550123')),'(330) 555-0123');
+});
+test('email-only, phone-only, unnamed and notes-only contacts keep their own methods',()=>{
+ const data={version:2,contacts:[{...codec.empty(),emails:[{value:'unknown@example.com',note:'No name known'}]},{...codec.empty(),name:'Pat',phones:[{value:'(330) 555-0123',note:'Mobile'}]},{...codec.empty(),notes:'Ask for booking contact'},{...codec.empty()}]};
+ const stored=codec.decode(codec.encode(data));assert.equal(stored.contacts.length,3);assert.equal(stored.contacts[0].phones.length,0);assert.equal(stored.contacts[1].emails.length,0);assert.equal(stored.contacts[2].notes,'Ask for booking contact');assert.equal(codec.summary(stored)['Phone Number'],'(330) 555-0123');assert.equal(codec.summary(stored)['Email/Contact'],'unknown@example.com');
+});
+
+test('missing-method notes survive and primary values come from the contact who has them',()=>{
+ const data={version:2,contacts:[{...codec.empty(),name:'Phone only',emails:[{value:'',note:'Need email later'}],phones:[{value:'(330) 555-0123',note:''}]},{...codec.empty(),name:'Email only',emails:[{value:'known@example.com',note:'Booking'}]}]};
+ const fields={...codec.summary(data),'Booking Contact':codec.encode(data)};assert.equal(fields['Email/Contact'],'known@example.com');fields['Email/Contact']='changed@example.com';const read=codec.read(fields);assert.equal(read.contacts[0].emails[0].value,'');assert.equal(read.contacts[0].emails[0].note,'Need email later');assert.equal(read.contacts[1].emails[0].value,'changed@example.com');
 });
