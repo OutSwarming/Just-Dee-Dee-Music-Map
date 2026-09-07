@@ -258,6 +258,24 @@
         return `<input id="${id}" data-source-header="${escapeHtml(header)}" type="text" value="${escapeHtml(value)}">`;
     }
 
+    function legacyContacts(key, legacy) {
+        if (!legacy) return [];
+        if (key === 'emails') {
+            const pattern = /[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+            const emails = legacy.match(pattern) || [];
+            if (emails.length === 1) {
+                return [{ value: emails[0], note: legacy.replace(emails[0], '').replace(/^mailto:/i, '').replace(/^[\s,;<>]+|[\s,;<>]+$/g, '') }];
+            }
+            const pieces = legacy.split(/[,;\n]+/).map(clean).filter(Boolean);
+            if (emails.length > 1 && pieces.every(piece => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(piece))) {
+                return pieces.map(value => ({ value, note: '' }));
+            }
+            // Ambiguous legacy free text remains intact instead of guessing contacts.
+            return [{ value: legacy, note: '' }];
+        }
+        return legacy.split(/[;\n]+/).map(value => ({ value: clean(value), note: '' })).filter(item => item.value);
+    }
+
     function readContacts(fields) {
         let details = {};
         if (clean(fields['Contact Details'])) {
@@ -271,7 +289,7 @@
             // A direct spreadsheet edit to the primary contact takes precedence, while
             // retaining every saved alternate and its notes.
             if (stored.length && legacy !== stored[0].value) stored[0] = { ...stored[0], value: legacy };
-            const rows = stored.length ? stored : legacy.split(key === 'emails' ? /[,;\n]+/ : /[;\n]+/).map(value => ({ value: clean(value), note: '' })).filter(item => item.value);
+            const rows = stored.length ? stored : legacyContacts(key, legacy);
             result[key] = rows.length ? rows : [{ value: '', note: '' }];
         }
         return result;
@@ -707,7 +725,7 @@
                 notes.open = false;
             }
             if (target.matches('input[type="date"]') && target.showPicker) {
-                try { target.showPicker(); } catch (_) { /* Keyboard date entry remains available. */ }
+                try { event.preventDefault(); target.showPicker(); } catch (_) { /* Keyboard date entry remains available. */ }
             }
 
             if (event.target && event.target.dataset && event.target.dataset.closeVenueEdit === 'true') {

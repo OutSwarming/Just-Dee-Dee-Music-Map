@@ -310,3 +310,12 @@ test('multiple contacts preserve individual punctuation and multiline notes', ()
     assert.deepEqual(reread.emails[1],details.emails[1]);
     assert.equal(modal.buildVenueFromRawFields(fields).contactDetails,fields['Contact Details']);
 });
+
+test('legacy availability notes are attached to the email instead of creating a fake address', () => {
+    const modal=loadVenueEditModal();
+    const read=plain(modal.readContacts({'Email/Contact':'kristin@example.com tues,wed 4pm'}));
+    assert.deepEqual(read.emails,[{value:'kristin@example.com',note:'tues,wed 4pm'}]);
+    const multiple=plain(modal.readContacts({'Email/Contact':'one@example.com, two@example.com'}));
+    assert.deepEqual(multiple.emails,[{value:'one@example.com',note:''},{value:'two@example.com',note:''}]);
+    assert.equal(modal.readContacts({'Email/Contact':'Use website, booking page'}).emails[0].value,'Use website, booking page');
+});
