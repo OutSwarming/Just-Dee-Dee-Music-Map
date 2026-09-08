@@ -339,3 +339,16 @@ test('legacy availability notes are attached to the email instead of creating a 
     assert.deepEqual(multiple.emails,[{value:'one@example.com',note:''},{value:'two@example.com',note:''}]);
     assert.equal(modal.readContacts({'Email/Contact':'Use website, booking page'}).contacts[0].others[0].value,'Use website, booking page');
 });
+
+
+test('save patch compares against the rendered baseline and keeps contact summaries together', () => {
+    const modal = loadVenueEditModal();
+    const baseline = {Status:'Played in the Past', Notes:'Original', 'Booking Contact':'normalized contacts', 'Contact Name':'Drew', 'Email/Contact':'drew@example.com', 'Phone Number':'(330) 555-0123', 'Contact Type':''};
+    assert.deepEqual(plain(modal.changedFormFields({...baseline, Notes:'New note'}, baseline)), {Notes:'New note'});
+    assert.deepEqual(plain(modal.changedFormFields(baseline, baseline)), {});
+    const contactEdit = {...baseline, 'Booking Contact':'edited contacts'};
+    const patch = plain(modal.changedFormFields(contactEdit, baseline));
+    assert.deepEqual(Object.keys(patch).sort(), ['Booking Contact','Contact Name','Contact Type','Email/Contact','Phone Number']);
+    assert.equal(patch['Email/Contact'], 'drew@example.com');
+    assert.deepEqual(plain(modal.changedFormFields({...baseline, Notes:''}, baseline)), {Notes:''});
+});

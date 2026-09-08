@@ -38,6 +38,7 @@
     let isCreatingVenue = false;
     let sourceReady = false;
     let savedSnapshot = '';
+    let savedFormFields = {};
     let savePromise = null;
     let closePromise = null;
     let editorSession = 0;
@@ -52,7 +53,21 @@
             return JSON.stringify(Array.from(modal.querySelectorAll('input,textarea,select')).map(i=>[i.id,i.value,i.checked]));
         }
     }
-    function captureSavedState() { savedSnapshot = formSnapshot(); }
+    function captureSavedState() {
+        savedFormFields = collectRawFields();
+        savedSnapshot = formSnapshot();
+    }
+
+    function changedFormFields(fields, baseline) {
+        const changed = Object.fromEntries(Object.entries(fields).filter(([header, value]) => value !== baseline[header]));
+        // The envelope and its plain-text summaries describe the same contacts.
+        // Guard them together, including summary cells edited directly in Sheets.
+        const contactHeaders = ['Booking Contact', 'Contact Name', 'Email/Contact', 'Phone Number', 'Contact Type'];
+        if (contactHeaders.some(header => Object.prototype.hasOwnProperty.call(changed, header))) {
+            contactHeaders.forEach(header => { if (header in fields) changed[header] = fields[header]; });
+        }
+        return changed;
+    }
 
 
     function qs(id) {
@@ -149,14 +164,15 @@
         closePromise = (async () => {
             const modal = qs('venue-edit-modal');
             if (!modal || modal.hidden) return true;
-            let failed = false;
+            let failed = draftConflict;
             if (savePromise) failed = !(await savePromise);
             while (sourceReady && (failed || formSnapshot() !== savedSnapshot)) {
                 const choice = await confirmAction(failed ? 'Changes are not saved' : 'Save changes before closing?',
-                    failed ? 'Saving did not finish. Your changes are still here. Retry, keep editing, or discard them.' : 'You have unsaved changes. Save them before closing, keep editing, or discard them.',
-                    [['save',failed ? 'Retry save' : 'Save and close'],['keep','Keep editing'],['discard','Discard changes']]);
+                    draftConflict ? 'A field you edited also changed in the spreadsheet. Keep editing to copy your draft, or reload the latest saved version. Reloading discards your unsaved draft.' : failed ? 'Saving did not finish. Your changes are still here. Retry, keep editing, or discard them.' : 'You have unsaved changes. Save them before closing, keep editing, or discard them.',
+                    [draftConflict ? ['reload','Reload latest'] : ['save',failed ? 'Retry save' : 'Save and close'],['keep','Keep editing'],['discard','Discard changes']]);
                 if (choice === 'keep') return false;
                 if (choice === 'discard') break;
+                if (choice === 'reload') { await loadSourceRow(); return false; }
                 if (await saveVenueEdit()) break;
                 failed = true;
             }
@@ -687,7 +703,6 @@
         try { rawFields = collectRawFields(); }
         catch (error) { setStatus(error.message, 'error'); return; }
         if (isCreatingVenue && linkingDraftId) rawFields['Place ID'] = linkingDraftId;
-        const submittedSnapshot = formSnapshot();
         const fields = buildVenueFromRawFields(rawFields);
         if (!clean(fields.name)) {
             setStatus('Place Name is required.', 'error');
@@ -698,10 +713,16 @@
         setStatus('Saving to spreadsheet...', 'neutral');
 
         const wasCreating = isCreatingVenue;
+        const submittedFields = wasCreating ? rawFields : changedFormFields(rawFields, savedFormFields);
+        if (!wasCreating && !Object.keys(submittedFields).length) {
+            setBusy(false);
+            setStatus('No changes to save.', 'success');
+            return true;
+        }
         try {
             let result = wasCreating
                 ? await service.createVenue({ rawFields, requestId: createRequestId })
-                : await service.saveVenue({ id: activeVenue.id, rawFields, expectedRawFields: activeRawFields });
+                : await service.saveVenue({ id: activeVenue.id, rawFields: submittedFields, expectedRawFields: activeRawFields });
             if (wasCreating && result?.venue?.['Place ID']) {
                 activeVenue = {...activeVenue, id:result.venue['Place ID']};
                 isCreatingVenue = false;
@@ -749,14 +770,18 @@
                 isCreatingVenue = false;
                 setEditorMode(false);
             }
-            activeRawFields = {...activeRawFields,...(result?.rawFields || rawFields)};
+            // Render the authoritative row so changes made elsewhere become the
+            // baseline for the next edit, including normalized contact values.
+            renderRawFields({...activeRawFields,...rawFields,...(result?.rawFields || {})});
             draftConflict = false;
-            savedSnapshot = submittedSnapshot;
+            captureSavedState();
             return true;
         } catch (error) {
             draftConflict = error.code === 'VENUE_CONFLICT';
             console.error('[venueEditModal] save failed:', error);
-            setStatus('Not saved yet. ' + (error.message || 'Check your connection and try again.') + ' Your changes are still here; press Save or X to retry.', 'error');
+            setStatus(draftConflict
+                ? 'Not saved yet. A field you edited was also changed in the spreadsheet by another window or an automatic update. Your draft is still here. Copy any details you want to keep, then use Reload Row to review the latest saved version.'
+                : 'Not saved yet. ' + (error.message || 'Check your connection and try again.') + ' Your changes are still here; press Save or X to retry.', 'error');
             return false;
         } finally {
             setBusy(false);
@@ -920,6 +945,7 @@
         buildInitialRawFields,
         getRenderableHeaders,
         collectRawFields,
+        changedFormFields,
         buildNewVenueRawFields,
         toDateInputValue,
         readContacts,

@@ -20,5 +20,36 @@ await page.evaluate(()=>{window.loseCreate=true;return window.BARK.openNewVenueE
 await page.evaluate(()=>{window.saved={'Place Name':'Legacy','Contact Name':'Legacy person','Email/Contact':'a@example.com','Phone Number':'3305550123','Booking Contact':window.JDDMContacts.encode({version:2,contacts:[{...window.JDDMContacts.empty(),name:'Legacy person',notes:'Person note',emails:[{value:'a@example.com',note:'Email note'}],phones:[{value:'3305550123',note:'Phone note'}]}]})};});await open();await card(0).locator('.venue-person-notes summary').click();const note=card(0).getByRole('textbox',{name:'Contact notes',exact:true});await expect(note).toContainText('Email note');await expect(note).toContainText('Phone note');await note.fill('One edited note');await page.locator('#venue-edit-save').click();await expect(page.locator('#venue-edit-status')).toContainText('Saved');data=await page.evaluate(()=>window.JDDMContacts.read(window.saved));assert.equal(data.contacts[0].notes,'One edited note');assert(data.contacts[0].emails.every(i=>!i.note));await x.click();await expect(modal).toBeHidden();
 // A conflict preserves the draft and reload requires explicit confirmation.
 await open();await card(0).getByRole('textbox',{name:'Contact name',exact:true}).fill('Conflicting draft');await page.evaluate(()=>window.conflict=true);await page.locator('#venue-edit-save').click();await expect(page.locator('#venue-edit-status')).toContainText('another window');await page.locator('#venue-edit-refresh').click();await choice('Keep editing');await expect(card(0).getByRole('textbox',{name:'Contact name',exact:true})).toHaveValue('Conflicting draft');await page.evaluate(()=>window.conflict=false);await page.locator('#venue-edit-refresh').click();await choice('Reload latest');await expect(card(0).getByRole('textbox',{name:'Contact name',exact:true})).toHaveValue('Legacy person');await x.click();await expect(modal).toBeHidden();
+// Background updates to untouched fields survive a notes-only save, and the next save uses the fresh row.
+await open();
+await page.evaluate(()=>Object.assign(window.saved,{Status:'Booked','Next Follow Up':'2026-10-12','Contact Name':'Updated elsewhere'}));
+await page.locator('#venue-edit-source-notes').fill('My independent note');
+await page.locator('#venue-edit-save').click();
+await expect(page.locator('#venue-edit-status')).toContainText('Saved');
+assert.deepEqual(await page.evaluate(()=>window.calls.save.at(-1).rawFields),{Notes:'My independent note'});
+await expect(page.locator('#venue-edit-source-status')).toHaveValue('Booked');
+await expect(page.locator('#venue-edit-source-next-follow-up')).toHaveValue('2026-10-12');
+await expect(card(0).getByRole('textbox',{name:'Contact name',exact:true})).toHaveValue('Updated elsewhere');
+count=await page.evaluate(()=>window.calls.save.length);
+await page.locator('#venue-edit-save').click();
+await expect(page.locator('#venue-edit-status')).toContainText('No changes');
+assert.equal(await page.evaluate(()=>window.calls.save.length),count);
+await page.locator('#venue-edit-source-notes').fill('Second independent note');
+await page.locator('#venue-edit-save').click();
+await expect(page.locator('#venue-edit-status')).toContainText('Saved');
+assert.deepEqual(await page.evaluate(()=>window.calls.save.at(-1).rawFields),{Notes:'Second independent note'});
+assert.equal(await page.evaluate(()=>window.calls.save.at(-1).expectedRawFields.Status),'Booked');
+await x.click();await expect(modal).toBeHidden();
+// A real conflict on close offers an explicit reload instead of an endless retry.
+await open();await page.locator('#venue-edit-source-notes').fill('Conflicting note');
+await page.evaluate(()=>window.conflict=true);
+await page.locator('#venue-edit-save').click();
+await expect(page.locator('#venue-edit-status')).toContainText('another window');
+assert(!await page.locator('#venue-edit-status').textContent().then(t=>t.includes('press Save or X')));
+await x.click();await expect(dialog().getByRole('button',{name:'Retry save',exact:true})).toHaveCount(0);
+await choice('Keep editing');await expect(page.locator('#venue-edit-source-notes')).toHaveValue('Conflicting note');
+await page.evaluate(()=>window.conflict=false);await x.click();await choice('Reload latest');
+await expect(page.locator('#venue-edit-source-notes')).toHaveValue('Second independent note');
+await x.click();await expect(modal).toBeHidden();
 console.log('PASS: one notes box, migration, fragmented contacts, removal confirmations, unsaved/failed-close warnings, keep/discard/save, double X, Save+X, backdrop, Escape, retries, conflict protection.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});
