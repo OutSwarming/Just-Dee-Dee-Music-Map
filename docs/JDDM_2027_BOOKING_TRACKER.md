@@ -14,7 +14,7 @@ One forum conversation per unique existing venue with a saved email, phone, or o
 - After a failed/wrong recipient, save the corrected or alternate email in the app, choose **Recipient fixed — review again**, then request a draft. Failed addresses remain blocked from AI-generated drafts.
 - **Map status menu:** explicitly updates the official spreadsheet status, separately from the 2027 outcome.
 
-Actual Gmail SENT labels make the campaign yellow. A venue reply or newer linked Messenger, Instagram, or Google Voice activity makes it blue. Permanent delivery failures mark invalid email. Automatic acknowledgments are not treated as human replies. Temporary delivery delays pause drafting. Messages and active draft previews remain in the same venue post. Posts suppress notifications and mentions.
+Actual Gmail SENT labels make the campaign yellow. Due unanswered follow-ups turn the campaign card and tag orange; an AI-prepared draft is shown as Draft ready until Dee Dee sends it. A venue reply or newer linked Messenger, Instagram, or Google Voice activity makes it blue. Permanent delivery failures mark invalid email. Automatic acknowledgments are not treated as human replies. Temporary delivery delays pause drafting. Messages and active draft previews remain in the same venue post. Posts suppress notifications and mentions. The shared 8 AM Eastern Discord / Dee Dee-and-Carter text digest includes suggested booking follow-ups and invalid/wrong-recipient problems. A follow-up draft remains on that daily list until sent. Initial unsent drafts have no timer. Explicit spreadsheet dates for previously played or booked venues remain eligible for daily reminders; those lifetime labels do not cancel an explicit follow-up date. The local Messages delivery still requires the Mac and Messages permissions to be available.
 
 ## Follow-up policy
 
@@ -49,3 +49,11 @@ Do not modify the separate initial-draft batch worker, its ledger, or its privat
 - Tests: `NODE_ENV=test node --test functions/tests/booking-tracker.test.js` plus the functions test suite.
 
 Private state uses Firestore collections prefixed `jddmBooking2027`. No spreadsheet columns or rows are added. Ambiguous contact matches are kept in `jddmBooking2027Unmatched` for review rather than assigned to a guessed venue. Missing/deleted drafts are not assumed sent. Gmail history is checkpointed with a backlog so throttled or interrupted synchronization can resume. A lost Gmail creation response is never blindly retried.
+
+## September 8 preflight verification
+
+The fake-mail integration test uses in-memory Gmail and spreadsheet adapters with no Gmail send or draft-create methods. A temporary, quiet TEST ONLY venue post in the real Discord forum verified draft → sent/yellow → seven days unanswered/orange → reply/blue → Dee Dee reply/yellow → permanent failure/red → confirmed 2027 date/green. Every tag and embed color was read back, then the temporary post was removed. No real email, spreadsheet row or production tracker record was changed by that test.
+
+Regression coverage also includes a sent message retaining its former draft ID, a separate-thread bounce arriving in the same poll as the send, a prepared follow-up draft remaining in the morning digest, returning venues with explicit dates, Eastern midnight/DST, automatic acknowledgments, stale forms and failed-recipient blocking.
+
+A venue’s natural-language yes/no or “wrong person” reply is shown as a reply requiring Dee Dee’s review; it is not automatically classified as a campaign outcome. No-response timing cannot prove that a recipient read or ignored the email. Alternative contact methods are recommendations, never automatic calls or social messages.

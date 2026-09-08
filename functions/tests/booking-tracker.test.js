@@ -133,3 +133,28 @@ test('sending on or after the official follow-up cannot immediately trigger anot
  for(const date of ['2026-09-08','2026-09-11']){const v=derive([first,followup],{'Next Follow Up':date},{},'2026-09-11');assert.equal(v.canAutoDraft,false);assert.equal(v.official,date);assert.match(v.reason,/Choose the next official/);}
  const next=derive([first,followup],{'Next Follow Up':'2026-09-12'},{},'2026-09-12');assert.equal(next.canAutoDraft,true);assert.equal(next.due,'2026-09-12');
 });
+
+test('a due unanswered campaign is orange, not a yellow card with an orange tag',()=>{
+ const view=derive([msg('s',{sent:true})]);assert.equal(view.state,'due');assert.ok(view.tags.includes('due'));assert.equal(b.card({id:'test',venueId:'test'},row(),view).embeds[0].color,0xe67e22);
+});
+test('automatic acknowledgments never count as human replies or restart the sent clock',()=>{
+ const v=derive([msg('s',{sent:true}),msg('auto',{autoReply:true,from:['booking@example.com'],at:T+DAY})]);assert.equal(v.state,'due');assert.equal(v.due,'2026-09-08');assert.equal(v.lastReply,null);
+});
+test('Eastern midnight and DST use calendar days, not elapsed 24-hour blocks',()=>{
+ const v=derive([msg('s',{sent:true,at:Date.parse('2026-11-01T03:30:00Z')})],{},{},'2026-11-07');assert.equal(v.due,'2026-11-07');assert.equal(v.state,'due');
+});
+test('morning digest includes suggested booking timers, recipient problems, and explicit dates for returning venues exactly once',()=>{
+ const {buildDigest}=require('../followUpDigest');const result=buildDigest({today:'2026-09-10',rows:[row({'Place ID':'past','Next Follow Up':'2026-09-10'}),row({'Place ID':'bad','Place Name':'Failed Venue','Next Follow Up':'2026-09-10'})],booking:[{id:'past',name:'Local Venue',date:'2026-09-10',official:true},{id:'suggested',name:'Suggested Venue',date:'2026-09-10',url:'https://example.com/test'},{id:'later',name:'Later Venue',date:'2026-09-12'},{id:'bad',name:'Failed Venue',attention:'Invalid email'}]});assert.equal(result.body.match(/• Local Venue/g).length,1);assert.match(result.body,/Suggested Venue/);assert.match(result.body,/Later Venue/);assert.match(result.body,/Failed Venue — Invalid email/);assert.equal(result.body.match(/• Failed Venue/g).length,1);assert.equal(result.bookingFollowUps,1);
+});
+
+test('a draft promoted to SENT with the same message ID is not mistakenly marked deleted',async()=>{
+ const f=require('./helpers/bookingFixture').fixture();f.put({id:'same',labels:['DRAFT']});await f.service.poll();f.put({id:'same',labels:['SENT']});await f.service.poll();assert.equal((await f.task()).state,'venue');assert.equal(f.store.get(b.PREFIX+'Mail/same').deleted,false);
+});
+test('a send and separate-thread bounce arriving in one poll immediately mark the venue red',async()=>{
+ const f=require('./helpers/bookingFixture').fixture();f.put({id:'draft',labels:['DRAFT']});await f.service.poll();f.messages.delete('draft');f.put({id:'sent',labels:['SENT']});f.put({id:'bounce',threadId:'bounce-thread',from:'mailer-daemon@googlemail.com',to:b.MAILBOX,subject:'Delivery Status Notification (Failure)',body:'Final-Recipient: rfc822; booking@example.com\nAction: failed\nStatus: 5.1.1',at:Date.parse('2026-09-09T12:00:01Z')});await f.service.poll();assert.equal((await f.task()).state,'invalid');
+});
+test('a due follow-up draft stays in the shared morning digest, while an initial unsent draft has no reminder',async()=>{
+ const f=require('./helpers/bookingFixture').fixture();f.put({id:'draft',labels:['DRAFT']});await f.service.poll();const fetchImpl=async()=>({ok:true,text:async()=> 'Place ID,Place Name,Next Follow Up,Status\npreflight-fake-venue,Fake Venue,,Played in the Past'});
+ const load=()=>require('../followUpDigest').loadDigest({db:f.db,fetchImpl,today:'2026-09-16',cache:false});assert.equal((await load()).bookingFollowUps,0);
+ f.messages.delete('draft');f.put({id:'sent',labels:['SENT']});await f.service.poll();f.clock('2026-09-16T12:00Z');f.put({id:'followdraft',labels:['DRAFT']});await f.service.poll();assert.equal((await f.task()).state,'draft');assert.equal((await load()).bookingFollowUps,1);
+});
