@@ -160,9 +160,7 @@
             checkMapAvailability('boot-complete');
         }
 
-        // 2. Trip overlay layer — must exist before initTripPlanner so the first
-        //    updateTripUI() call has a sync target. No-ops cleanly if map failed.
-        await callInit('initTripLayer', 'Trip overlay layer initialized');
+        // JDDM does not initialize routing layers.
 
         // 3. Controllers and UI
         await callInit('initSettings', 'Settings initialized');
@@ -172,7 +170,7 @@
         await callInit('initSpinWheel', 'Spin wheel initialized');
         await callInit('initManualMiles', 'Manual miles initialized');
         await callInit('initTrainingUI', 'Activity engine initialized');
-        await callInit('initTripPlanner', 'Trip planner initialized');
+        // Route planning belongs exclusively to Bark Ranger.
         await callInit('initWatermarkTool', 'Watermark tool initialized');
         await callInit('initQRCode', 'QR code initialized');
         await callInit('initCSVExport', 'Share engine initialized');

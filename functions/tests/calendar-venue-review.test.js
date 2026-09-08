@@ -52,3 +52,28 @@ test('new directory evidence resolves a pending review, later conflict reopens i
  s.rows.push(row('b','Same Winery','10 Main St'));assert.equal((await s.service.resolve([e])).mappings[id],'');assert.equal((await s.service.get(id)).status,'pending');
  const r=await s.service.get(id);await s.service.choose(id,'link','b','Dee Dee',r.revision);s.rows[1].Address='99 Other St';assert.equal((await s.service.resolve([e])).mappings[id],'b');assert.equal(s.writes.length,0);
 });
+
+
+test('unchanged calendar snapshots use two checkpoint reads and zero writes', async()=>{
+ const s=setup([row('a','Known')]),events=[event('Known')];
+ await s.service.resolve(events,{enqueue:false,source:'calendar'});
+ let reads=0,writes=0;const original=s.db.doc;s.db.doc=path=>{const r=original(path);return {...r,get:async()=>{reads++;return r.get();},set:async(...args)=>{writes++;return r.set(...args);}};}; // revisionRef was constructed before instrumentation.
+ const result=await s.service.resolve(events,{enqueue:false,source:'calendar'});
+ assert.equal(result.cached,true);assert.equal(writes,0);assert.ok(reads<=2);assert.equal(result.mappings[keyFor(events[0])],'a');
+ s.rows[0]['Notes']='Contact edit';assert.equal((await s.service.resolve(events,{enqueue:false,source:'calendar'})).cached,true);
+ s.rows[0]['Address']='99 Different Rd';assert.equal((await s.service.resolve(events,{enqueue:false,source:'calendar'})).cached,false);
+});
+test('manual decisions invalidate cached mappings across service instances', async()=>{
+ const s=setup([row('a','Known')]),e=event();await s.service.resolve([e],{source:'calendar'});
+ assert.equal((await s.service.resolve([e],{source:'calendar'})).cached,true);
+ await s.service.resolve([e],{source:'calendar',enqueue:false});
+ await s.service.choose(keyFor(e),'link','a','user',0);
+ const other=createReviewService({db:s.db,discord:s.discord,listRows:async()=>s.rows,now:()=>Date.parse('2026-09-07T12:00Z')});
+ const result=await other.resolve([e],{source:'calendar',enqueue:false});
+ assert.equal(result.cached,false);assert.equal(result.mappings[keyFor(e)],'a');
+});
+test('failed publication never caches an incomplete review', async()=>{
+ const s=setup(),e=event();let fail=true;const service=createReviewService({db:s.db,listRows:async()=>[],now:()=>Date.parse('2026-09-07T12:00Z'),discord:async()=>{if(fail)throw Error('offline');return {id:'posted'};}});
+ await assert.rejects(service.resolve([e]),/offline/);fail=false;
+ assert.equal((await service.resolve([e])).cached,false);assert.equal((await service.resolve([e])).cached,true);
+});

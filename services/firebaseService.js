@@ -616,56 +616,9 @@ async function removeVisitedPlace(placeOrId) {
     }
 }
 
-async function loadSavedRoutes(uid, cursor = null, limit = null) {
-    try {
-        const fetchLimit = limit || (cursor ? 5 : 3);
-        window.BARK.incrementRequestCount();
-
-        let query = firebase.firestore()
-            .collection('users').doc(uid)
-            .collection('savedRoutes')
-            .orderBy('createdAt', 'desc');
-
-        if (cursor) query = query.startAfter(cursor);
-
-        const snapshot = await query.limit(fetchLimit).get();
-        const routes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        return {
-            routes,
-            nextCursor: snapshot.empty ? null : snapshot.docs[snapshot.docs.length - 1],
-            hasMore: snapshot.size === fetchLimit
-        };
-    } catch (error) {
-        console.error("[firebaseService] loadSavedRoutes failed:", error);
-        throw error;
-    }
-}
-
-async function loadSavedRoute(uid, routeId) {
-    try {
-        window.BARK.incrementRequestCount();
-        const docSnap = await firebase.firestore()
-            .collection('users').doc(uid)
-            .collection('savedRoutes').doc(routeId).get();
-        return docSnap.exists ? { id: docSnap.id, ...docSnap.data() } : null;
-    } catch (error) {
-        console.error("[firebaseService] loadSavedRoute failed:", error);
-        throw error;
-    }
-}
-
-async function deleteSavedRoute(uid, routeId) {
-    try {
-        window.BARK.incrementRequestCount();
-        await firebase.firestore()
-            .collection('users').doc(uid)
-            .collection('savedRoutes').doc(routeId).delete();
-    } catch (error) {
-        console.error("[firebaseService] deleteSavedRoute failed:", error);
-        throw error;
-    }
-}
+async function loadSavedRoutes() { return {routes:[],nextCursor:null,hasMore:false}; }
+async function loadSavedRoute() { return null; }
+async function deleteSavedRoute() { throw new Error('Route planning is disabled in Just Dee Dee Music.'); }
 
 async function getCompletedExpeditions(uid) {
     try {

@@ -2086,8 +2086,8 @@ function installCalendarAutomation_() {
       ScriptApp.deleteTrigger(trigger);
     }
   });
-  ScriptApp.newTrigger('runJddmCalendarSyncTrigger').timeBased().everyMinutes(5).create();
-  return { ok: true, action: 'installCalendarAutomation', everyMinutes: 5 };
+  ScriptApp.newTrigger('runJddmCalendarSyncTrigger').timeBased().everyHours(1).create();
+  return { ok: true, action: 'installCalendarAutomation', everyHours: 1 };
 }
 
 function runJddmCalendarSyncTrigger() {

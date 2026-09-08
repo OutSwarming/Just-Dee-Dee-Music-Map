@@ -36,19 +36,8 @@
         }
     }
 
-    async function directions(coordinates, options = {}) {
-        try {
-            const callable = getCallable('getPremiumRoute');
-            const payload = { coordinates };
-            if (Array.isArray(options.radiuses) && options.radiuses.length === coordinates.length) {
-                payload.radiuses = options.radiuses;
-            }
-            const result = await callable(payload);
-            return result.data;
-        } catch (error) {
-            console.error('ORS directions request failed.', error);
-            throw error;
-        }
+    async function directions() {
+        throw new Error('Route planning is disabled in Just Dee Dee Music. Use Bark Ranger for routes.');
     }
 
     window.BARK.services.ors = {

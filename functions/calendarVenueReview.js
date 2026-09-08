@@ -32,10 +32,10 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
         else m = await discord('POST',`/channels/${cfg.channelId}/messages`,{...body,nonce:id.slice(0,24),enforce_nonce:true});
         await ref(id).set({messageId:m.id,messageHash:digest},{merge:true});
     }
-    async function resolveEvents(events, {enqueue=true, source='website'}={}) {
+    async function resolveEvents(events, {enqueue=true, source='website'}={}, suppliedRows) {
         if (!['website','calendar'].includes(source)) throw Error('Invalid calendar source');
         if (!Array.isArray(events) || events.length > 3000) throw Error('Invalid calendar event list');
-        const rows = await listRows(), groups = new Map(), mappings = {}, reviews = [];
+        const rows = suppliedRows || await listRows(), groups = new Map(), mappings = {}, reviews = [];
         for (const e of events) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date || '') || !(e.venueName || e.title)) continue;
             const id = keyFor(e); if (!groups.has(id)) groups.set(id,[]); groups.get(id).push(e);
@@ -81,6 +81,34 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
         }
         return {mappings, reviews};
     }
+    const revisionRef = db.doc('jddmCalendarReview/cacheRevision');
+    async function persistDecision(reviewRef, value) {
+        // The decision and invalidation become visible together. A resolver that
+        // began before this transaction cannot cache a result under the new revision.
+        await db.runTransaction(async tx => {
+            tx.set(reviewRef, value);
+            tx.set(revisionRef, {revision:crypto.randomUUID()});
+        });
+    }
+    async function resolve(events, options={}) {
+        const source = options.source || 'website', enqueue = options.enqueue !== false;
+        if (!['website','calendar'].includes(source) || !Array.isArray(events) || events.length > 3000) throw Error('Invalid calendar event list');
+        const rows = await listRows();
+        const revision = (await revisionRef.get()).data()?.revision || '';
+        const cacheRef = db.doc('jddmCalendarResolveCache/'+source+'-'+(enqueue?'review':'mapping'));
+        const cached = (await cacheRef.get()).data();
+        // Calendar sync timestamps and contact edits must not invalidate venue matching.
+        const directory = rows.map(r=>['Place ID','Place Name','Address','City','State','Zip'].map(k=>String(r[k]||''))).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        const normalizedEvents = events.map(e=>[e.date||'',e.venueName||venueName(e.title),e.location||'']).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        const digest = crypto.createHash('sha256').update(JSON.stringify([1,dateKey(new Date(now())),directory,normalizedEvents])).digest('hex');
+        if (cached?.digest===digest && cached.revision===revision && cached.expiresAt>now()) return {...cached.result,cached:true};
+        const result = enqueue
+            ? await lock('source-'+source,()=>resolveEvents(events,{...options,source,enqueue},rows))
+            : await resolveEvents(events,{...options,source,enqueue},rows);
+        // Failed review publication never reaches this checkpoint and will retry.
+        if (Buffer.byteLength(JSON.stringify(result)) < 700000) await cacheRef.set({digest,revision,result,expiresAt:now()+6*60*60*1000});
+        return {...result,cached:false};
+    }
     async function choose(id, action, venueId, actor, expectedRevision) {
         return lock('decision', () => lock(id, async () => {
             const r = (await ref(id).get()).data(); if (!r) throw Error('Calendar review no longer exists');
@@ -92,7 +120,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
                 const matches = rows.filter(v=>v['Place ID']===venueId); if (matches.length !== 1) throw Error('That venue is missing or its Place ID is duplicated. Choose another venue'); venue = matches[0];
             } else if (action !== 'ignore') throw Error('Unknown calendar decision');
             const next = {...r,linkMode:'manual',status:action==='ignore'?'ignored':'linked',venueId:venue?.['Place ID'] || '',venueName:venue?.['Place Name'] || '',actor,revision:(r.revision||0)+1,decidedAt:new Date(now()).toISOString()};
-            await ref(id).set(next); await publish(id,next); return next;
+            await persistDecision(ref(id),next); await publish(id,next); return next;
         }));
     }
     async function picker(id, user, query) {
@@ -108,7 +136,7 @@ function createReviewService({db, discord, listRows, createVenue, now = () => Da
         if (!s || s.id!==id || s.user!==user || s.expiresAt<=now() || !s.offered.includes(chosen)) throw Error('This dropdown expired. Click Link again');
         return choose(id,'link',chosen,user,s.revision);
     }
-    return {resolve:(events,options={})=>options.enqueue===false?resolveEvents(events,options):lock('source-'+(options.source||'website'),()=>resolveEvents(events,options)),choose,picker,select,config,list:async()=>(await db.collection('jddmCalendarReviews').get()).docs.map(d=>({...d.data(),id:d.id})),reopen:async(id,actor,revision)=>lock(id,async()=>{const r=(await ref(id).get()).data();if(!r||r.status!=='ignored'||(r.revision||0)!==revision)throw Error('This review changed. Refresh it.');const next={...r,status:'pending',actor:'',venueId:'',venueName:'',revision:revision+1};await ref(id).set(next);return next;}),get:async id=>(await ref(id).get()).data()};
+    return {resolve,choose,picker,select,config,list:async()=>(await db.collection('jddmCalendarReviews').get()).docs.map(d=>({...d.data(),id:d.id})),reopen:async(id,actor,revision)=>lock(id,async()=>{const r=(await ref(id).get()).data();if(!r||r.status!=='ignored'||(r.revision||0)!==revision)throw Error('This review changed. Refresh it.');const next={...r,status:'pending',actor:'',venueId:'',venueName:'',revision:revision+1};await persistDecision(ref(id),next);return next;}),get:async id=>(await ref(id).get()).data()};
 }
 function searchModal(id) {
     return {type:9,data:{custom_id:`jddmcal:search:${id}`,title:'Find an existing venue',components:[{type:1,components:[{type:4,custom_id:'value',label:'Venue name or city (typos are OK)',style:1,required:true,min_length:2,max_length:100}]}]}};
