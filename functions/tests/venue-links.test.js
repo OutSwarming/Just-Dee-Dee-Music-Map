@@ -12,7 +12,7 @@ test('shared addresses, multiple venues and duplicate IDs never guess a link',()
 test('search supports partial names, city and email without changing the sheet',()=>{const index=indexRows([row('a','Café Venue','owner@example.com')]);for(const q of ['cafe','cleveland','owner@example','cafe OH'])assert.equal(searchVenues(index,q)[0].id,'a');assert.deepEqual(searchVenues(index,'z'),[]);});
 test('phone-only and email-only contacts can be searched independently',()=>{const r=row('a','Venue','');r['Booking Contact']='JDDM_CONTACTS_V2\n'+JSON.stringify({version:2,contacts:[{name:'Owner',notes:'',emails:[{value:'owner@example.com'}],phones:[],others:[]},{name:'Manager',notes:'',emails:[],phones:[{value:'(440) 555-1234'}],others:[]}]});const index=indexRows([r]);assert.equal(searchVenues(index,'Manager 440')[0].id,'a');assert.equal(searchVenues(index,'Owner')[0].id,'a');assert.equal(matchVenue(index,[msg('owner@example.com')]).venue.id,'a');});
 test('automatic linking survives Gmail replies; a manual override or unlink stays fixed',async()=>{const s=setup();await s.service.syncThread({id:'thread',messages:[msg('a@example.com')]});let c=await s.service.get('thread');assert.equal(c.venueId,'a');assert.equal(c.followUpDate,'2026-09-20');await s.service.linkVenue('thread','b','Dee Dee','a');await s.service.syncThread({id:'thread',messages:[msg('a@example.com'),msg('a@example.com','m2',2)]});c=await s.service.get('thread');assert.equal(c.venueId,'b');assert.equal(c.followUpDate,'2026-09-20');await s.service.linkVenue('thread','','Dee Dee','b');await s.service.syncThread({id:'thread',messages:[msg('a@example.com'),msg('a@example.com','m3',3)]});assert.equal((await s.service.get('thread')).venueId,'');assert.equal(s.writes.length,0);});
-test('linked date changes update the official venue and other threads while preserving waiting state',async()=>{const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});await s.service.syncThread({id:'two',messages:[msg('a@example.com')]});const c=await s.service.get('one'),context=controls('one',[],c)[0].components[1].custom_id.split(':');await s.service.setStatus('one','followup','Dee Dee','2026-09-23',{date:context[3],hash:context[4]});assert.deepEqual(s.writes,[{id:'a',date:'2026-09-23',expected:'2026-09-20'}]);assert.equal((await s.service.get('two')).followUpDate,'2026-09-23');assert.equal((await s.service.get('one')).status,'deedee');await s.service.setStatus('one','resolved','Dee Dee');assert.equal((await s.service.get('one')).followUpDate,'2026-09-23');});
+test('linked follow-up turns the selected conversation orange and preserves other threads’ waiting state',async()=>{const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});await s.service.syncThread({id:'two',messages:[msg('a@example.com')]});const c=await s.service.get('one'),context=controls('one',[],c)[0].components[1].custom_id.split(':');await s.service.setStatus('one','followup','Dee Dee','2026-09-23',{date:context[3],hash:context[4]});assert.deepEqual(s.writes,[{id:'a',date:'2026-09-23',expected:'2026-09-20'}]);assert.equal((await s.service.get('two')).followUpDate,'2026-09-23');assert.equal((await s.service.get('one')).status,'followup');assert.equal((await s.service.get('two')).status,'deedee');await s.service.setStatus('one','resolved','Dee Dee');assert.equal((await s.service.get('one')).followUpDate,'2026-09-23');});
 test('unlinked, stale date, stale venue and invalid dates cannot write the spreadsheet',async()=>{const s=setup();await s.service.syncThread({id:'thread',messages:[msg('unknown@example.com')]});await assert.rejects(s.service.setStatus('thread','followup','D','2026-09-23'),/Link this/);await s.service.linkVenue('thread','a','D','');await assert.rejects(s.service.setStatus('thread','followup','D','2026-09-23',{date:'2026-09-10'}),/changed/);await assert.rejects(s.service.setStatus('thread','followup','D','2026-09-23',{hash:'wrong'}),/linked venue changed/);await assert.rejects(s.service.setStatus('thread','followup','D','2026-02-30'),/Choose today/);await assert.rejects(s.service.linkVenue('thread','b','D',''),/linked venue changed/);assert.equal(s.writes.length,0);});
 test('Google Sheets overrides a conflicting old email date and retains a private audit value',async()=>{const s=setup();s.db.data.set('jddmEmailConversations/thread',{gmailThreadId:'thread',subject:'Booking',discordThreadId:'post',followUpDate:'2026-09-21',status:'followup'});let c=await s.service.tryAutoLink(await s.service.get('thread'),[msg('a@example.com')]);assert.equal(c.venueId,'a');assert.equal(c.supersededEmailFollowUpDate,'2026-09-21');assert.equal(c.legacyFollowUpDate,'');c=await s.service.linkVenue('thread','a','D','a');assert.equal(c.legacyFollowUpDate,'');assert.equal(c.followUpDate,'2026-09-20');assert.equal(s.writes.length,0);});
 test('changes made in the map refresh linked cards without changing email status',async()=>{const s=setup();await s.service.syncThread({id:'thread',messages:[msg('a@example.com')]});s.index[0].date='2026-09-29';await s.service.refreshLinked();assert.equal((await s.service.get('thread')).followUpDate,'2026-09-29');assert.equal((await s.service.get('thread')).status,'deedee');});
@@ -45,4 +45,44 @@ test('saved email evidence links after a contact is added and removes a now-ambi
  s.index[0].emails.push('unknown@unrelated.test');await s.service.rematchSaved();assert.equal((await s.service.get('thread')).venueId,'a');
  s.index[1].emails.push('unknown@unrelated.test');await s.service.rematchSaved();const c=await s.service.get('thread');assert.equal(c.venueId,'');assert.match(c.venueLinkIssue,/Multiple/);assert.equal(c.previousAutomaticVenueId,'a');assert.equal(s.writes.length,0);
  assert.equal(s.calls.filter(x=>x.method==='POST'&&x.path.endsWith('/messages')).length,1);
+});
+
+test('newly added venue with blank date saves follow-up and remains orange through refresh and old-message replay',async()=>{
+ const s=setup();s.index[0].date='';s.db.data.set('jddmEmailConfig/main',{tags:{followup:'orange',deedee:'blue',rejected:'red'}});
+ const m=msg('a@example.com');await s.service.syncThread({id:'one',messages:[m]});await s.service.setStatus('one','rejected','Dee Dee');
+ const c=await s.service.get('one'),context=controls('one',[],c)[0].components[1].custom_id.split(':');
+ const updated=await s.service.setStatus('one','followup','Dee Dee','2026-09-23',{date:'',hash:context[4]});
+ assert.equal(updated.status,'followup');assert.equal((await s.service.get('one')).status,'followup');
+ await s.service.refreshLinked();await s.service.syncThread({id:'one',messages:[m]});
+ assert.equal((await s.service.get('one')).status,'followup');
+ assert.ok(s.calls.some(x=>x.method==='PATCH'&&x.body?.applied_tags?.includes('orange')));
+ assert.equal(s.calls.filter(x=>x.method==='PATCH'&&x.path.endsWith('/messages/starter')).at(-1).body.embeds[0].color,0xe67e22);
+ await s.service.syncThread({id:'one',messages:[m,msg('a@example.com','new-in',2)]});assert.equal((await s.service.get('one')).status,'deedee');
+ const out=msg('justdeedeemusic@gmail.com','new-out',3);out.labelIds=['SENT'];out.payload.headers.find(h=>h.name==='To').value='a@example.com';
+ await s.service.syncThread({id:'one',messages:[m,msg('a@example.com','new-in',2),out]});assert.equal((await s.service.get('one')).status,'venue');
+});
+test('failed spreadsheet follow-up save leaves the conversation state unchanged',async()=>{
+ const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});s.directory.setDate=async()=>{throw Error('spreadsheet unavailable');};await assert.rejects(s.service.setStatus('one','followup','Dee Dee','2026-09-23'),/unavailable/);assert.equal((await s.service.get('one')).status,'deedee');
+});
+
+test('same-date follow-up changes orange and a Discord outage is repaired on refresh without rewriting the date',async()=>{
+ const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});
+ let offline=true;const service=createConversationService({db:s.db,gmail:{},venueDirectory:s.directory,now:()=>new Date('2026-09-07T12:00:00Z'),discord:async(...args)=>{if(offline)throw Error('Discord unavailable');return s.discord(...args);}});
+ await assert.rejects(service.setStatus('one','followup','Dee Dee','2026-09-20'),/Discord unavailable/);
+ let c=await service.get('one');assert.equal(c.status,'followup');assert.equal(c.cardRefreshPending,true);assert.equal(c.followUpDate,'2026-09-20');
+ const writes=s.writes.length;offline=false;await service.refreshLinked();c=await service.get('one');assert.equal(c.status,'followup');assert.equal(c.cardRefreshPending,false);assert.equal(s.writes.length,writes);
+ assert.equal(s.calls.filter(x=>x.method==='PATCH'&&x.path.endsWith('/messages/starter')).at(-1).body.embeds[0].color,0xe67e22);
+});
+test('status edits do not resend an unchanged Discord thread name',async()=>{
+ const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});
+ const name=s.calls.find(x=>x.method==='POST'&&x.path.endsWith('/threads')).body.name;
+ const calls=[];const service=createConversationService({db:s.db,gmail:{},venueDirectory:s.directory,discord:async(method,path,body)=>{calls.push({method,path,body});return {name};}});
+ await service.updateCard(await service.get('one'));
+ assert.ok(calls.some(x=>x.method==='PATCH'&&x.body.applied_tags));assert.ok(calls.filter(x=>x.method==='PATCH').every(x=>!Object.hasOwn(x.body,'name')));
+});
+test('signed linked date submission saves orange and acknowledges the official date',async()=>{
+ const s=setup();await s.service.syncThread({id:'one',messages:[msg('a@example.com')]});
+ const custom=controls('one',[],await s.service.get('one'))[0].components[1].custom_id.replace(':date:',':date-submit:');
+ const out=await interact(s,custom,{type:5,data:{custom_id:custom,components:[{components:[{custom_id:'value',value:'2026-09-23'}]}]}});
+ assert.match(out.content,/2026-09-23/);assert.equal((await s.service.get('one')).status,'followup');assert.equal(s.index[0].date,'2026-09-23');
 });

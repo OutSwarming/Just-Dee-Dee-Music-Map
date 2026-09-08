@@ -83,7 +83,21 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
 
  async function config(){return (await db.doc('jddmEmailConfig/main').get()).data()||{};}
  async function get(id){const d=await collection.doc(id).get();return d.exists?d.data():null;}
- async function updateCard(c){if(venueDirectory&&c.venueId){try{const v=await venueDirectory.get(c.venueId,{fresh:false});c={...c,venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:''};}catch{c={...c,venueLinkIssue:'Venue information is unavailable; check the app before acting.'};}}const cfg=await config();await discord('PATCH',`/channels/${c.discordThreadId}`,{archived:false,name:threadTitle(c),applied_tags:appliedTags(c,cfg)});await discord('PATCH',`/channels/${c.discordThreadId}/messages/${c.starterId||c.discordThreadId}`,summaryMessage(c));if(['resolved','rejected','spam'].includes(c.status))await discord('PATCH',`/channels/${c.discordThreadId}`,{archived:true});}
+ async function updateCard(c){
+  const ref=collection.doc(c.gmailThreadId);
+  try{
+   if(venueDirectory&&c.venueId){try{const v=await venueDirectory.get(c.venueId,{fresh:false});c={...c,venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:''};}catch{c={...c,venueLinkIssue:'Venue information is unavailable; check the app before acting.'};}}
+   const cfg=await config(),channel=await discord('GET',`/channels/${c.discordThreadId}`);
+   // Discord limits thread renames separately. A status/date edit usually needs no rename.
+   const patch={archived:false,applied_tags:appliedTags(c,cfg)};
+   if(channel.name!==threadTitle(c))patch.name=threadTitle(c);
+   await discord('PATCH',`/channels/${c.discordThreadId}`,patch);
+   await discord('PATCH',`/channels/${c.discordThreadId}/messages/${c.starterId||c.discordThreadId}`,summaryMessage(c));
+   if(['resolved','rejected','spam'].includes(c.status))await discord('PATCH',`/channels/${c.discordThreadId}`,{archived:true});
+   await ref.set({cardRefreshPending:false},{merge:true});
+  }catch(e){await ref.set({cardRefreshPending:true},{merge:true});throw e;}
+ }
+
  const linkMemory=require('./venueIdentity').createMemory(db);
  async function tryAutoLink(c,messages){
   if(!venueDirectory||c.venueLinkMode==='manual')return c;
@@ -108,7 +122,20 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
    const next=await tryAutoLink(c,messages);if(['venueId','venueName','followUpDate','venueLinkIssue'].some(k=>next[k]!==c[k])){await updateCard(next);changed++;}
   }return changed;
  }
- async function refreshLinked(){if(!venueDirectory)return;const index=await venueDirectory.list({fresh:true});const snapshot=await collection.where('venueId','>','').get();for(const doc of snapshot.docs){const c=doc.data(),v=index.find(v=>v.id===c.venueId&&v.linkable!==false);const patch=v?{venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:'',legacyFollowUpDate:'',supersededEmailFollowUpDate:c.legacyFollowUpDate||c.supersededEmailFollowUpDate||''}:{venueLinkIssue:'Linked venue missing or duplicated. Choose an existing venue in the app.'};if(Object.entries(patch).some(([k,v])=>c[k]!==v)){const updated=await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data();if(fresh?.venueId!==c.venueId)return null;tx.set(ref,patch,{merge:true});return {...fresh,...patch};});if(updated)await updateCard(updated);}}}
+ async function refreshLinked({venueId}={}){
+  if(!venueDirectory)return;
+  const index=await venueDirectory.list({fresh:true});
+  const snapshot=await collection.where('venueId',venueId?'==':'>',venueId||'').get();
+  for(const doc of snapshot.docs){
+   const c=doc.data(),v=index.find(v=>v.id===c.venueId&&v.linkable!==false);
+   const patch=v?{venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:'',legacyFollowUpDate:'',supersededEmailFollowUpDate:c.legacyFollowUpDate||c.supersededEmailFollowUpDate||''}:{venueLinkIssue:'Linked venue missing or duplicated. Choose an existing venue in the app.'};
+   if(c.cardRefreshPending||Object.entries(patch).some(([k,v])=>c[k]!==v)){
+    const updated=await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data();if(fresh?.venueId!==c.venueId)return null;tx.set(ref,{...patch,cardRefreshPending:true},{merge:true});return {...fresh,...patch};});
+    if(updated)await updateCard(updated);
+   }
+  }
+ }
+
  async function syncThread(thread,options={}){
   const lock=db.doc('jddmEmailSyncLocks/'+thread.id);const acquired=await db.runTransaction(async tx=>{const current=await tx.get(lock);if((current.data()?.until||0)>Date.now())return false;tx.set(lock,{until:Date.now()+500000});return true;});
   if(!acquired)return {posted:0,deferred:true};try{return await syncUnlocked(thread,options);}finally{await lock.set({until:0});}
@@ -152,7 +179,18 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
   await db.doc('jddmEmailConfig/health').set({...result,lastSuccess:now().toISOString()});return result;
  }catch(e){await db.doc('jddmEmailConfig/health').set({lastError:e.message,errorAt:now().toISOString()},{merge:true});throw e;}finally{await lock.set({until:0});}}
  async function setStatus(id,status,actor,date='',expected={}){if(!STATES[status])throw Error('Unknown status');if(status==='followup'&&(!validDate(date)||date<dateKey(now())))throw Error('Choose today or a future date in YYYY-MM-DD format.');let c=await get(id);if(!c)throw Error('Conversation is not ready yet.');const previous=c.followUpDate;
-  if(venueDirectory&&status==='followup'){if(!c.venueId)throw Error('Link this conversation to an existing venue first. New venues can only be added in the map app.');if(expected.hash&&expected.hash!==linkHash(c.venueId))throw Error('The linked venue changed. Reopen the follow-up form.');const v=await withVenueLock('place-'+crypto.createHash('sha256').update(c.venueId).digest('hex'),()=>venueDirectory.setDate(c.venueId,date,expected.date===undefined?c.followUpDate:expected.date));await collection.doc(id).set({followUpDate:v.date,legacyFollowUpDate:'',updatedAt:now().toISOString(),lastActor:actor},{merge:true});await refreshLinked();const updated={...c,followUpDate:v.date,legacyFollowUpDate:''};await updateCard(updated);return updated;}
+  if(venueDirectory&&status==='followup'){
+   if(!c.venueId)throw Error('Link this conversation to an existing venue first. New venues can only be added in the map app.');
+   if(expected.hash&&expected.hash!==linkHash(c.venueId))throw Error('The linked venue changed. Reopen the follow-up form.');
+   const v=await withVenueLock('place-'+crypto.createHash('sha256').update(c.venueId).digest('hex'),()=>venueDirectory.setDate(c.venueId,date,expected.date===undefined?c.followUpDate:expected.date));
+   // Persist the selected state only after the official spreadsheet date is verified.
+   // Leave a retry marker so a Discord failure cannot silently strand the old color.
+   await collection.doc(id).set({status:'followup',venueName:v.name,venueCity:v.city,followUpDate:v.date,venueLinkIssue:'',legacyFollowUpDate:'',supersededEmailFollowUpDate:c.legacyFollowUpDate||c.supersededEmailFollowUpDate||'',cardRefreshPending:true,updatedAt:now().toISOString(),lastActor:actor},{merge:true});
+   await updateCard(await get(id));
+   await refreshLinked({venueId:c.venueId});
+   return get(id);
+  }
+
   if(status==='spam')await gmail.users.threads.modify({userId:'me',id,requestBody:{addLabelIds:['SPAM'],removeLabelIds:['INBOX','UNREAD']}});
   if(status==='resolved')await gmail.users.threads.modify({userId:'me',id,requestBody:{removeLabelIds:['INBOX','UNREAD']}});
   c={...c,status,followUpDate:c.venueId?c.followUpDate:status==='followup'?date:'',updatedAt:now().toISOString(),lastActor:actor};await collection.doc(id).set({status:c.status,...(!c.venueId?{followUpDate:c.followUpDate}:{}),updatedAt:c.updatedAt,lastActor:actor},{merge:true});await updateCard(c);
