@@ -8,19 +8,19 @@ This combines the actionable morning worklist with small batches of contact-data
 
 At 7:50 AM Eastern, the system retains unfinished posts and fills available slots up to four. If three of yesterday's four venues were finished, one carries over and three new venues arrive. Completing a post does not immediately replace it during the same day.
 
-Candidates lack a contact name, email, phone, or have Needs Review status. Closed/rejected venues, ambiguous or missing IDs, malformed contact records, and marked test rows are excluded. Unseen venues are shuffled without replacement. Completed venues are revisited only when no unseen candidates remain, the venue still needs information, and at least 30 days have passed.
+Candidates lack a contact name, email, phone, or have Needs Review status. Closed/rejected venues, ambiguous or missing IDs, malformed contact records, and marked test rows are excluded. New assignments are ordered by increasing straight-line miles from central Hinckley (41.23794, -81.74570; public OpenStreetMap place center). The distance is computed from existing Latitude/Longitude columns without geocoding calls, routing costs, new columns, or private home-address storage. Missing/invalid coordinates sort last with an explicit unavailable label. Equal distances use venue name and stable ID for deterministic ordering. Completed venues are revisited only when no unseen candidates remain, the venue still needs information, and at least 30 days have passed.
 
 Each venue gets one reusable forum post:
 
 - **Open venue** opens its existing app editor.
 - **Edit contacts** selects an existing person or adds a contact. Name, email, and phone may independently be blank. Phone-only and email-only people stay separate. US phone numbers are formatted. Notes are stored once per contact. A second menu edits websites, other contact methods, and the preferred method.
 - **Contacted** asks for confirmation, writes today's Eastern Last Contacted date, and sets Waiting on Reply only from a lead/review status. Existing Booked, Played, Open Microphone and rejected statuses are preserved. No email or text is sent by this button.
-- **Reschedule** saves the official spreadsheet Next Follow Up date, sets the post orange, and pauses it until that date. Due rescheduled posts have priority for the available morning slots. App-side date changes remain authoritative.
+- **Reschedule** saves the official spreadsheet Next Follow Up date, sets the post orange, and pauses it until that date. Due rescheduled posts have priority for the available morning slots, ordered by due date then distance. App-side date changes remain authoritative.
 - **Done** asks for confirmation, appends a dated review note in the existing Notes column, and turns the post green and archives it. Missing information can remain blank. Booking status and follow-up dates are preserved. Reopen is available when there is capacity.
 - The **status dropdown** changes the official spreadsheet status after confirmation.
 - **Refresh from spreadsheet** and **Edit venue notes** are also available.
 
-Open and completed posts refresh from the spreadsheet every five minutes, so app edits remain usable. Discord forms use a snapshot and optimistic conflict checks; stale forms cannot overwrite newer app contact edits. Long records exceeding Discord form limits must be edited in the app; they are never truncated for storage.
+Open, queued and completed posts refresh from the spreadsheet every five minutes, so app edits remain usable. Discord forms use a snapshot and optimistic conflict checks; stale forms cannot overwrite newer app contact edits. Long records exceeding Discord form limits must be edited in the app; they are never truncated for storage.
 
 The 8 AM daily follow-up digest links the open worklist posts. The forum messages remain quiet, with no automatic mentions. Existing daily follow-up alerts keep their established routing.
 
@@ -37,10 +37,16 @@ The 8 AM daily follow-up digest links the open worklist posts. The forum message
 - A common per-venue write lock serializes app and Discord writes at the canonical bridge. Expected-field checks catch stale drafts.
 - Worklist writes are signed with `JDDM_WORKLIST_EDIT_KEY`. Only verified signatures can credit those saves to the manual activity counter. Automatic syncs still do not count.
 - Discord's original interaction signature, guild, post, user and expiring session are validated before edits.
-- Completed posts are archived, not deleted. Post delivery records and source links allow recovery after an interrupted creation.
+- Completed posts are archived, not deleted. Unstarted random assignments from the nearest-first rollout are queued and archived in gray; they reuse their original thread when selected later. Queuing does not write a fake completion or change spreadsheet dates. Post delivery records and source links allow recovery after an interrupted creation.
 
 ## Validation
 
 Automated tests cover partial contacts, US phone formatting, old note preservation, two-way date refresh, stale forms, exact four-slot carryover, cycling, repeated daily runs, invalid IDs, removed rows, signed interactions, privacy-bound sessions, malformed values, oversized fields, and Done behavior without extra columns or rows.
 
 Live evidence, including the temporary spreadsheet fixture and real Discord control tests, is kept in `work/venue-worklist/` and is not committed.
+
+## Nearest-first validation
+
+20 worklist tests cover closest-first selection, stable ties, blank/invalid coordinates, unchanged four-slot carryover, priority return dates, queued-post reuse, and existing contact/save/signature protections. Live rollout evidence and the full ranked missing-information list are kept privately in `work/venue-nearby/`. The full list is a dated snapshot; future morning selections re-read the official sheet. Four missing-location records remain explicitly unranked.
+
+Pinned full list: https://discord.com/channels/1543777084265070623/1546708100520743053 . September 7 snapshot: 374 eligible venues with contact gaps plus one review-only venue; four have unknown distance. Live starting assignments: Coco Cafe, Ignite Brewing Brunswick, The Secret At Center, and Brunswick Panini’s. The four unstarted random assignments were queued and archived without changing their spreadsheet records. Live validation confirmed 517 rows, 28 columns, no contact/follow-up changes, silent cards, and the enabled 7:50 AM Eastern schedule.

@@ -17,27 +17,45 @@ const dateLabel=d=>calendarDate(d)?calendarDate(d).split('-').slice(1).concat(ca
 const personData=row=>contacts.tidy(contacts.read(row));
 function missingInfo(row){const people=personData(row).contacts;return [!people.some(p=>p.name)&&'Contact name',!people.some(p=>p.emails.some(e=>e.value))&&'Email',!people.some(p=>p.phones.some(e=>e.value))&&'Phone',row.Status==='Needs Review'&&'Venue review'].filter(Boolean);}
 function eligible(rows){const ids=new Map();rows.forEach(r=>ids.set(r['Place ID'],(ids.get(r['Place ID'])||0)+1));return rows.filter(r=>r['Place ID']&&ids.get(r['Place ID'])===1&&r['Place Name']&&!/^jddm-e2e-/.test(r['Place ID'])&&!/Told No|Closed|No Music/i.test(r.Status)&&(()=>{try{return missingInfo(r).length;}catch{return false;}})());}
-function choose(rows,tasks,today,random=Math.random){
+// Public Hinckley village center (OpenStreetMap node 154384224), not a home address.
+const HINCKLEY_ORIGIN=Object.freeze({latitude:41.23794,longitude:-81.74570,label:'central Hinckley, Ohio'});
+function distanceMiles(row){
+ const rawLat=String(row.Latitude??'').trim(),rawLon=String(row.Longitude??'').trim();
+ if(!rawLat||!rawLon)return null;
+ const lat=Number(rawLat),lon=Number(rawLon);
+ if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(lat===0&&lon===0))return null;
+ const rad=d=>d*Math.PI/180,dLat=rad(lat-HINCKLEY_ORIGIN.latitude),dLon=rad(lon-HINCKLEY_ORIGIN.longitude);
+ const a=Math.sin(dLat/2)**2+Math.cos(rad(HINCKLEY_ORIGIN.latitude))*Math.cos(rad(lat))*Math.sin(dLon/2)**2;
+ return 3958.7613*2*Math.asin(Math.sqrt(Math.min(1,Math.max(0,a))));
+}
+function nearestFirst(a,b){
+ const da=distanceMiles(a)??Infinity,db=distanceMiles(b)??Infinity;
+ return (da===db?0:da<db?-1:1)||String(a['Place Name']||'').localeCompare(String(b['Place Name']||''))||String(a['Place ID']||'').localeCompare(String(b['Place ID']||''));
+}
+function rankedMissing(rows){return eligible(rows).sort(nearestFirst);}
+function distanceLabel(row){const miles=distanceMiles(row);return miles===null?'Location needs verification — distance unavailable':`About ${miles.toFixed(1)} miles from Hinckley (straight-line)`;}
+function choose(rows,tasks,today){
  const open=tasks.filter(t=>t.state==='open'),capacity=Math.max(0,4-open.length),known=new Map(tasks.map(t=>[t.venueId,t]));
- const pool=eligible(rows).filter(r=>{const t=known.get(r['Place ID']);return !t || (t.state==='deferred'&&t.deferUntil<=today);});
- const due=rows.filter(r=>rows.filter(x=>x['Place ID']===r['Place ID']).length===1&&known.get(r['Place ID'])?.state==='deferred'&&known.get(r['Place ID']).deferUntil<=today&&!/Told No|Closed|No Music/i.test(r.Status)).sort((a,b)=>known.get(a['Place ID']).deferUntil.localeCompare(known.get(b['Place ID']).deferUntil));
- const fresh=pool.filter(r=>!known.has(r['Place ID']));for(let i=fresh.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[fresh[i],fresh[j]]=[fresh[j],fresh[i]];}
+ const available=rankedMissing(rows);
+ // Explicit return dates retain priority; equally due venues are nearest first.
+ const due=rows.filter(r=>rows.filter(x=>x['Place ID']===r['Place ID']).length===1&&known.get(r['Place ID'])?.state==='deferred'&&known.get(r['Place ID']).deferUntil<=today&&!/Told No|Closed|No Music/i.test(r.Status)).sort((a,b)=>known.get(a['Place ID']).deferUntil.localeCompare(known.get(b['Place ID']).deferUntil)||nearestFirst(a,b));
+ const fresh=available.filter(r=>!known.has(r['Place ID'])||known.get(r['Place ID']).state==='queued');
  // Revisit completed, still-incomplete records only after all unseen records and a 30-day rest.
- const repeat=!fresh.length?eligible(rows).filter(r=>{const t=known.get(r['Place ID']);return t?.state==='done'&&Date.parse(today+'T12:00Z')-Date.parse(t.completedDay+'T12:00Z')>=30*86400000;}).sort((a,b)=>known.get(a['Place ID']).completedDay.localeCompare(known.get(b['Place ID']).completedDay)):[];
+ const repeat=!fresh.length?available.filter(r=>{const t=known.get(r['Place ID']);return t?.state==='done'&&Date.parse(today+'T12:00Z')-Date.parse(t.completedDay+'T12:00Z')>=30*86400000;}):[];
  return [...due,...fresh,...repeat].slice(0,capacity);
 }
 function button(id,action,label,style=2,extra={}){return {type:2,style,label,custom_id:`jddmw:${action}:${id}`,...extra};}
 function card(task,row){
- const done=task.state==='done',deferred=task.state==='deferred',badge=done?'🟢':deferred?'🟠':'🔵';
+ const done=task.state==='done',deferred=task.state==='deferred',queued=task.state==='queued',badge=done?'🟢':deferred?'🟠':queued?'⚪':'🔵';
  const people=personData(row).contacts;
  let detail=people.map((p,n)=>[`**${n+1}. ${esc(p.name||'Contact name not known yet')}**`,...p.emails.map(e=>'Email: '+esc(e.value)),...p.phones.map(e=>'Phone: '+esc(contacts.formatPhone(e.value))),...p.others.map(e=>`${esc(e.type||'Other')}: ${esc(e.value)}`),p.preferredMethod&&'Preferred: '+esc(p.preferredMethod),p.notes&&'Contact notes: '+esc(p.notes)].filter(Boolean).join('\n')).join('\n\n')||'No contacts recorded yet. Use **Edit contacts**; a phone-only or email-only contact is fine.';
  const venueNotes=String(row.Notes||'');if(venueNotes)detail+='\n\n**Venue notes**\n'+esc(venueNotes);
  if(detail.length>3600)detail=detail.slice(0,3480)+'\n… More saved details are available in Edit contacts or Open venue.';
  const needs=missingInfo(row);
- return {content:`${badge} **${done?'Done — venue information reviewed':deferred?'Rescheduled':'Venue information to review'}**\n${done?'Completed '+task.completedDay:deferred?'Returns '+dateLabel(task.deferUntil):'Selected '+task.assignedDay+' · Finish this post when you have reviewed the information.'}`,...quiet,
-  embeds:[{title:String(row['Place Name']).slice(0,256),url:link(task.venueId),color:done?0x2ecc71:deferred?0xe67e22:0x3498db,
-   description:[`**Address:** ${esc([row.Address,row.City,row.State,row.Zip].filter(Boolean).join(', '))||'Not recorded'}`,`**Spreadsheet status:** ${esc(row.Status)||'Not set'}`,`**Last contacted:** ${dateLabel(row['Last Contacted'])}`,`**Official follow-up:** ${dateLabel(row['Next Follow Up'])}`,`**Still missing:** ${needs.join(', ')||'No basic contact gaps'}`,'',detail].join('\n').slice(0,4096),footer:{text:'Existing spreadsheet row • Missing information can stay blank • All dates Eastern'}}],
-  components:[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'contacts','Edit contacts',1),button(task.id,'contacted','Contacted'),button(task.id,'date','Reschedule'),button(task.id,done?'reopen':'done',done?'Reopen':'Done',done?2:3)]},
+ return {content:`${badge} **${done?'Done — venue information reviewed':deferred?'Rescheduled':queued?'Waiting in the nearest-first queue':'Venue information to review'}**\n${done?'Completed '+task.completedDay:deferred?'Returns '+dateLabel(task.deferUntil):queued?'No information was deleted. This venue will return as closer venues are reviewed.':'Selected '+task.assignedDay+' · Finish this post when you have reviewed the information.'}`,...quiet,
+  embeds:[{title:String(row['Place Name']).slice(0,256),url:link(task.venueId),color:done?0x2ecc71:deferred?0xe67e22:queued?0x95a5a6:0x3498db,
+   description:[`**Distance:** ${distanceLabel(row)}`,`**Address:** ${esc([row.Address,row.City,row.State,row.Zip].filter(Boolean).join(', '))||'Not recorded'}`,`**Spreadsheet status:** ${esc(row.Status)||'Not set'}`,`**Last contacted:** ${dateLabel(row['Last Contacted'])}`,`**Official follow-up:** ${dateLabel(row['Next Follow Up'])}`,`**Still missing:** ${needs.join(', ')||'No basic contact gaps'}`,'',detail].join('\n').slice(0,4096),footer:{text:'Existing spreadsheet row • Missing information can stay blank • All dates Eastern'}}],
+  components:queued?[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'reopen','Work on this venue'),button(task.id,'refresh','Refresh from spreadsheet')]}]:[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'contacts','Edit contacts',1),button(task.id,'contacted','Contacted'),button(task.id,'date','Reschedule'),button(task.id,done?'reopen':'done',done?'Reopen':'Done',done?2:3)]},
    {type:1,components:[{type:3,custom_id:`jddmw:status:${task.id}`,placeholder:'Change the official spreadsheet status',options:STATUSES.map(value=>({label:value,value,default:value===row.Status}))}]},
    {type:1,components:[button(task.id,'refresh','Refresh from spreadsheet'),button(task.id,'notes','Edit venue notes')]}]};
 }
@@ -76,8 +94,8 @@ function createService({db,discord,sheet,now=()=>new Date(),prefix='jddmVenueWor
   if(thread.thread_metadata?.archived)await discord('PATCH',`/channels/${threadId}`,{archived:false});
   await discord('PATCH',`/channels/${threadId}/messages/${threadId}`,body);
   const name=String(row['Place Name']).slice(0,100);
-  const tags=[cfg.tags[t.state]].filter(Boolean);
-  if(thread.name!==name||JSON.stringify(thread.applied_tags||[])!==JSON.stringify(tags)||t.state==='done')await discord('PATCH',`/channels/${threadId}`,{...(thread.name!==name?{name}:{}),applied_tags:tags,...(t.state==='done'?{archived:true}:{})});
+  const tags=[cfg.tags[t.state]].filter(Boolean),archive=t.state==='done'||t.state==='queued';
+  if(thread.name!==name||JSON.stringify(thread.applied_tags||[])!==JSON.stringify(tags)||archive)await discord('PATCH',`/channels/${threadId}`,{...(thread.name!==name?{name}:{}),applied_tags:tags,...(archive?{archived:true}:{})});
   const update={threadId,messageHash:digest,name:row['Place Name'],missing:missingInfo(row),followUpDate:calendarDate(row['Next Follow Up']),updatedAt:now().toISOString()};await taskRef(t.id).set(update,{merge:true});return {...t,...update};
  }
  async function refresh(){const rows=await sheet.list(),tasks=await all();let updated=0;for(const t of tasks){if(updated>=24)break;const matches=rows.filter(r=>r['Place ID']===t.venueId);if(matches.length!==1)continue;let next=t;
@@ -100,6 +118,7 @@ function createService({db,discord,sheet,now=()=>new Date(),prefix='jddmVenueWor
  async function session(sid,id,user,channel){const s=(await sessionRef(sid).get()).data();if(!s||s.taskId!==id||s.user!==user||s.channel!==channel||s.expiresAt<Date.now())throw Error('This form expired. Open Edit contacts again.');return s;}
  async function mutate(id,kind,values,{user,actor,channel,requestId,sid,index}){return lock(id,async()=>{
   let t=await get(id);if(t.threadId!==channel)throw Error('Use the current venue post');
+  if(t.state==='queued'&&kind!=='reopen')throw Error('This venue is waiting in the nearest-first queue. Use Work on this venue or edit it in the app.');
   const row=await current(t),s=sid?await session(sid,id,user,channel):null;
   const fields={},expected={};let state=t.state;
   if(['contact','other'].includes(kind)){
@@ -190,4 +209,4 @@ function createInteractions({db,discord,service,publicKey}){return async(req,res
  }
  return res.status(200).send('Handled');
 };}
-module.exports={GUILD,APP,STATUSES,CONTACT_HEADERS,missingInfo,eligible,choose,card,link,createSheetGateway,createService,modal,valuesOf,createInteractions};
+module.exports={GUILD,APP,STATUSES,CONTACT_HEADERS,missingInfo,eligible,HINCKLEY_ORIGIN,distanceMiles,distanceLabel,nearestFirst,rankedMissing,choose,card,link,createSheetGateway,createService,modal,valuesOf,createInteractions};

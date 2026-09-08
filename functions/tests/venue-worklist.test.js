@@ -78,3 +78,32 @@ test('signed Discord contact selection and modal submission update the existing 
  const opened=await send({custom_id:selector.custom_id,values:['0']});assert.equal(opened.body.type,9);
  const submitted=await send({custom_id:opened.body.data.custom_id,components:[{type:18,component:{type:4,custom_id:'emails',value:'partial@example.com'}}]},5);assert.equal(submitted.code,200);assert.equal(contacts.read(s.rows[0]).contacts[0].emails[0].value,'partial@example.com');assert.equal(s.rows.length,1);
 });
+test('distance sorting uses Hinckley center, not input order or random selection',()=>{
+ const point=(id,milesNorth)=>row(id,{Latitude:String(w.HINCKLEY_ORIGIN.latitude+milesNorth/69.0934),Longitude:String(w.HINCKLEY_ORIGIN.longitude)});
+ const rows=[point('far',50),point('close',1),point('middle',10),point('closest',0),point('fifth',100)];
+ assert.deepEqual(w.choose(rows,[],'2026-09-08').map(r=>r['Place ID']),['closest','close','middle','far']);
+ assert.ok(Math.abs(w.distanceMiles(point('one-degree',69.0934))-69.0934)<0.01);
+ assert.equal(w.distanceMiles(point('center',0)),0);
+ assert.deepEqual(w.rankedMissing(rows.reverse()).map(r=>r['Place ID']),['closest','close','middle','far','fifth']);
+});
+test('missing, invalid, zero and out-of-range coordinates sort last with an honest label',()=>{
+ for(const [Latitude,Longitude] of [['',''],[' ','-81'],['oops','-81'],['91','-81'],['41','181'],['Infinity','-81'],['0','0']])assert.equal(w.distanceMiles({Latitude,Longitude}),null);
+ const rows=[row('unknown'),row('valid',{Latitude:'41.3',Longitude:'-81.7'})];
+ assert.equal(w.rankedMissing(rows)[1]['Place ID'],'unknown');assert.match(w.distanceLabel(rows[0]),/unavailable/);
+ assert.match(w.card({id:'t',venueId:'valid',state:'open',assignedDay:'2026-09-08'},rows[1]).embeds[0].description,/straight-line/);
+});
+test('equal distances are stable, open work carries, queued work returns nearest first, explicit dates win',()=>{
+ const rows=['far','close','due','later','carried'].map((id,n)=>row(id,{Latitude:String(42-n/10),Longitude:'-81.7'}));
+ const tasks=[{venueId:'carried',state:'open'},{venueId:'close',state:'queued'},{venueId:'due',state:'deferred',deferUntil:'2026-09-08'},{venueId:'later',state:'deferred',deferUntil:'2026-09-09'}];
+ assert.deepEqual(w.choose(rows,tasks,'2026-09-08').map(r=>r['Place ID']),['due','close','far']);
+ const same=[row('b',{'Place Name':'B',Latitude:'41.3',Longitude:'-81.7'}),row('a',{'Place Name':'A',Latitude:'41.3',Longitude:'-81.7'})];assert.deepEqual(w.choose(same,[],'2026-09-08').map(r=>r['Place ID']),['a','b']);
+});
+test('queued posts preserve their thread and row, archive honestly, and reopen when selected',async()=>{
+ const s=setup(),t=await s.task(),before=JSON.stringify(s.rows);
+ await s.db.doc('jddmVenueWorklistTasks/'+t.id).set({state:'queued'},{merge:true});
+ await s.service.publish(await s.service.get(t.id),s.rows[0]);
+ assert.equal(s.threads.get(t.threadId).thread_metadata.archived,true);assert.match(s.messages.get(t.threadId).content,/Waiting in the nearest-first queue/);
+ assert.equal(JSON.stringify(s.rows),before);assert.equal(s.messages.get(t.threadId).embeds[0].color,0x95a5a6);
+ s.setDay('2026-09-09');await s.service.fill();const reopened=await s.service.get(t.id);
+ assert.equal(reopened.state,'open');assert.equal(reopened.threadId,t.threadId);assert.equal(s.threads.size,1);assert.equal(s.threads.get(t.threadId).thread_metadata.archived,false);assert.equal(JSON.stringify(s.rows),before);
+});
