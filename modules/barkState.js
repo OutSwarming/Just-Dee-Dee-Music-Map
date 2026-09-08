@@ -9,7 +9,7 @@ window.BARK.bootOrder = window.BARK.bootOrder || {};
 window.BARK.bootOrder.barkStateParsedAt = Date.now();
 
 // ====== APP VERSION ======
-let APP_VERSION = parseInt(localStorage.getItem('jddm_seen_version') || '21');
+let APP_VERSION = parseInt(localStorage.getItem('jddm_seen_version') || '23');
 console.log(`Just Dee Dee Music Map v${APP_VERSION}: ready`);
 window.BARK.APP_VERSION = APP_VERSION;
 window.BARK.setAppVersion = function (v) { APP_VERSION = v; window.BARK.APP_VERSION = v; };

@@ -142,7 +142,7 @@
                 </div>
 
                 <div id="premium-trail-login-notice" class="premium-login-notice" hidden>
-                    Route and history sync are client tools.
+                    Show history stays with your venue records.
                     <button type="button" id="premium-login-jump">Log in</button>
                 </div>
 
@@ -336,7 +336,7 @@
         <div class="view-content glass-panel">
             <h2>Just Dee Dee Music Live Map</h2>
             <p>Find live music stops, venue opportunities, and upcoming Just Dee Dee Music locations across Northeast
-                Ohio. This map keeps booking leads, show history, and gig routes in one place.</p>
+                Ohio. This map keeps booking leads, show history, and upcoming gigs in one place.</p>
 
             <hr class="view-divider">
 
@@ -364,7 +364,7 @@
 
         <div class="view-content glass-panel" style="margin-top: 20px;">
             <h3>About the Live Map</h3>
-            <p style="font-size: 15px; line-height: 1.6;">Use the map to review venues, plan efficient gig routes, track
+            <p style="font-size: 15px; line-height: 1.6;">Use the map to review venues, review upcoming gigs, track
                 places played, and keep Northeast Ohio live music opportunities easy to scan.</p>
         </div>
 
@@ -747,7 +747,7 @@
 
                         <p
                             style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid #f1f5f9; padding-top: 15px; margin: 0;">
-                            Just Dee Dee Music Live Map v<span id="settings-app-version">22</span>
+                            Just Dee Dee Music Live Map v<span id="settings-app-version">23</span>
                         </p>
 
                     </div>
@@ -1090,31 +1090,8 @@
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3
                             style="margin: 0; font-size: 16px; font-weight: 900; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                            🗃️ My Data & Routes</h3>
+                            🗃️ My Data</h3>
                     </div>
-
-                    <div style="padding-top: 4px;">
-                        <details class="premium-details">
-                            <summary
-                                style="color: #1e293b; font-size: 14px; font-weight: 800; cursor: pointer; outline: none; display: flex; justify-content: space-between; align-items: center; list-style: none; padding: 12px; margin: -12px; border-radius: 12px; transition: all 0.2s ease;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 16px;">📂</span>
-                                    <div>Saved Itineraries</div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span id="saved-routes-count"
-                                        style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;">0</span>
-                                    <span class="chevron"
-                                        style="font-size: 12px; color: #94a3b8; transition: transform 0.3s ease;">▼</span>
-                                </div>
-                            </summary>
-                            <div id="saved-routes-list"
-                                style="max-height: 350px; overflow-y: auto; margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9; padding-right: 4px;">
-                            </div>
-                        </details>
-                    </div>
-
-                    <div style="border-top: 1px solid #f1f5f9; margin: 16px 0;"></div>
 
                     <details id="manage-places-portal" class="premium-details">
                         <summary
@@ -1207,7 +1184,7 @@
             <div id="login-container" style="margin-top: 20px;">
                 <div class="account-auth-card" id="account-auth-card">
                     <h2>Unlock Your Profile</h2>
-                    <p class="account-auth-copy">Sign in to track venues played, back up routes, and keep show planning details synced.</p>
+                    <p class="account-auth-copy">Sign in to track venues played and keep show planning details synced.</p>
 
                     <button id="google-login-btn" class="google-login-btn" type="button">
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"
@@ -1365,7 +1342,7 @@
     <script src="modules/settingsRegistry.js?v=1" defer></script>
     <script src="repos/ParkRepo.js?v=1" defer></script>
     <script src="repos/VaultRepo.js?v=3" defer></script>
-    <script src="modules/barkState.js?v=21-1" defer></script>
+    <script src="modules/barkState.js?v=23" defer></script>
     <script src="config/firebaseConfig.example.js?v=4" defer></script>
     <script src="modules/barkConfig.js?v=3" defer></script>
     <script src="config/domRefs.js?v=1" defer></script>
@@ -1373,9 +1350,8 @@
     <script src="state/appState.js?v=4" defer></script>
     <!-- Phase 2B: additive refreshCoordinator seam; existing refresh calls still remain in place. -->
     <script src="modules/RefreshCoordinator.js?v=1" defer></script>
-    <script src="services/orsService.js?v=2" defer></script>
-    <script src="services/firebaseService.js?v=10" defer></script>
-    <script src="renderers/routeRenderer.js?v=1" defer></script>
+    <script src="services/orsService.js?v=3" defer></script>
+    <script src="services/firebaseService.js?v=11" defer></script>
     <script src="services/checkinService.js?v=5" defer></script>
     <script src="services/authPremiumUi.js?v=2" defer></script>
     <script src="services/premiumService.js?v=1" defer></script>
@@ -1384,7 +1360,6 @@
     <script src="services/authService.js?v=23" defer></script>
     <script src="modules/markerLayerPolicy.js?v=5" defer></script>
     <script src="modules/MarkerLayerManager.js?v=13" defer></script>
-    <script src="modules/TripLayerManager.js?v=5" defer></script>
     <script src="modules/mapEngine.js?v=3" defer></script>
     <script src="modules/renderEngine.js?v=11" defer></script>
     <script src="renderers/panelRenderer.js?v=8" defer></script>
@@ -1403,13 +1378,12 @@
     <script src="renderers/leaderboardRenderer.js?v=1" defer></script>
     <script src="modules/profileEngine.js?v=7" defer></script>
     <script src="modules/expeditionEngine.js?v=3" defer></script>
-    <script src="engines/tripPlannerCore.js?v=4" defer></script>
     <script src="modules/shareEngine.js?v=4" defer></script>
     <script src="modules/settingsController.js?v=6" defer></script>
     <script src="modules/uiController.js?v=11" defer></script>
 
     <!-- ENTRY POINT: Bootstrap Orchestrator (must load LAST) -->
-    <script src="core/app.js?v=30" defer></script>
+    <script src="core/app.js?v=31" defer></script>
     <!-- SCORING PROTOCOL MODAL -->
     <div id="scoring-modal" class="scoring-modal-overlay">
         <div class="scoring-modal-card">

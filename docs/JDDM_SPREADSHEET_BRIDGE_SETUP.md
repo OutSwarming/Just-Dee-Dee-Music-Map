@@ -92,7 +92,7 @@ For live Apps Script updates:
 3. Publish a new version of the existing deployment and verify every owner's sync trigger uses it. The September 8 separation is version 40.
 4. Verify `CalendarReview.gs` calls the JDDM endpoint and matching events retain their existing Place IDs.
 5. Unknown venues must remain pending in Discord calendar review until a person chooses New row, Link, or Ignore. The former spreadsheet duplicate-review promotion instructions are retired; see [calendar venue review](JDDM_CALENDAR_VENUE_REVIEW.md).
-6. Check the trigger list for duplicate owners before adding any trigger. As of September 8 there are two existing calendar-sync triggers using version 40; the sync interval remains five minutes, and a separate five-minute change monitor uses Head. The migration did not change these intervals to hourly.
+6. Check all owners before adding a trigger. September 8 cleanup leaves one hourly spreadsheet sync and one hourly Head change monitor, both owned by justdeedeemusic@gmail.com. The failed duplicate was removed. Both installers default to everyHours(1); don't reintroduce five-minute polling or duplicate owners.
 
 The calendar sync is idempotent. It keys the durable gig table by `calendarEventId`/`gigId`, so running it again updates existing calendar gig rows instead of duplicating them.
 

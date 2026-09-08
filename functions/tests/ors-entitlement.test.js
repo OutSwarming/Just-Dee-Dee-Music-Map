@@ -148,33 +148,6 @@ describe("ORS callable full-access helpers", () => {
 });
 
 describe("ORS callable handlers", () => {
-    it("allows signed-in route requests through because JDDM includes full access", async () => {
-        let postCalls = 0;
-
-        const result = await handlePremiumRoute(
-            {
-                data: {
-                    coordinates: [[-122.4, 37.8], [-122.5, 37.9]],
-                    isPremium: false,
-                    entitlement: { premium: false, status: "free" }
-                }
-            },
-            authedContext("free-user"),
-            {
-                firestore: makeFirestore({
-                    entitlement: { premium: false, status: "free", source: "none" }
-                }),
-                getOrsApiKey: () => "test-key",
-                axiosPost: async () => {
-                    postCalls += 1;
-                    return { data: { ok: true } };
-                }
-            }
-        );
-
-        assert.deepEqual(result, { ok: true });
-        assert.equal(postCalls, 1);
-    });
 
     it("allows signed-in geocode requests through because JDDM includes full access", async () => {
         let getCalls = 0;
@@ -198,32 +171,6 @@ describe("ORS callable handlers", () => {
         assert.equal(getCalls, 1);
     });
 
-    it("allows premium route requests through to the ORS transport path", async () => {
-        let capturedRequest = null;
-
-        const result = await handlePremiumRoute(
-            {
-                data: {
-                    coordinates: [[-122.4, 37.8], [-122.5, 37.9]],
-                    radiuses: [350, 350]
-                }
-            },
-            authedContext("premium-user"),
-            {
-                firestore: makeFirestore({ entitlement: premiumEntitlement }),
-                getOrsApiKey: () => "test-key",
-                axiosPost: async (url, body, config) => {
-                    capturedRequest = { url, body, config };
-                    return { data: { type: "FeatureCollection" } };
-                }
-            }
-        );
-
-        assert.deepEqual(result, { type: "FeatureCollection" });
-        assert.match(capturedRequest.url, /openrouteservice\.org\/v2\/directions/);
-        assert.deepEqual(capturedRequest.body.radiuses, [350, 350]);
-        assert.equal(capturedRequest.config.headers.Authorization, "test-key");
-    });
 
     it("allows premium geocode requests through to the ORS transport path", async () => {
         let capturedUrl = "";
@@ -247,4 +194,13 @@ describe("ORS callable handlers", () => {
         assert.match(capturedUrl, /size=3/);
         assert.match(capturedUrl, /boundary\.country=US/);
     });
+    it("rejects every route request before database or provider access", async () => {
+        for (const context of [{}, authedContext()]) {
+            await assertRejectsCode(handlePremiumRoute({coordinates:[[0,0],[1,1]]}, context, {
+                axiosPost: () => { throw Error('Provider must never be called'); },
+                firestore: {collection: () => { throw Error('Database must never be read'); }}
+            }), 'failed-precondition');
+        }
+    });
+
 });

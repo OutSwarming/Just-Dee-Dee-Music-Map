@@ -1,4 +1,4 @@
-/** Five-minute calendar change notifications; no spreadsheet columns are changed. */
+/** Hourly calendar change notifications; no spreadsheet columns are changed. */
 var JDDM_CALENDAR_MONITOR_URL = 'https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmCalendarChanges';
 
 function runJddmCalendarChangeMonitor() {
@@ -35,6 +35,6 @@ function installJddmCalendarChangeMonitor() {
   var result = runJddmCalendarChangeMonitor();
   if (!result) throw new Error('Calendar sync is busy; retry installation.');
   var existing = ScriptApp.getProjectTriggers().filter(function(t){return t.getHandlerFunction() === 'runJddmCalendarChangeMonitor';});
-  if (!existing.length) ScriptApp.newTrigger('runJddmCalendarChangeMonitor').timeBased().everyMinutes(5).create();
-  console.log('Calendar change monitor installed: every 5 minutes. Existing events baselined without notifications.');
+  if (!existing.length) ScriptApp.newTrigger('runJddmCalendarChangeMonitor').timeBased().everyHours(1).create();
+  console.log('Calendar change monitor installed: every hour. Existing events baselined without notifications.');
 }

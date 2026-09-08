@@ -904,42 +904,8 @@ async function handleScheduledDeeDeeReminder(context = {}, options = {}) {
     };
 }
 
-async function handlePremiumRoute(requestOrData, context, options = {}) {
-    await requirePremiumCallable(context, "getPremiumRoute", options);
-
-    const payload = getCallablePayload(requestOrData);
-    const coordinates = payload.coordinates;
-    const radiuses = payload.radiuses;
-
-    if (!Array.isArray(coordinates) || coordinates.length < 2) {
-        throw new functions.https.HttpsError("invalid-argument", "Payload mismatch!");
-    }
-
-    const apiKey = getOrsApiKey(options);
-    if (!apiKey) {
-        throw new functions.https.HttpsError("failed-precondition", "Routing service is not configured.");
-    }
-
-    const url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
-    const body = { coordinates };
-    if (Array.isArray(radiuses) && radiuses.length === coordinates.length) {
-        body.radiuses = radiuses;
-    }
-
-    try {
-        const post = options.axiosPost || axios.post;
-        const response = await post(url, body, {
-            headers: {
-                "Authorization": apiKey,
-                "Content-Type": "application/json",
-                "Accept": "application/json, application/geo+json; charset=utf-8"
-            }
-        });
-        return response.data;
-    } catch (error) {
-        console.error("Networking/ORS Error:", error.message);
-        throw new functions.https.HttpsError("internal", "Failed to calculate route.");
-    }
+async function handlePremiumRoute() {
+    throw new functions.https.HttpsError("failed-precondition", "Route planning is disabled in Just Dee Dee Music. Use Bark Ranger for routes.");
 }
 
 async function handlePremiumGeocode(requestOrData, context, options = {}) {
@@ -989,7 +955,6 @@ exports.jddmSpreadsheetBridge = functions
     .https.onRequest(jddmSpreadsheetBridgeHandler);
 
 exports.getPremiumRoute = functions
-    .runWith({ secrets: ["ORS_API_KEY"] })
     .https.onCall(async (requestOrData, context) => {
         return handlePremiumRoute(requestOrData, context);
     });
@@ -1528,7 +1493,7 @@ exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_
     if(req.method!=='GET')return res.status(405).json({ok:false});
     try{const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));const digest=await require('./followUpDigest').loadDigest({db:admin.firestore(),cache:hour>=8});const state=(await admin.firestore().doc('jddmCalendarMonitor/state').get()).data();const calendar=state?.baseline?calendarMonitor.unpack(state.baseline):null;const extra={};
     if(req.query.summary==='1')extra.conversations=(await admin.firestore().collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
-    res.json({ok:true,...digest,...extra,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<20*60*1000?calendar:null});}
+    res.json({ok:true,...digest,...extra,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<90*60*1000?calendar:null});}
     catch(e){console.error('[jddmNotificationDigest]',e.message);res.status(503).json({ok:false,error:'Daily follow-ups are temporarily unavailable; retry shortly.'});}
 });
 
