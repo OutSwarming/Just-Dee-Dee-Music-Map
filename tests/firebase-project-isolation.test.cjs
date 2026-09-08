@@ -27,3 +27,10 @@ test('every deployable configuration enforces the resolved project before deploy
     assert.equal(spawnSync(process.execPath,[path.join(__dirname,'../scripts/check-firebase-project.cjs'),project]).status,status);
   }
 });
+test('cold start resolves the explicit JDDM database before environment project discovery',()=>{
+  const {spawnSync}=require('node:child_process'),path=require('node:path');
+  const env={...process.env,NODE_ENV:'production'};
+  for(const key of ['GCLOUD_PROJECT','GOOGLE_CLOUD_PROJECT','FIREBASE_CONFIG'])delete env[key];
+  const result=spawnSync(process.execPath,['-e',"const handlers=require('./functions');if(typeof handlers.jddmSpreadsheetBridge!=='function'||typeof handlers.jddmEfficiencyRepair!=='function')throw Error('Missing handlers');"],{cwd:path.join(__dirname,'..'),env,encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+});

@@ -22,7 +22,7 @@ if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT !== JDDM_PROJECT
 }
 
 // Initialize Firebase Admin SDK
-admin.initializeApp();
+admin.initializeApp({projectId: JDDM_PROJECT});
 
 const jddmSpreadsheetGateway = createGoogleSheetsGateway({ google });
 const jddmSpreadsheetIdempotency = createFirestoreIdempotencyStore({
