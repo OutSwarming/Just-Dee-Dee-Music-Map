@@ -1,3 +1,5 @@
+> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
+
 # Calendar venue review
 
 The calendar and website importers must never append a venue automatically. They resolve to one stable, unique spreadsheet Place ID, or leave the event pending for a decision. No spreadsheet columns are added. Follow-up dates and contacts are not part of a calendar decision.
