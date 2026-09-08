@@ -13,7 +13,7 @@ window.JDDM_FIREBASE_CONFIG = {
 
 // Firebase bridge for editing spreadsheet rows from marker cards.
 // Clean storage bridge: one Status column controls row colors and map played state.
-window.JDDM_SPREADSHEET_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
+window.JDDM_SPREADSHEET_API_URL = "https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv&autofill=0`;
 // window.JDDM_SPREADSHEET_EDIT_TOKEN = "";
 

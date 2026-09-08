@@ -22,9 +22,9 @@ const WEBSITE_FUTURE_PATH = path.join(REPO_ROOT, "data", "staged", "jddm-website
 const ARTIST_SYNC_HEALTH_PATH = path.join(homedir(), "Library", "Application Support", "Just Dee Dee Music Map", "artist-gig-tracker-health.json");
 const ARTIST_SYNC_STALE_AFTER_MS = 7 * 60 * 60 * 1000;
 const BRIDGE_API_URL = process.env.JDDM_SPREADSHEET_BRIDGE_URL
-    || "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
+    || "https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge";
 const LIVE_MAP_CSV_URL = process.env.JDDM_VENUE_CSV_URL
-    || "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge?action=csv";
+    || "https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge?action=csv";
 const SERVICE_PRIORITY = ["iMessage", "SMS"];
 const FALLBACK_SERVICE_PRIORITY = ["SMS", "iMessage"];
 const MAX_DYNAMIC_DATA_AGE_MS = 48 * 60 * 60 * 1000;

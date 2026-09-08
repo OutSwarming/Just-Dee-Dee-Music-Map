@@ -1,3 +1,5 @@
+> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
+
 # JDDM app activity tracker
 
 Live channel: [Monitoring → app-activity](https://discord.com/channels/1543777084265070623/1546582476741410836).

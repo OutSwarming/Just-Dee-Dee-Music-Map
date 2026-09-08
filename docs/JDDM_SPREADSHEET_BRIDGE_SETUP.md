@@ -1,3 +1,5 @@
+> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
+
 # Just Dee Dee Spreadsheet Bridge Setup
 
 The production bridge is a Firebase HTTPS function. It replaces the inaccessible Apps Script project and does not require Carter or Dee Dee to click an Apps Script authorization button.
@@ -5,7 +7,7 @@ The production bridge is a Firebase HTTPS function. It replaces the inaccessible
 ## Production connection
 
 ```js
-window.JDDM_SPREADSHEET_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge";
+window.JDDM_SPREADSHEET_API_URL = "https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge";
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
 ```
 
@@ -18,7 +20,7 @@ The health response must report schema `2026-08-31-firebase-shared-bridge` and a
 From the repository root:
 
 ```bash
-npx firebase-tools deploy --only functions:jddmSpreadsheetBridge --project barkrangermap-auth
+npx firebase-tools deploy --only functions:jddmSpreadsheetBridge --project just-dee-dee-music-map
 ```
 
 This command updates only the Just Dee Dee bridge. It does not redeploy the other BARK Ranger functions in that Firebase project.

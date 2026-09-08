@@ -1,3 +1,5 @@
+> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
+
 # Venue contact groups and follow-up dates
 
 Add Place and pin → Edit share one contact editor. Each person or venue has a free-form name, preferred method/contact type, contact notes, and multiple emails, phone numbers and other contact methods. Each person has one Contact notes box shared by their methods. Add stays beside the method on phones. Removing a contact removes that person's methods; editing one person keeps the others intact.

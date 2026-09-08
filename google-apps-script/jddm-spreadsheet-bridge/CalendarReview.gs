@@ -12,7 +12,7 @@ function resolveCalendarVenueEvents_(events) {
   var body = JSON.stringify({source:'calendar',enqueue:false,events:events});
   var stamp = String(Date.now());
   var signature = Utilities.computeHmacSha256Signature(stamp + '.' + body, key, Utilities.Charset.UTF_8).map(function(b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
-  var response = UrlFetchApp.fetch('https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmCalendarVenueReview', {
+  var response = UrlFetchApp.fetch('https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmCalendarVenueReview', {
     method:'post',contentType:'application/json',payload:body,muteHttpExceptions:true,
     headers:{'x-jddm-timestamp':stamp,'x-jddm-signature':signature}
   });
