@@ -29,6 +29,8 @@ The old four JDDM functions are still deployed in Bark for the rollback window: 
 
 The separation did not change the calendar to hourly. The existing sync remains every five minutes. Two owners have sync triggers on version 40, and a separate change-monitor trigger runs every five minutes from Head. Review both owners' triggers when consolidating; installing a trigger under one account does not remove another owner's trigger.
 
+The September 8 review found that one duplicate sync trigger fails with a missing `script.external_request` authorization. The identical error appeared at 10:32 AM Eastern before cutover and 10:57 AM afterward. The other owner's sync and the change monitor completed after cutover, including 10:58 AM. This is an existing trigger defect; consolidate ownership instead of blindly authorizing another duplicate. The schedule/authorization cleanup remains pending.
+
 Changing one five-minute schedule to hourly reduces its scheduled runs from 288 to 24 per day, with up to about one hour of freshness delay. That is a run-count estimate, not a promise of the same reduction in document reads. Remove duplicated work and skip unchanged snapshots before expensive review/database work; allow manual refresh when fresher results are needed. These optimizations are pending and should be tested separately from this migration.
 
 JDDM and Bark have separate Secret Manager copies of the same ORS provider credential, so external routing/geocoding quota remains shared. Do not delete or rotate Bark's key during JDDM cleanup. Independent provider quota requires a separately provisioned JDDM key/account. A shared Google billing account also does not imply a shared Firestore database.
