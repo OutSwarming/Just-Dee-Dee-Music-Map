@@ -76,6 +76,7 @@ function derive(task, row, messages, signals = [], today = dayKey(new Date())) {
   else if (/Told No|Closed|No Music/i.test(row.Status || '')) reason = 'The spreadsheet says no / closed / no music. Review the venue before more outreach.';
   else if (priorReply) reason = 'This is an active conversation. Use the official follow-up date or request a tailored draft; the cold-email sequence is paused.';
   else if (followupSends >= 3) reason = 'Three follow-ups have been sent. Pause outreach until Dee Dee chooses a next step.';
+  else if (official && official <= dayKey(new Date(lastSent.at))) reason = `The official follow-up (${official}) is on or before the latest sent email. Choose the next official follow-up date; another draft will not be prepared immediately after this send.`;
   else {
     due = official || datePlus(dayKey(new Date(lastSent.at)), [7, 7, 16][followupSends]);
     canAutoDraft = due <= today;

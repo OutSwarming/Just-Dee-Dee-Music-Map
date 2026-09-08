@@ -24,6 +24,8 @@ The official spreadsheet date overrides the suggested cadence. Unsent drafts do 
 
 A completed recommendation does not repeat every day. If Dee Dee reschedules the official follow-up, that new date can trigger another review when due; the same venue/email step is reused without creating a second forum post.
 
+If the official follow-up is on or before the latest actual email send, the tracker asks Dee Dee to choose the next official date instead of immediately drafting again against an already-used date. It never silently overwrites the spreadsheet date.
+
 Gmail and spreadsheet synchronization runs in Firebase every five minutes. AI writing is performed by the Codex follow-up worker on this Mac, approximately every 15 minutes when the Mac and Codex are available. It uses the user's Codex account; it is not a promise of unlimited free AI or a separate paid API integration.
 
 ## Worker contract

@@ -128,3 +128,8 @@ test('a rescheduled official date permits a fresh automatic review after a compl
  s.rows[0]['Next Follow Up']='2026-10-01';v=b.derive({...t,jobState:'complete'},s.rows[0],[m],[],'2026-09-10');assert.equal(v.canAutoDraft,false);
  v=b.derive({...t,jobState:'complete'},s.rows[0],[m],[],'2026-10-01');assert.equal(v.canAutoDraft,true);await s.service.enqueue(t,s.rows[0],v);j=(await s.service.readAll(b.PREFIX+'Jobs'))[0];assert.equal(j.state,'pending');assert.equal(j.generation,2);assert.equal(j.officialDateAtRequest,'2026-10-01');
 });
+test('sending on or after the official follow-up cannot immediately trigger another draft against that used date',()=>{
+ const first=msg('first',{sent:true}),followup=msg('followup',{sent:true,at:T+10*DAY});
+ for(const date of ['2026-09-08','2026-09-11']){const v=derive([first,followup],{'Next Follow Up':date},{},'2026-09-11');assert.equal(v.canAutoDraft,false);assert.equal(v.official,date);assert.match(v.reason,/Choose the next official/);}
+ const next=derive([first,followup],{'Next Follow Up':'2026-09-12'},{},'2026-09-12');assert.equal(next.canAutoDraft,true);assert.equal(next.due,'2026-09-12');
+});
