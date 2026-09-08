@@ -21,6 +21,9 @@ if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT !== JDDM_PROJECT
     throw new Error('JDDM functions require the just-dee-dee-music-map Firebase project.');
 }
 
+// Firebase's event adapters also require the explicit project during cold starts.
+process.env.GCLOUD_PROJECT ||= JDDM_PROJECT;
+
 // Initialize Firebase Admin SDK
 admin.initializeApp({projectId: JDDM_PROJECT});
 

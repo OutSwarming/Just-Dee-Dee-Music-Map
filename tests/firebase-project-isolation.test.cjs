@@ -34,3 +34,10 @@ test('cold start resolves the explicit JDDM database before environment project 
   const result=spawnSync(process.execPath,['-e',"const handlers=require('./functions');if(typeof handlers.jddmSpreadsheetBridge!=='function'||typeof handlers.jddmEfficiencyRepair!=='function')throw Error('Missing handlers');"],{cwd:path.join(__dirname,'..'),env,encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
 });
+
+test('Firestore recovery event adapter runs without an injected project environment',()=>{
+  const {spawnSync}=require('node:child_process'),path=require('node:path'),env={...process.env,NODE_ENV:'production'};
+  for(const key of ['GCLOUD_PROJECT','GOOGLE_CLOUD_PROJECT','FIREBASE_CONFIG'])delete env[key];
+  const script=`const h=require('./functions').jddmEfficiencyRepair;const name='projects/just-dee-dee-music-map/databases/(default)/documents/jddmEfficiencySnapshots/test';h({value:{name,fields:{}}},{eventId:'test-event',timestamp:new Date().toISOString(),eventType:'providers/cloud.firestore/eventTypes/document.write',resource:{name}}).then(r=>{if(!r.ignored)throw Error('Snapshot events must be ignored');}).catch(e=>{console.error(e);process.exitCode=1;});`;
+  const result=spawnSync(process.execPath,['-e',script],{cwd:path.join(__dirname,'..'),env,encoding:'utf8'});assert.equal(result.status,0,result.stderr);
+});
