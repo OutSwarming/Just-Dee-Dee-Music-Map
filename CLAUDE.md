@@ -1,3 +1,11 @@
+## JDDM current work — September 7, 2026
+
+- [x] Publish dedicated Just Dee Dee Inbox privacy/terms/data-request pages; configure Meta and confirm app Published.
+- [x] Add tested social privacy restrictions to prevent reimport/reply after a verified request (279 backend checks).
+- [ ] Confirm non-role customer access and resolve Meta’s irreversible Tech Provider review prerequisite with the owner.
+
+See `docs/META_APPROVAL_CHECKLIST.md` for the current JDDM approval work. The B.A.R.K. material below is historical context inherited by this repository.
+
 # B.A.R.K. Ranger Map — Engineering Workbook
 
 ## What This App Is

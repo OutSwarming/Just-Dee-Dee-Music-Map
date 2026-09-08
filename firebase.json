@@ -51,7 +51,10 @@
       "*service_account*.json",
       "firebase-debug.log",
       "firebase-debug.*.log",
-      "*.log"
+      "*.log",
+      "work/**",
+      "**/*.secret",
+      "firebase.inbox.json"
     ]
   }
 }

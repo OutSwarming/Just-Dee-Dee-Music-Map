@@ -22,9 +22,13 @@ The Page credential was verified September 7, 2026 and stored in Secret Manager 
 
 Carter already had Full access to the business portfolio but only Messages access to its Page asset. Assigning Full access to the JDDM Page resolved the failed Page webhook subscription. Meta now confirms the Page subscription for `messages,message_echoes`, and the app's Instagram `messages` subscription is active. Facebook's real callback was received and its incoming test copied to Discord.
 
-## Meta release restriction
+## Meta publication and review status
 
-The September 7 Developer Portal still marks this app **Unpublished**, with permissions **Ready for testing**. Instagram settings explicitly limit development sends to app administrators, developers, or testers whose Facebook account is linked to Instagram. The Publish page identifies the missing public privacy-policy URL; the basic settings also contain placeholder Facebook URLs for terms/data deletion. App Review is required before interacting with everyone on Instagram. Do not describe successful administrator tests as approval for unrestricted customer messaging or bulk outreach. No invented policy URL or review attestation has been submitted.
+On September 7, the public policy, terms, and deletion instruction pages were published at https://just-dee-dee-inbox.web.app/ and saved in Meta Basic Settings. Meta confirmed that all required app settings were complete and that the app was successfully **Published**, available for public use. The previous missing-policy/unpublished blocker is resolved.
+
+The permission list still displays **Ready for testing**. Attempting Add to App Review for Instagram messaging opens a mandatory, explicitly irreversible Tech Provider conversion with business and access verification. This conversion has not been performed. Do not record a separate Advanced Access approval or unrestricted customer delivery without evidence. A test from a consenting sender with no app/business role is still needed. See META_APPROVAL_CHECKLIST.md for the live findings and remaining work.
+
+The public policy explains actual storage, Discord copies, venue linking, local AI, retention, and a human-operated deletion-request route. `socialPrivacy.js` supports a minimal platform-scoped sender restriction that blocks imports and replies while a request is handled; the full cross-store deletion procedure is documented in JDDM_PRIVACY_REQUEST_RUNBOOK.md. A restriction by itself does not delete existing copies.
 
 ## Live verification — September 7, 2026
 

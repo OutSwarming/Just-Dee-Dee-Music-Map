@@ -64,3 +64,17 @@ test('signed webhooks route only the matching JDDM platform identity',async()=>{
   assert.equal(code,200);assert.deepEqual(writes.map(x=>x.p),expected?[expected]:[]);if(expected)assert.equal(writes[0].v.pending,true);
  }
 });
+
+
+test('privacy restriction blocks initial import and reimport without touching the source inbox',async()=>{
+ const s=setup(),p=require('../socialPrivacy'),t=conversation();await p.restrict(s.db,'messenger','contact');
+ assert.deepEqual(await s.service.syncConversation(t),{skipped:true,restricted:true});assert.equal(s.calls.length,0);
+ assert.equal(await s.service.get(t.id),undefined);assert.equal(await p.isRestricted(s.db,'instagram','contact'),false);
+ const record=s.data.get(p.restrictionPath('messenger','contact'));assert.deepEqual(Object.keys(record).sort(),['restricted','updatedAt']);
+});
+test('privacy restriction prevents unchanged polling from reopening a removed conversation',async()=>{
+ const s=setup(),p=require('../socialPrivacy'),t=conversation();await s.service.syncConversation(t);await p.restrict(s.db,'messenger','contact');
+ s.data.set('jddmMessengerConfig/main',{...s.data.get('jddmMessengerConfig/main'),enabled:true,importComplete:true});const before=s.calls.length;
+ const graph=async path=>path==='me?fields=id,name'?{id:m.PAGE_ID}:{data:[t]};
+ assert.equal((await m.createService({...s,graph}).poll()).posted,0);assert.equal(s.calls.length,before);
+});

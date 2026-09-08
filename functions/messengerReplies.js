@@ -6,6 +6,7 @@ const {GUILD_ID} = require('./discordConversations');
 const {PAGE_ID, INSTAGRAM_ID, PLATFORMS} = require('./messengerInbox');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const quiet = {parse:[]};
+const privacy = require('./socialPrivacy');
 
 function createTransport(token, fetchImpl=fetch) {
     return async (path, body) => {
@@ -44,6 +45,7 @@ function createService({db, transport, inboxes, now=()=>Date.now()}) {
         if (!p || !inbox) throw Error('Unknown messaging account.');
         const c = await inbox.get(id);
         if (!c || c.platform!==platform || c.discordThreadId!==channelId) throw Error('Open the original conversation post to reply.');
+        if (await privacy.isRestricted(db,platform,c.psid)) throw Error('This conversation is restricted by a privacy request. Nothing was sent.');
         text = String(text||'').trim();
         if (!text || text.length>(platform==='instagram'?1000:1900) || (platform==='instagram'&&Buffer.byteLength(text,'utf8')>1000)) {
             throw Error(platform==='instagram'?'Keep the Instagram reply within 1,000 bytes; emojis use extra space.':'Enter a reply of up to 1,900 characters.');
@@ -84,6 +86,7 @@ function createService({db, transport, inboxes, now=()=>Date.now()}) {
         });
         let result;
         try {
+            if (await privacy.isRestricted(db,platform,c.psid)) throw Error('This conversation was restricted by a privacy request. Nothing was sent.');
             result = await transport(PAGE_ID+'/messages', {recipient:{id:c.psid}, message:{text}, ...(platform==='messenger'?{messaging_type:'RESPONSE'}:{})});
             if (!result.message_id) throw Object.assign(Error('Meta did not return a message confirmation. Check the original inbox.'),{uncertain:true});
         } catch (error) {
