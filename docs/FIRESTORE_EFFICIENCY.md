@@ -31,7 +31,7 @@ Rollback of reads: set `jddmEfficiency/config.enabled` to false. Canonical docum
 
 Run `npm test --prefix functions`, `node --test tests/firebase-project-isolation.test.cjs`, and `FIRESTORE_EMULATOR_HOST=127.0.0.1:8098 node --test functions/tests/operation-store-emulator.test.js` against an isolated Firestore emulator using the `demo-jddm-efficiency` project. The emulator suite verifies complete result equivalence, atomic mutations, concurrent writes, aborts, native transforms, corrupt/oversized snapshots, disabled reads and current-state repair.
 
-Production measurements and rollout outcome will be recorded after verification. The baseline full hour was 24,650 reads and 7,202 writes; the code-derived seven-worker quiet-cycle baseline was approximately 2,010 reads and 584 writes every five minutes. A 90% reduction requires comparable totals below 2,465 reads and 720 writes per hour, including the snapshot overhead.
+Production verification passed: the clean ten-minute interval showed 94.4% fewer reads and 96.3% fewer writes, with five-minute polling preserved. See [verified results and the current process register](FIRESTORE_EFFICIENCY_RESULTS.md). The baseline full hour was 24,650 reads and 7,202 writes; the code-derived seven-worker quiet-cycle baseline was approximately 2,010 reads and 584 writes every five minutes. A 90% reduction requires comparable totals below 2,465 reads and 720 writes per hour, including the snapshot overhead.
 
 ## Repeating the usage report
 
