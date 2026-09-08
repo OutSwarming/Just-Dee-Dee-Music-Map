@@ -1,6 +1,6 @@
-> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
-
 # Daily venue information worklist
+
+Project ownership and migration status: [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
 
 Channel: [daily-venue-worklist](https://discord.com/channels/1543777084265070623/1546593555617685514).
 
@@ -29,7 +29,7 @@ The 8 AM daily follow-up digest links the open worklist posts. The forum message
 ## Storage and safety
 
 - Runtime and Discord interaction routing: Firebase `just-dee-dee-music-map`.
-- Canonical write service: `jddmSpreadsheetBridge` in `barkrangermap-auth`.
+- Canonical write service: `jddmSpreadsheetBridge` in `just-dee-dee-music-map`.
 - `jddmVenueWorklist/config` contains forum/tag configuration; `/daily` stores the daily reservation.
 - `jddmVenueWorklistTasks` stores one task per hashed stable venue ID, state, source ID, post ID, and review dates.
 - `jddmVenueWorklistSessions` stores private user-bound form snapshots, expiration, and failed drafts.

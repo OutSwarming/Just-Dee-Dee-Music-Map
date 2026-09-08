@@ -1,21 +1,21 @@
-> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
-
 # Calendar venue review
+
+Project ownership and migration status: [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
 
 The calendar and website importers must never append a venue automatically. They resolve to one stable, unique spreadsheet Place ID, or leave the event pending for a decision. No spreadsheet columns are added. Follow-up dates and contacts are not part of a calendar decision.
 
 ## Runtime
 
-- `barkrangermap-auth`: `jddmSpreadsheetBridge` and `jddmCalendarVenueReview`, using the canonical sheet gateway and Firestore in that project.
+- `just-dee-dee-music-map`: `jddmSpreadsheetBridge` and `jddmCalendarVenueReview`, using the canonical sheet gateway and Firestore in that project.
 - `just-dee-dee-music-map`: the existing signed Discord interaction endpoint forwards `jddmcal:` controls after acknowledging them. It preserves the original Discord signature; the receiving endpoint independently validates it. The existing calendar monitor submits signed future-event lists for review.
 - Apps Script: the exact live calendar project's `Code.gs` must use reviewed mappings and reject automatic appends. Add `CalendarReview.gs` beside it. Do not replace live `Code.gs` wholesale with the repository version. Patch the matching/sync functions in the downloaded live source, preserving unrelated modules and its active deployment configuration.
 - The review function scales to zero. The existing warm email interaction endpoint acknowledges before forwarding so a cold review instance does not miss Discord's response deadline.
 
 ## Configuration
 
-Firestore document `jddmCalendarReview/config` in barkrangermap-auth contains `channelId` for the text channel `calendar-review` under Monitoring. The bot needs View Channel, Send Messages and Read Message History there; Manage Channels is needed only to provision it. Posts suppress mentions and push notifications.
+Firestore document `jddmCalendarReview/config` in just-dee-dee-music-map contains `channelId` for the text channel `calendar-review` under Monitoring. The bot needs View Channel, Send Messages and Read Message History there; Manage Channels is needed only to provision it. Posts suppress mentions and push notifications.
 
-The review function uses the existing Discord bot token/public key and calendar-monitor HMAC key, provisioned as secrets in barkrangermap-auth. Do not put credentials in source code or spreadsheet cells.
+The review function uses the existing Discord bot token/public key and calendar-monitor HMAC key, provisioned as secrets in just-dee-dee-music-map. Do not put credentials in source code or spreadsheet cells.
 
 ## Decisions and safeguards
 
@@ -33,7 +33,7 @@ Review locks prevent concurrent decisions. A missing/deleted linked venue reopen
 
 Run `npm --prefix functions test`, `node --test tests/appsScriptBridgeColumns.test.js`, and `node --test tests/calendarMonitor.test.cjs`.
 
-For rollout, provision the Discord channel, deploy the two functions in barkrangermap-auth, then the interaction and monitor functions in just-dee-dee-music-map. Update the exact live Apps Script source and its legacy versioned sync deployment/trigger separately. Confirm the live calendar source no longer contains an automatic append path. Re-run a real signed snapshot twice, verify one review per venue/location, and compare all spreadsheet contact/follow-up cells and row count before/after. Exercise the dropdown without selecting a real venue unless the decision is intended.
+For rollout, use only `--project just-dee-dee-music-map` for the bridge, review, interaction, and monitor functions. Keep the dedicated integration service account on the bridge and review function. Update the exact live Apps Script source and its legacy versioned sync deployment/trigger separately. Confirm the live calendar source no longer contains an automatic append path. Re-run a real signed snapshot twice, verify one review per venue/location, and compare all spreadsheet contact/follow-up cells and row count before/after. Exercise the dropdown without selecting a real venue unless the decision is intended.
 
 ## Live verification — September 7, 2026
 

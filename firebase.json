@@ -16,7 +16,10 @@
     }
   ],
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "predeploy": [
+      "node \"$PROJECT_DIR/scripts/check-firebase-project.cjs\" \"$GCLOUD_PROJECT\""
+    ]
   },
   "emulators": {
     "auth": {

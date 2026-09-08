@@ -1,6 +1,6 @@
-> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
-
 # Venue contact groups and follow-up dates
+
+Project ownership and migration status: [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
 
 Add Place and pin → Edit share one contact editor. Each person or venue has a free-form name, preferred method/contact type, contact notes, and multiple emails, phone numbers and other contact methods. Each person has one Contact notes box shared by their methods. Add stays beside the method on phones. Removing a contact removes that person's methods; editing one person keeps the others intact.
 
@@ -16,7 +16,7 @@ The migration backs up Sheet1 before writing only Booking Contact. It preserves 
 
 Next Follow Up and Last Contacted use calendar inputs. Timestamps are interpreted in America/New_York; new dates save as YYYY-MM-DD text. Invalid dates are rejected. Monitoring / follow-up-added receives added, changed or removed confirmations with the place name and dates. New places with a follow-up send both notifications. Resaving the same Eastern calendar date does not notify again. Customer Communication / daily-follow-ups remains the separate 8 AM Eastern reminder channel.
 
-The live map uses jddmSpreadsheetBridge in **barkrangermap-auth**. The email bot is in a different Firebase project. GitHub Pages publishes the map from main.
+The live map uses jddmSpreadsheetBridge in **just-dee-dee-music-map**. The email bot uses this same JDDM project. GitHub Pages publishes the map from main.
 
 ## Calendar preservation
 
