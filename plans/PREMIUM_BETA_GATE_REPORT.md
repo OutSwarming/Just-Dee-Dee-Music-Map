@@ -1,3 +1,5 @@
+> Historical record only. Project names, deployment commands, and runtime evidence below describe the original date and must not be used as current JDDM deployment instructions. Current JDDM ownership: `just-dee-dee-music-map`; see [Firebase project ownership](../docs/FIREBASE_PROJECT_OWNERSHIP.md).
+
 # Premium Beta Gate Report
 
 Date: 2026-05-03 05:21 EDT

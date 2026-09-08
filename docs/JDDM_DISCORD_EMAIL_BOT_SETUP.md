@@ -177,8 +177,7 @@ that later, pass `{ gmailQuery: '...' }` as the 4th argument to
 
 ## Spreadsheet notification deployment
 
-The map's spreadsheet endpoint runs in **barkrangermap-auth**, not the email
-function's Firebase project. Set `DISCORD_NEW_PLACES_WEBHOOK_URL` and
+The map's spreadsheet endpoint and email functions run in **just-dee-dee-music-map**. See [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md). Set `DISCORD_NEW_PLACES_WEBHOOK_URL` and
 `DISCORD_FOLLOWUP_WEBHOOK_URL` in that project and deploy only
 `functions:jddmSpreadsheetBridge`. New-place alerts go to `#new-places`;
 new and changed nonempty follow-up dates go to `#follow-up`. Saving an unchanged

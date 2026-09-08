@@ -1,6 +1,6 @@
-> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
-
 # JDDM app activity tracker
+
+Project ownership and migration status: [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
 
 Live channel: [Monitoring → app-activity](https://discord.com/channels/1543777084265070623/1546582476741410836).
 
@@ -19,7 +19,7 @@ Tracking began September 7, 2026 at 2:05 PM Eastern. Earlier edits are not recon
 
 ## Runtime
 
-Firebase project: `barkrangermap-auth` (the canonical spreadsheet bridge).
+Firebase project: `just-dee-dee-music-map` (the canonical spreadsheet bridge).
 
 - `jddmSpreadsheetBridge`: records successful manual app saves after persistence.
 - `jddmAppActivityNightly`: enabled Cloud Scheduler schedule `0 22 * * *`, Eastern.

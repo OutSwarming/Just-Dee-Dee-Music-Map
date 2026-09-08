@@ -1,3 +1,5 @@
+> Historical record only. Project names, deployment commands, and runtime evidence below describe the original date and must not be used as current JDDM deployment instructions. Current JDDM ownership: `just-dee-dee-music-map`; see [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
+
 # JDDM Discord verification — September 6–7, 2026
 
 > Historical per-message verification. The current conversation-based workflow is documented in [JDDM_CONVERSATION_WORKFLOW.md](JDDM_CONVERSATION_WORKFLOW.md).

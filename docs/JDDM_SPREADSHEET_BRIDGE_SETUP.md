@@ -1,6 +1,6 @@
-> September 8, 2026 migration: all active JDDM services now target `just-dee-dee-music-map`. Runtime identity for the bridge, calendar review, and activity reports: `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. Historical rollout notes below may describe the former shared deployment.
-
 # Just Dee Dee Spreadsheet Bridge Setup
+
+Project ownership and migration status: [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md).
 
 The production bridge is a Firebase HTTPS function. It replaces the inaccessible Apps Script project and does not require Carter or Dee Dee to click an Apps Script authorization button.
 
@@ -11,7 +11,7 @@ window.JDDM_SPREADSHEET_API_URL = "https://us-central1-just-dee-dee-music-map.cl
 window.JDDM_VENUE_CSV_URL = `${window.JDDM_SPREADSHEET_API_URL}?action=csv`;
 ```
 
-The function runs as `barkrangermap-auth@appspot.gserviceaccount.com`, which has editor access only to the Just Dee Dee master spreadsheet. The app, reminder worker, artist sync, and test runner all use this same endpoint for reads and writes.
+The function runs as `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`, which has editor access only to the Just Dee Dee master spreadsheet. The app, reminder worker, artist sync, and test runner all use this same endpoint for reads and writes.
 
 The health response must report schema `2026-08-31-firebase-shared-bridge` and advertise venue writes, reminder queue, artist tracker read/write, guarded cleanup, and geocoding before a deployment is considered ready.
 
@@ -23,7 +23,7 @@ From the repository root:
 npx firebase-tools deploy --only functions:jddmSpreadsheetBridge --project just-dee-dee-music-map
 ```
 
-This command updates only the Just Dee Dee bridge. It does not redeploy the other BARK Ranger functions in that Firebase project.
+This command updates only the Just Dee Dee bridge in the JDDM project. See [Firebase project ownership](FIREBASE_PROJECT_OWNERSHIP.md) before any deployment.
 
 ## Production end-to-end test
 
@@ -85,19 +85,14 @@ dates, and preserves calendar-only dates. A successfully checked official
 website feed can still add new dates and remove only dates that came from its
 previous website snapshot.
 
-After pasting the latest `Code.gs` and deploying:
+For live Apps Script updates:
 
-1. Open Apps Script from the original working spreadsheet.
-2. Save the updated `Code.gs`.
-3. Deploy a new version of the existing web app.
-4. Run `doGet` once from the Apps Script editor, or run `installJddmCalendarSyncTrigger` from the JDDM Map menu.
-5. Confirm the `CalendarGigs` sheet appears.
-6. Confirm venue rows gain `calendarGigEvents`, `calendarPastGigEvents`, `calendarFutureGigEvents`, `calendarLastGigDate`, `calendarNextGigDate`, `calendarPastGigCount`, `calendarFutureGigCount`, and `calendarTotalGigsPlayed` where matches are confident.
-7. Confirm the `CalendarDuplicateReview` sheet appears. Calendar-only public venues are staged there instead of being discarded.
-8. In `CalendarDuplicateReview`, use column Q (`isDuplicate`) as the review dropdown:
-   - `Yes` merges the calendar event into an existing venue when `duplicateVenueSiteId`, `duplicateVenueName`, or the auto-match can identify the duplicate.
-   - `No` promotes the calendar event as a new venue row.
-9. Confirm Apps Script has a `runJddmCalendarSyncTrigger` time trigger set to refresh every 5 minutes.
+1. Open the existing bound calendar project and back up its current source.
+2. Patch only the necessary functions in the live source. Do not paste the repository's whole `Code.gs` over the live project; the live script contains additional modules.
+3. Publish a new version of the existing deployment and verify every owner's sync trigger uses it. The September 8 separation is version 40.
+4. Verify `CalendarReview.gs` calls the JDDM endpoint and matching events retain their existing Place IDs.
+5. Unknown venues must remain pending in Discord calendar review until a person chooses New row, Link, or Ignore. The former spreadsheet duplicate-review promotion instructions are retired; see [calendar venue review](JDDM_CALENDAR_VENUE_REVIEW.md).
+6. Check the trigger list for duplicate owners before adding any trigger. As of September 8 there are two existing calendar-sync triggers using version 40; the sync interval remains five minutes, and a separate five-minute change monitor uses Head. The migration did not change these intervals to hourly.
 
 The calendar sync is idempotent. It keys the durable gig table by `calendarEventId`/`gigId`, so running it again updates existing calendar gig rows instead of duplicating them.
 
