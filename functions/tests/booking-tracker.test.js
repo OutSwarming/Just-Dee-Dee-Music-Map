@@ -95,6 +95,7 @@ test('real gateway-shaped Gmail draft, send, reply and removal events reconcile 
  }};
  const service=b.createService({...s,gmail,now:()=>new Date('2026-09-10T15:00Z')});
  await service.poll();let task=await service.get(b.hash('venue-1'));assert.equal(task.state,'draft');assert.equal(task.lastSentAt,0);
+ const writes=[],originalSet=s.store.set.bind(s.store);s.store.set=(key,value)=>{writes.push(key);return originalSet(key,value);};await service.poll();assert.deepEqual(writes.filter(k=>k.startsWith(b.PREFIX+'Mail/')),[],'unchanged Gmail content must not rewrite stored mail');s.store.set=originalSet;
  messages.delete('d');messages.set('s',raw('s',['SENT'],b.MAILBOX,T+10*DAY));phase++;await service.poll();task=await service.get(task.id);assert.equal(task.state,'venue');assert.equal(task.lastSentAt,T+10*DAY);
  messages.set('r',raw('r',['INBOX'],'booking@example.com',T+11*DAY,'Re: 2027 booking','Yes, what dates do you have?'));phase++;await service.poll();task=await service.get(task.id);assert.equal(task.state,'deedee');assert.equal(s.calls.filter(x=>x.method==='POST'&&x.path.endsWith('/threads')).length,1);
  assert.equal(typeof gmail.users.messages.send,'undefined');

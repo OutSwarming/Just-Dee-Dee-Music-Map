@@ -14,6 +14,7 @@ function card(id, r) {
         components:[{type:1,components:[{type:2,style:2,label:'New row',custom_id:`jddmcal:new:${id}`,disabled:!pending},{type:2,style:1,label:'Link',custom_id:`jddmcal:link:${id}`},{type:2,style:2,label:'Ignore',custom_id:`jddmcal:ignore:${id}`,disabled:r.status === 'ignored'}]}]};
 }
 function createReviewService({db, discord, listRows, createVenue, now = () => Date.now()}) {
+ db = require('./operationStore').operationDb(db);
     const ref = id => db.doc('jddmCalendarReviews/' + id);
     async function config({required=true}={}) { const c = (await db.doc('jddmCalendarReview/config').get()).data(); if (!c?.channelId && required) throw Error('Calendar review channel is not configured'); return c || {}; }
     async function lock(id, fn) {

@@ -4,10 +4,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const tracker = require('../functions/bookingTracker');
+const operationStore = require('../functions/localOperationStore');
+operationStore.begin('local:jddm-booking-tracker:'+ (process.argv[2] || 'status'));
 const { createSheetGateway, STATUSES } = require('../functions/venueWorklist');
 async function main() {
  const {runtime,secret}=require('../work/conversations/runtime.cjs');
- const r=await runtime(),discord=tracker.createDiscordClient(r.config.DISCORD_EMAIL_BOT_TOKEN);
+ const r=await runtime();r.db=operationStore.operationDb(r.db);const discord=tracker.createDiscordClient(r.config.DISCORD_EMAIL_BOT_TOKEN);
  const key=await secret('JDDM_WORKLIST_EDIT_KEY'),sheet=createSheetGateway({secret:()=>key});
  const service=tracker.createService({...r,discord,sheet}),writer=require('../functions/bookingDrafts').createWriter({...r,sheet,service});
  const command=process.argv[2]||'status';

@@ -28,6 +28,7 @@ function buildDigest({rows=[],emails=[],worklist=[],booking=[],today=dateKey()})
  return {today,body:lines.join('\n'),venues:due.length,bookingFollowUps:bookingDue.length,emails:dueMail.length,horizonPlaces:upcoming.length,horizonEmails:upcomingMail.length};
 }
 async function loadDigest({db,fetchImpl=fetch,today=dateKey(),cache=true}){
+ db = require('./operationStore').operationDb(db);
  const ref=db.doc('jddmFollowUpDigests/'+today);
  const saved=(await ref.get()).data();if(cache&&saved?.body)return saved;
  const r=await fetchImpl('https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge?action=csv',{signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error('Live spreadsheet unavailable');

@@ -26,7 +26,7 @@ admin.initializeApp();
 
 const jddmSpreadsheetGateway = createGoogleSheetsGateway({ google });
 const jddmSpreadsheetIdempotency = createFirestoreIdempotencyStore({
-    firestore: admin.firestore(),
+    firestore: require('./operationStore').operationDb(admin.firestore()),
     Timestamp: admin.firestore.Timestamp
 });
 
@@ -85,11 +85,11 @@ const jddmSpreadsheetBridgeService = createJddmSpreadsheetBridgeService({
     idempotency: jddmSpreadsheetIdempotency,
     geocode: geocodeJddmSpreadsheetAddress,
     notifier: createDiscordSpreadsheetNotifier(),
-    withVenueLock: require('./venueWriteLock').createVenueWriteLock(admin.firestore()),
+    withVenueLock: require('./venueWriteLock').createVenueWriteLock(require('./operationStore').operationDb(admin.firestore())),
     calendarReview: {resolve:(events,options)=>buildCalendarReviewRuntime().service.resolve(events,options)},
     websiteState: {
-        load:async()=>(await admin.firestore().doc('jddmCalendarReview/websiteOwnership').get()).data()?.dates || null,
-        save:dates=>admin.firestore().doc('jddmCalendarReview/websiteOwnership').set({dates})
+        load:async()=>(await require('./operationStore').operationDb(admin.firestore()).doc('jddmCalendarReview/websiteOwnership').get()).data()?.dates || null,
+        save:dates=>require('./operationStore').operationDb(admin.firestore()).doc('jddmCalendarReview/websiteOwnership').set({dates})
     }
 });
 
@@ -108,7 +108,7 @@ const jddmSpreadsheetBridgeHandler = createJddmSpreadsheetBridgeHandler({
 
 function buildAppActivityRuntime() {
     return require('./appActivity').createAppActivity({
-        db: admin.firestore(),
+        db: require('./operationStore').operationDb(admin.firestore()),
         discord: require('./discordConversations').createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)
     });
 }
@@ -140,7 +140,7 @@ function getCallableUid(context) {
 async function isAdminUser(uid, token = {}) {
     if (token.admin === true || token.isAdmin === true) return true;
 
-    const userDoc = await admin.firestore().collection("users").doc(uid).get();
+    const userDoc = await require('./operationStore').operationDb(admin.firestore()).collection("users").doc(uid).get();
     return userDoc.exists && userDoc.data() && userDoc.data().isAdmin === true;
 }
 
@@ -153,11 +153,11 @@ async function enforceAdminRateLimit(uid, action) {
     const windowEndsAt = windowStart + limit.windowMs;
     const safeUid = encodeURIComponent(uid);
     const safeAction = encodeURIComponent(action);
-    const ref = admin.firestore()
+    const ref = require('./operationStore').operationDb(admin.firestore())
         .collection("_adminRateLimits")
         .doc(`${safeAction}_${safeUid}_${windowStart}`);
 
-    await admin.firestore().runTransaction(async (transaction) => {
+    await require('./operationStore').operationDb(admin.firestore()).runTransaction(async (transaction) => {
         const snapshot = await transaction.get(ref);
         const currentCount = snapshot.exists ? Number(snapshot.data().count || 0) : 0;
 
@@ -666,7 +666,7 @@ async function handleLemonSqueezyWebhook(req, res, options = {}) {
         return safeResponse(res, 200, { ok: true, ignored: true, reason: mapping.reason || "ignored" });
     }
 
-    const db = options.firestore || admin.firestore();
+    const db = options.firestore || require('./operationStore').operationDb(admin.firestore());
     const userRef = db.collection("users").doc(uid);
     const userSnapshot = await userRef.get();
     const userData = userSnapshot && userSnapshot.exists && typeof userSnapshot.data === "function"
@@ -856,7 +856,7 @@ function selectScheduledDeeDeeReminder(date = new Date(), options = {}) {
 }
 
 async function handleScheduledDeeDeeReminder(context = {}, options = {}) {
-    const firestore = options.firestore || admin.firestore();
+    const firestore = options.firestore || require('./operationStore').operationDb(admin.firestore());
     const reminder = selectScheduledDeeDeeReminder(options.now || new Date(), options);
     const runRef = firestore.collection("_deeDeeReminderRuns").doc(reminder.runKey);
     let shouldSend = false;
@@ -1020,7 +1020,7 @@ if (process.env.NODE_ENV === "test") {
 exports.generateHourlyLeaderboard = functions.pubsub.schedule("0 * * * *")
     .timeZone("America/New_York")
     .onRun(async (context) => {
-        const db = admin.firestore();
+        const db = require('./operationStore').operationDb(admin.firestore());
         try {
             const snapshot = await db.collection("leaderboard").orderBy("totalPoints", "desc").limit(100).get();
             const leaderboardArray = [];
@@ -1377,7 +1377,7 @@ function buildConversationRuntime() {
     oauth.setCredentials({ refresh_token: process.env.JDDM_GMAIL_REFRESH_TOKEN });
     const gmail = google.gmail({ version: 'v1', auth: oauth });
     const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
-    const db = admin.firestore();
+    const db = require('./operationStore').operationDb(admin.firestore());
     const voice = require('./googleVoice');
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
@@ -1423,14 +1423,14 @@ exports.discordEmailInteractions = functions.runWith({ secrets: [...conversation
     })(req, res);
 });
 function buildVenueWorklistRuntime() {
-    const worklist=require('./venueWorklist'),db=admin.firestore(),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const worklist=require('./venueWorklist'),db=require('./operationStore').operationDb(admin.firestore()),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
     const sheet=worklist.createSheetGateway();
     return {db,discord,service:worklist.createService({db,discord,sheet})};
 }
 function buildBookingTrackerRuntime(withMail=true) {
     const tracker=require('./bookingTracker');let gmail;
     if(withMail){const {google}=require('googleapis'),auth=new google.auth.OAuth2(process.env.JDDM_GMAIL_CLIENT_ID,process.env.JDDM_GMAIL_CLIENT_SECRET);auth.setCredentials({refresh_token:process.env.JDDM_GMAIL_REFRESH_TOKEN});gmail=google.gmail({version:'v1',auth});}
-    const db=admin.firestore(),discord=tracker.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const db=require('./operationStore').operationDb(admin.firestore()),discord=tracker.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
     const sheet=require('./venueWorklist').createSheetGateway();
     return {db,discord,service:tracker.createService({db,gmail,discord,sheet})};
 }
@@ -1475,7 +1475,7 @@ exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOK
         run:async input=>{
             const review=require('./calendarVenueReview'), matching=require('./calendarVenueMatching');
             const events=input.calendars.flatMap(c=>c.events.map(e=>({id:c.id+':'+e.id,title:e.title,venueName:matching.venueName(e.title),location:e.location,date:review.dateKey(new Date(e.start))}))).filter(e=>e.date>=review.dateKey(new Date()));
-            const result=await calendarMonitor.createCalendarMonitor({db:admin.firestore(),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input);
+            const result=await calendarMonitor.createCalendarMonitor({db:require('./operationStore').operationDb(admin.firestore()),discord:conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN)})(input);
             if(!result.stale) await review.remoteResolve(events,process.env.JDDM_CALENDAR_MONITOR_KEY);
             return result;
         }
@@ -1486,7 +1486,7 @@ exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOK
 function buildCalendarReviewRuntime() {
     const review = require('./calendarVenueReview');
     const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
-    const service = review.createReviewService({db:admin.firestore(),discord,
+    const service = review.createReviewService({db:require('./operationStore').operationDb(admin.firestore()),discord,
         listRows:async()=>{const csv=(await jddmSpreadsheetBridgeService.route({action:'csv'})).csv;const [headers,...rows]=require('./jddmSpreadsheetBridge').parseCsv(csv);return rows.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||''])));},
         createVenue:payload=>jddmSpreadsheetBridgeService.route(payload)
     });
@@ -1503,8 +1503,8 @@ exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_
     const received=Buffer.from(req.get('x-jddm-key')||''),expected=Buffer.from(process.env.JDDM_NOTIFICATION_KEY||'');
     if(!expected.length||received.length!==expected.length||!timingSafeEqual(received,expected))return res.status(401).json({ok:false});
     if(req.method!=='GET')return res.status(405).json({ok:false});
-    try{const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));const digest=await require('./followUpDigest').loadDigest({db:admin.firestore(),cache:hour>=8});const state=(await admin.firestore().doc('jddmCalendarMonitor/state').get()).data();const calendar=state?.baseline?calendarMonitor.unpack(state.baseline):null;const extra={};
-    if(req.query.summary==='1')extra.conversations=(await admin.firestore().collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
+    try{const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',hourCycle:'h23'}).format(new Date()));const digest=await require('./followUpDigest').loadDigest({db:require('./operationStore').operationDb(admin.firestore()),cache:hour>=8});const state=(await require('./operationStore').operationDb(admin.firestore()).doc('jddmCalendarMonitor/state').get()).data();const calendar=state?.baseline?calendarMonitor.unpack(state.baseline):null;const extra={};
+    if(req.query.summary==='1')extra.conversations=(await require('./operationStore').operationDb(admin.firestore()).collection('jddmEmailConversations').get()).docs.map(doc=>{const c=doc.data();return {id:doc.id,subject:c.subject||'',preview:c.preview||'',status:c.status||'',topics:c.topics||[],venueId:c.venueId||'',venueName:c.venueName||'',followUpDate:c.followUpDate||'',discordThreadId:c.discordThreadId||'',lastMessageAt:c.lastStatusMessageAt||0};});
     res.json({ok:true,...digest,...extra,calendar:calendar&&Date.now()-Date.parse(state.lastSuccess)<90*60*1000?calendar:null});}
     catch(e){console.error('[jddmNotificationDigest]',e.message);res.status(503).json({ok:false,error:'Daily follow-ups are temporarily unavailable; retry shortly.'});}
 });
@@ -1512,12 +1512,12 @@ exports.jddmNotificationDigest = functions.runWith({secrets:['JDDM_NOTIFICATION_
 async function runJddmMessengerSync(platform='messenger'){
  if(typeof platform!=='string')platform='messenger';
  const namespace=platform==='instagram'?'jddmInstagram':'jddmMessenger',label=platform==='instagram'?'Instagram':'Messenger';
- const messenger=require('./messengerInbox'),db=admin.firestore(),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+ const messenger=require('./messengerInbox'),db=require('./operationStore').operationDb(admin.firestore()),discord=conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
  try {console.log('['+platform+']',await messenger.createService({db,discord,platform,graph:messenger.createGraphClient(process.env.JDDM_MESSENGER_PAGE_TOKEN),venueDirectory:conversationVenueDirectory}).poll());}
  catch(error){if(error.code==='SYNC_BUSY'){console.log('['+platform+'] sync already running');return;}const ref=db.doc(namespace+'Config/main'),cfg=(await ref.get()).data()||{};if(cfg.problemChannelId&&cfg.lastError!==error.message)await discord('POST',`/channels/${cfg.problemChannelId}/messages`,{content:'⚠️ '+label+' sync needs attention: '+error.message+'\nOpen Meta Business Suite to check messages while the connection is repaired.',flags:4096,allowed_mentions:{parse:[]}});await ref.set({lastError:error.message,lastErrorAt:new Date().toISOString()},{merge:true});throw error;}
 }
 exports.jddmMessengerPoll=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(runJddmMessengerSync);
-exports.jddmMessengerWebhook=functions.runWith({secrets:['JDDM_MESSENGER_APP_SECRET','JDDM_MESSENGER_VERIFY_TOKEN'],timeoutSeconds:30,maxInstances:3}).https.onRequest((req,res)=>require('./messengerWebhook').createHandler({db:admin.firestore(),appSecret:process.env.JDDM_MESSENGER_APP_SECRET,verifyToken:process.env.JDDM_MESSENGER_VERIFY_TOKEN})(req,res));
+exports.jddmMessengerWebhook=functions.runWith({secrets:['JDDM_MESSENGER_APP_SECRET','JDDM_MESSENGER_VERIFY_TOKEN'],timeoutSeconds:30,maxInstances:3}).https.onRequest((req,res)=>require('./messengerWebhook').createHandler({db:require('./operationStore').operationDb(admin.firestore()),appSecret:process.env.JDDM_MESSENGER_APP_SECRET,verifyToken:process.env.JDDM_MESSENGER_VERIFY_TOKEN})(req,res));
 exports.jddmMessengerWebhookSync=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).firestore.document('jddmMessengerConfig/webhook').onWrite(async(change)=>{if(change.after.exists&&change.after.data().pending)await runJddmMessengerSync();});
 
 exports.jddmInstagramWebhookSync=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_MESSENGER_PAGE_TOKEN'],timeoutSeconds:540,maxInstances:1}).firestore.document('jddmInstagramConfig/webhook').onWrite(async(change)=>{if(change.after.exists&&change.after.data().pending)await runJddmMessengerSync('instagram');});
@@ -1537,3 +1537,7 @@ exports.jddmLinkingReviewDraft=functions.runWith({secrets:[...conversationSecret
     res.set('Access-Control-Allow-Origin','https://outswarming.github.io');res.set('Access-Control-Allow-Headers','Authorization');res.set('Access-Control-Allow-Methods','GET, OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.status(204).send('');if(req.method!=='GET')return res.status(405).send('GET required');
     try{if(!/^[a-f0-9]{32}$/.test(req.query.id||''))throw Error('Invalid review');return res.json(await buildLinkingReviewRuntime().service.draft(req.query.id,String(req.get('Authorization')||'').replace(/^Bearer /,'')));}catch(e){return res.status(400).json({ok:false,message:e.message});}
 });
+
+// Source-only releases preserve existing trigger and runtime configuration.
+exports.jddmEfficiencyRepair = functions.runWith({serviceAccount:JDDM_INTEGRATION_SERVICE_ACCOUNT,timeoutSeconds:60,maxInstances:5,failurePolicy:true}).firestore.document('{collection}/{document}').onWrite((_change,event)=>require('./operationStore').repair(require('./operationStore').operationDb(admin.firestore()),event.params.collection,event.params.document));
+for (const name of Object.keys(exports)) if (typeof exports[name] === 'function' && ('__trigger' in exports[name] || '__endpoint' in exports[name])) exports[name] = require('./operationStore').instrument(exports[name],name);

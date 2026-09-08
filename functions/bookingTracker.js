@@ -109,6 +109,7 @@ function card(t, row, view) {
     ] };
 }
 function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
+ db = require('./operationStore').operationDb(db);
   // Back off during concurrent mailbox research; never turn a throttle into a missing-message assumption.
   async function read(fn) { for (let attempt = 0; ; attempt++) { try { return await fn(); } catch (e) { if (attempt >= 2 || !/quota|rate.limit/i.test(e.message)) throw e; await new Promise(resolve => setTimeout(resolve, [12000, 25000][attempt])); } } }
   if (gmail?.users?.getProfile) {
@@ -137,6 +138,7 @@ function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
     const checkpoint = db.doc(PREFIX + '/gmail'), old = (await checkpoint.get()).data() || {};
     const ledger = await readAll('jddmBookingDrafts'), saved = await readAll(PREFIX + 'Mail');
     const observed = new Map(saved.map(m => [m.id, m]));
+    async function saveMail(id, record) { if (!require('./operationStore').same(observed.get(id), record, ['seenAt'])) await db.doc(PREFIX + 'Mail/' + id).set(record); observed.set(id, record); }
     const uniqueRows = rows.filter(r => r['Place ID'] && rows.filter(x => x['Place ID'] === r['Place ID']).length === 1);
     const byEmail = new Map(), byThread = new Map(), byMessage = new Map();
     function add(map, k, v) { if (!k) return; if (!map.has(k)) map.set(k, new Set()); map.get(k).add(v); }
@@ -170,25 +172,25 @@ function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
       if (processed >= 100) break;
       let m;
       try { m = normalizeMessage((await gmail.users.messages.get({ userId: 'me', id, format: 'full' })).data); }
-      catch (e) { if (Number(e.code || e.response?.status) !== 404) throw e; const existing = saved.find(x => x.id === id); if (existing) await db.doc(PREFIX + 'Mail/' + id).set({ deleted: true, draft: false }, { merge: true }); ids.delete(id); processed++; continue; }
+      catch (e) { if (Number(e.code || e.response?.status) !== 404) throw e; const existing = saved.find(x => x.id === id); if (existing && (!existing.deleted || existing.draft)) await db.doc(PREFIX + 'Mail/' + id).set({ deleted: true, draft: false }, { merge: true }); ids.delete(id); processed++; continue; }
       const candidates = new Set(byMessage.get(id) || byThread.get(m.threadId) || []);
       if (!candidates.size && ((m.draft || m.sent) && /\b2027\b/.test(m.subject + ' ' + m.body))) for (const e of [...m.to, ...m.cc]) for (const v of byEmail.get(e) || []) candidates.add(v);
       if (!candidates.size && m.delivery) for (const e of m.failedRecipients) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && !x.deleted && x.at <= m.at)) candidates.add(v);
       if (!candidates.size && !m.sent && !m.draft && !m.delivery && !m.from.includes(MAILBOX)) for (const e of m.from) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && !x.deleted && x.at <= m.at)) candidates.add(v);
       if (candidates.size === 1) {
         m.venueId = [...candidates][0]; m.draftId = draftMap.get(id) || ''; m.seenAt = now().toISOString();
-        await db.doc(PREFIX + 'Mail/' + id).set(m); observed.set(id,m); add(byThread, m.threadId, m.venueId); matched++;
+        await saveMail(id,m); add(byThread, m.threadId, m.venueId); matched++;
         // Fetch the conversation once when discovering a new campaign; this captures replies already present before setup.
         if (!saved.some(x => x.threadId === m.threadId)) {
           const thread = (await gmail.users.threads.get({ userId: 'me', id: m.threadId, format: 'full' })).data;
           const history = (thread.messages || []).map(normalizeMessage);
           const campaignStart = Math.min(...history.filter(x => (x.sent || x.draft) && /\b2027\b/.test(x.subject + ' ' + x.body)).map(x => x.at), m.at);
-          for (const other of history.filter(x => x.at >= campaignStart)) { const record={ ...other, venueId: m.venueId, draftId: draftMap.get(other.id) || '', seenAt: now().toISOString() }; await db.doc(PREFIX + 'Mail/' + other.id).set(record); observed.set(other.id,record); }
+          for (const other of history.filter(x => x.at >= campaignStart)) { const record={ ...other, venueId: m.venueId, draftId: draftMap.get(other.id) || '', seenAt: now().toISOString() }; await saveMail(other.id,record); }
         }
       } else if (m.draft && /\b2027\b/.test(m.subject + ' ' + m.body)) {
         await db.doc(PREFIX + 'Unmatched/' + id).set({ draftId: draftMap.get(id) || '', subject: m.subject, to: m.to, candidates: [...candidates], at: now().toISOString() });
       }
-      if (candidates.size !== 1) await db.doc(PREFIX + 'Mail/' + id).set({ id, threadId: m.threadId, at: m.at, draft: m.draft, deleted: m.deleted, ignored: true, venueId: '', draftId: draftMap.get(id) || '', seenAt: now().toISOString() });
+      if (candidates.size !== 1) await saveMail(id, { id, threadId: m.threadId, at: m.at, draft: m.draft, deleted: m.deleted, ignored: true, venueId: '', draftId: draftMap.get(id) || '', seenAt: now().toISOString() });
       ids.delete(id); processed++;
     }
     for (const m of observed.values()) if (m.draft && !m.deleted && !currentDraftIds.has(m.id)) {

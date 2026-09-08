@@ -39,6 +39,7 @@ function nightlyText(count, streak) {
 }
 
 function createAppActivity({db, discord, now = () => new Date(), prefix = 'jddmAppActivity'}) {
+ db = require('./operationStore').operationDb(db);
     const configRef = db.doc(`${prefix}/config`);
     const stateRef = db.doc(`${prefix}/state`);
     const dayRef = day => db.doc(`${prefix}Days/${day}`);

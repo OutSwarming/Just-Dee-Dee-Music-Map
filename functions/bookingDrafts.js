@@ -28,6 +28,7 @@ function rawDraft(proposal, recipient, view, job) {
   return { raw, rfcId, threadId: base?.threadId || '' };
 }
 function createWriter({ db, gmail, sheet, service }) {
+ db = require('./operationStore').operationDb(db);
   async function fresh(job) {
     const synced = await service.lock('poll', async () => service.syncMail(await sheet.list()));
     if (synced.pending) throw Error('Gmail changes are still syncing. Wait for the tracker to catch up before preparing a draft.');

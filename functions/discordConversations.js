@@ -72,6 +72,7 @@ function createDiscordClient(token, fetchImpl=fetch){return async(method,path,bo
  for(let i=0;i<3;i++){const r=await fetchImpl('https://discord.com/api/v10'+path,{method,headers:{Authorization:'Bot '+token,'User-Agent':'DiscordBot (https://outswarming.github.io/Just-Dee-Dee-Music-Map/, 2.0)','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});const d=await r.json().catch(()=>({}));if(r.ok)return d;if(r.status===429&&d.retry_after<=5&&i<2){await new Promise(resolve=>setTimeout(resolve,d.retry_after*1000+100));continue;}const e=new Error('Discord request failed ('+r.status+'): '+String(d.message||''));e.status=r.status;e.retryAfter=d.retry_after;throw e;}
 };}
 function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImpl=fetch,venueDirectory=null,excludeMessage=()=>false}){
+ db = require('./operationStore').operationDb(db);
  const collection=db.collection('jddmEmailConversations');
  // Serialize manual relinking and date writes across function instances so a
  // date submission cannot write a venue that was relinked during the request.
@@ -102,9 +103,9 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
  async function tryAutoLink(c,messages){
   if(!venueDirectory||c.venueLinkMode==='manual')return c;
   try{const evidence=messages?venueLinks.emailEvidence(messages):c.linkEvidence;if(!evidence)return c;const found=require('./venueIdentity').resolve(await venueDirectory.list(),evidence,await linkMemory.lookup(evidence.identities));const v=found.venue;
-   if(!v){const patch={linkEvidence:evidence,linkVersion:require('./venueIdentity').VERSION,venueCandidates:found.candidates.slice(0,12).map(v=>v.id),venueLinkReason:found.reason,venueLinkIssue:found.reason,...(c.venueLinkMode==='automatic'?{previousAutomaticVenueId:c.venueId||'',venueId:'',venueName:'',venueCity:'',followUpDate:'',venueLinkMode:'review'}:{})};return await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data()||c;if(fresh.venueLinkMode==='manual')return {...c,...fresh};tx.set(ref,patch,{merge:true});return {...c,...fresh,...patch};});}
+   if(!v){const patch={linkEvidence:evidence,linkVersion:require('./venueIdentity').VERSION,venueCandidates:found.candidates.slice(0,12).map(v=>v.id),venueLinkReason:found.reason,venueLinkIssue:found.reason,...(c.venueLinkMode==='automatic'?{previousAutomaticVenueId:c.venueId||'',venueId:'',venueName:'',venueCity:'',followUpDate:'',venueLinkMode:'review'}:{})};if(require('./operationStore').same(c,{...c,...patch},['venueLinkedAt']))return c;return await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data()||c;if(fresh.venueLinkMode==='manual'||require('./operationStore').same(fresh,{...fresh,...patch},['venueLinkedAt']))return {...c,...fresh};tx.set(ref,patch,{merge:true});return {...c,...fresh,...patch};});}
    const patch={linkEvidence:evidence,linkVersion:require('./venueIdentity').VERSION,venueCandidates:found.candidates.slice(0,12).map(v=>v.id),venueId:v.id,venueName:v.name,venueCity:v.city,venueLinkMode:'automatic',venueLinkReason:found.reason,venueLinkIssue:'',followUpDate:v.date,legacyFollowUpDate:'',supersededEmailFollowUpDate:c.legacyFollowUpDate||(!c.venueId&&c.followUpDate!==v.date?c.followUpDate:'')||c.supersededEmailFollowUpDate||'',venueLinkedAt:now().toISOString()};
-   return await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data()||c;if(fresh.venueLinkMode==='manual')return {...c,...fresh};tx.set(ref,patch,{merge:true});return {...c,...fresh,...patch};});
+   if(require('./operationStore').same(c,{...c,...patch},['venueLinkedAt']))return c;return await db.runTransaction(async tx=>{const ref=collection.doc(c.gmailThreadId),fresh=(await tx.get(ref)).data()||c;if(fresh.venueLinkMode==='manual'||require('./operationStore').same(fresh,{...fresh,...patch},['venueLinkedAt']))return {...c,...fresh};tx.set(ref,patch,{merge:true});return {...c,...fresh,...patch};});
   }catch(e){return {...c,venueLinkIssue:'Venue matching is temporarily unavailable; use Link venue later.'};}
  }
  async function linkVenue(id,venueId,actor,expectedVenueId){
@@ -117,7 +118,7 @@ function createConversationService({db,gmail,discord,now=()=>new Date(),fetchImp
  // Re-evaluate saved evidence after directory edits; hydrate a bounded legacy batch without reposting mail.
  async function rematchSaved({limit=15}={}){
   if(!venueDirectory)return 0;const docs=(await collection.get()).docs;let hydrated=0,changed=0;
-  for(const doc of docs){let c=await get(doc.id);if(!c||c.venueLinkMode==='manual'||c.testConversation)continue;let messages;
+  for(const doc of docs){let c=doc.data();if(!c||c.venueLinkMode==='manual'||c.testConversation)continue;let messages;
    if(!c.linkEvidence){if(hydrated>=limit)continue;hydrated++;try{messages=(await gmail.users.threads.get({userId:'me',id:doc.id,format:'full'})).data.messages;}catch(e){if(Number(e.code)===404)continue;throw e;}}
    const next=await tryAutoLink(c,messages);if(['venueId','venueName','followUpDate','venueLinkIssue'].some(k=>next[k]!==c[k])){await updateCard(next);changed++;}
   }return changed;

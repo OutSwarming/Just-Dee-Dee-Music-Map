@@ -71,6 +71,7 @@ function createSheetGateway({fetchImpl=fetch,secret=()=>process.env.JDDM_WORKLIS
  return {list:()=>call('csv'),get:async id=>(await call('getVenue',{id})).rawFields,save:async(id,rawFields,expectedRawFields,requestId)=>call('saveVenue',{id,rawFields,expectedRawFields,requestId})};
 }
 function createService({db,discord,sheet,now=()=>new Date(),prefix='jddmVenueWorklist',random=Math.random}){
+ db = require('./operationStore').operationDb(db);
  const taskRef=id=>db.doc(prefix+'Tasks/'+id), sessionRef=id=>db.doc(prefix+'Sessions/'+id);
  const get=async id=>{const t=(await taskRef(id).get()).data();if(!t)throw Error('This venue post is no longer available');return {...t,id};};
  const all=async()=>(await db.collection(prefix+'Tasks').get()).docs.map(d=>({...d.data(),id:d.id}));
