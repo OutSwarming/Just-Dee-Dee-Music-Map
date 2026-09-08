@@ -1408,6 +1408,7 @@ function buildConversationRuntime() {
     return { db, discord, service: conversations.createConversationService({ db, gmail, discord, venueDirectory: conversationVenueDirectory, excludeMessage: m => Boolean(voice.parseRecord(m)) }), voiceService: voice.createService({db,gmail,discord,venueDirectory:conversationVenueDirectory}) };
 }
 exports.discordEmailInteractions = functions.runWith({ secrets: [...conversationSecrets, 'JDDM_WORKLIST_EDIT_KEY', 'JDDM_CALENDAR_MONITOR_KEY', 'JDDM_MESSENGER_PAGE_TOKEN'], timeoutSeconds: 120, minInstances: 1 }).https.onRequest(async (req, res) => {
+    if (String(req.body?.data?.custom_id || '').startsWith('jddmb:')) return require('./bookingTracker').createInteractions({...buildBookingTrackerRuntime(false),publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmlink:')) return require('./linkingReview').interactions({...buildLinkingReviewRuntime(),publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
     if (String(req.body?.data?.custom_id || '').startsWith('jddmw:')) {
         const runtime=buildVenueWorklistRuntime();
@@ -1452,6 +1453,17 @@ function buildVenueWorklistRuntime() {
     const sheet=worklist.createSheetGateway();
     return {db,discord,service:worklist.createService({db,discord,sheet})};
 }
+function buildBookingTrackerRuntime(withMail=true) {
+    const tracker=require('./bookingTracker');let gmail;
+    if(withMail){const {google}=require('googleapis'),auth=new google.auth.OAuth2(process.env.JDDM_GMAIL_CLIENT_ID,process.env.JDDM_GMAIL_CLIENT_SECRET);auth.setCredentials({refresh_token:process.env.JDDM_GMAIL_REFRESH_TOKEN});gmail=google.gmail({version:'v1',auth});}
+    const db=admin.firestore(),discord=tracker.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
+    const sheet=require('./venueWorklist').createSheetGateway();
+    return {db,discord,service:tracker.createService({db,gmail,discord,sheet})};
+}
+exports.jddmBooking2027Poll=functions.runWith({secrets:conversationSecrets,timeoutSeconds:540,memory:'512MB',maxInstances:1})
+    .pubsub.schedule('every 5 minutes').timeZone('America/New_York').onRun(async()=>{
+        console.log('[2027 booking tracker]',await buildBookingTrackerRuntime().service.poll());
+    });
 exports.jddmVenueWorklistDaily=functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','JDDM_WORKLIST_EDIT_KEY'],timeoutSeconds:300,memory:'256MB',failurePolicy:true})
     .pubsub.schedule('50 7 * * *').timeZone('America/New_York').onRun(async()=>{
         const {service}=buildVenueWorklistRuntime();console.log('[worklist] daily',await service.fill());await service.refresh();
