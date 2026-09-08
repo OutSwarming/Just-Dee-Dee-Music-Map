@@ -12,7 +12,7 @@ import urllib.request
 from pathlib import Path
 
 
-DEFAULT_API_URL = "https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge"
+DEFAULT_API_URL = "https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge"
 DEFAULT_CSV = Path("data/artist_sources/artist_source_audit_sheet_ready.csv")
 
 

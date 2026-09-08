@@ -4,7 +4,7 @@ const {keyFor, matchEvent, venueName, normalize} = require('./calendarVenueMatch
 const {verifyDiscordSignature} = require('./discordEmailInteractions');
 const {indexRows, searchVenues} = require('./venueLinks');
 const GUILD_ID = '1543777084265070623';
-const ENDPOINT = 'https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmCalendarVenueReview';
+const ENDPOINT = 'https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmCalendarVenueReview';
 const quiet = {allowed_mentions: {parse: []}, flags: 4096};
 const esc = s => String(s || '').replace(/[*_`~|\\]/g, '\\$&');
 const dateKey = d => new Intl.DateTimeFormat('en-CA', {timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);

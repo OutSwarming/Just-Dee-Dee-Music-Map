@@ -30,7 +30,7 @@ function buildDigest({rows=[],emails=[],worklist=[],booking=[],today=dateKey()})
 async function loadDigest({db,fetchImpl=fetch,today=dateKey(),cache=true}){
  const ref=db.doc('jddmFollowUpDigests/'+today);
  const saved=(await ref.get()).data();if(cache&&saved?.body)return saved;
- const r=await fetchImpl('https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge?action=csv',{signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error('Live spreadsheet unavailable');
+ const r=await fetchImpl('https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge?action=csv',{signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error('Live spreadsheet unavailable');
  const csv=parseCsv(await r.text()),headers=csv.shift();if(!headers?.includes('Next Follow Up')||!headers.includes('Place Name'))throw Error('Invalid spreadsheet response');
  const rows=csv.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||''])));
  const records=await db.collection('jddmEmailConversations').get();

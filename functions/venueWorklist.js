@@ -6,7 +6,7 @@ const {calendarDate}=require('./venueFields');
 const {verifyDiscordSignature}=require('./discordEmailInteractions');
 const {dayKey,previousDay}=require('./appActivity');
 const GUILD='1543777084265070623', APP='https://outswarming.github.io/Just-Dee-Dee-Music-Map/';
-const BRIDGE='https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
+const BRIDGE='https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge';
 const STATUSES=['Needs Review','Not Contacted Yet','Contacted - Waiting on Reply','Booked','Played in the Past','Told No / Closed / No Music','Open Microphone','Not Set'];
 const CONTACT_HEADERS=['Booking Contact','Contact Name','Contact Type','Email/Contact','Phone Number'];
 const quiet={allowed_mentions:{parse:[]},flags:4096};

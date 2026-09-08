@@ -3,7 +3,7 @@ const {parseCsv}=require('./jddmSpreadsheetBridge');
 const contacts=require('./contactRecords');
 const {calendarDate}=require('./venueFields');
 const identity=require('./venueIdentity');
-const BRIDGE='https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
+const BRIDGE='https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge';
 const MAILBOX='justdeedeemusic@gmail.com';
 const norm=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/&/g,' and ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const emails=identity.emails, phones=identity.phones;

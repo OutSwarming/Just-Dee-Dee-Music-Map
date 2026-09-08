@@ -8,7 +8,7 @@ const DEFAULT_OUT_CSV = 'data/staged/jddm-master-past-not-in-chronological.csv';
 const DEFAULT_PAYLOAD = 'data/staged/jddm-chronological-import-payload.json';
 const DEFAULT_CALENDAR_SOURCE = 'data/staged/jddm-calendar-gigs.csv';
 const DEFAULT_COMBINED_CALENDAR_GIGS = 'data/staged/jddm-calendar-gigs-combined-19col.csv';
-const DEFAULT_ENDPOINT = 'https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
+const DEFAULT_ENDPOINT = 'https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge';
 
 const CALENDAR_GIG_HEADERS = [
   'gigId',

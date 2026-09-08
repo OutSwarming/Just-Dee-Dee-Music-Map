@@ -13,6 +13,14 @@ const {
 const discordEmailInteractions = require('./discordEmailInteractions');
 const { createDiscordEmailIntakeHandler } = require('./discordEmailIntake');
 
+// This repository must never deploy into another application's production project.
+const JDDM_PROJECT = 'just-dee-dee-music-map';
+const JDDM_INTEGRATION_SERVICE_ACCOUNT = `jddm-integrations@${JDDM_PROJECT}.iam.gserviceaccount.com`;
+if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT !== JDDM_PROJECT
+    && process.env.FUNCTIONS_EMULATOR !== 'true' && process.env.NODE_ENV !== 'test') {
+    throw new Error('JDDM functions require the just-dee-dee-music-map Firebase project.');
+}
+
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 
@@ -105,12 +113,12 @@ function buildAppActivityRuntime() {
     });
 }
 
-exports.jddmAppActivityNightly = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
+exports.jddmAppActivityNightly = functions.runWith({serviceAccount:JDDM_INTEGRATION_SERVICE_ACCOUNT,secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
     .pubsub.schedule('0 22 * * *').timeZone('America/New_York').onRun(async context => {
         const result = await buildAppActivityRuntime().report('nightly', new Date(context.timestamp || Date.now()));
         console.log('[jddmAppActivity] nightly', result);
     });
-exports.jddmAppActivityMorning = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
+exports.jddmAppActivityMorning = functions.runWith({serviceAccount:JDDM_INTEGRATION_SERVICE_ACCOUNT,secrets:['DISCORD_EMAIL_BOT_TOKEN'],timeoutSeconds:120,memory:'256MB',failurePolicy:true})
     .pubsub.schedule('55 7 * * *').timeZone('America/New_York').onRun(async context => {
         const result = await buildAppActivityRuntime().report('morning', new Date(context.timestamp || Date.now()));
         console.log('[jddmAppActivity] morning', result);
@@ -973,6 +981,7 @@ async function handlePremiumGeocode(requestOrData, context, options = {}) {
 
 exports.jddmSpreadsheetBridge = functions
     .runWith({
+        serviceAccount: JDDM_INTEGRATION_SERVICE_ACCOUNT,
         secrets: ["ORS_API_KEY", "DISCORD_NEW_PLACES_WEBHOOK_URL", "DISCORD_FOLLOWUP_WEBHOOK_URL", "DISCORD_EMAIL_BOT_TOKEN", "JDDM_WORKLIST_EDIT_KEY"],
         timeoutSeconds: 120,
         memory: "512MB"
@@ -1508,7 +1517,7 @@ exports.jddmCalendarChanges = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOK
     })
 );
 
-// Calendar review lives beside the canonical spreadsheet gateway in barkrangermap-auth.
+// Calendar review and the spreadsheet gateway use only the JDDM project.
 function buildCalendarReviewRuntime() {
     const review = require('./calendarVenueReview');
     const discord = conversations.createDiscordClient(process.env.DISCORD_EMAIL_BOT_TOKEN);
@@ -1518,7 +1527,7 @@ function buildCalendarReviewRuntime() {
     });
     return {service,discord};
 }
-exports.jddmCalendarVenueReview = functions.runWith({secrets:['DISCORD_EMAIL_BOT_TOKEN','DISCORD_EMAIL_PUBLIC_KEY','JDDM_CALENDAR_MONITOR_KEY','ORS_API_KEY','DISCORD_NEW_PLACES_WEBHOOK_URL','DISCORD_FOLLOWUP_WEBHOOK_URL'],timeoutSeconds:120}).https.onRequest(async(req,res)=>{
+exports.jddmCalendarVenueReview = functions.runWith({serviceAccount:JDDM_INTEGRATION_SERVICE_ACCOUNT,secrets:['DISCORD_EMAIL_BOT_TOKEN','DISCORD_EMAIL_PUBLIC_KEY','JDDM_CALENDAR_MONITOR_KEY','ORS_API_KEY','DISCORD_NEW_PLACES_WEBHOOK_URL','DISCORD_FOLLOWUP_WEBHOOK_URL'],timeoutSeconds:120}).https.onRequest(async(req,res)=>{
     const review = require('./calendarVenueReview'), runtime = buildCalendarReviewRuntime();
     if (String(req.body?.data?.custom_id || '').startsWith('jddmcal:')) return review.createInteractionHandler({...runtime,publicKey:()=>process.env.DISCORD_EMAIL_PUBLIC_KEY})(req,res);
     return review.createResolveHandler({...runtime,secret:()=>process.env.JDDM_CALENDAR_MONITOR_KEY})(req,res);

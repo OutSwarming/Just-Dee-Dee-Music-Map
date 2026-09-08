@@ -9,6 +9,9 @@
         ".secret.local",
         "firebase-debug.log",
         "firebase-debug.*.log"
+      ],
+      "predeploy": [
+        "node \"$PROJECT_DIR/scripts/check-firebase-project.cjs\" \"$GCLOUD_PROJECT\""
       ]
     }
   ],
@@ -55,6 +58,9 @@
       "work/**",
       "**/*.secret",
       "firebase.inbox.json"
+    ],
+    "predeploy": [
+      "node \"$PROJECT_DIR/scripts/check-firebase-project.cjs\" \"$GCLOUD_PROJECT\""
     ]
   }
 }

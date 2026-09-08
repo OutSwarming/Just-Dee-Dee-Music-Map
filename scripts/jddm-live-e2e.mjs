@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { parseCsv } from './dee-dee-local-text-reminders.mjs';
 
 const execFileAsync = promisify(execFile);
-const DEFAULT_BRIDGE_URL = 'https://us-central1-barkrangermap-auth.cloudfunctions.net/jddmSpreadsheetBridge';
+const DEFAULT_BRIDGE_URL = 'https://us-central1-just-dee-dee-music-map.cloudfunctions.net/jddmSpreadsheetBridge';
 const ARTIST_SHEETS = ['Events', 'Event_Artists', 'Venue_Artist_History'];
 
 function hasFlag(flag) {
