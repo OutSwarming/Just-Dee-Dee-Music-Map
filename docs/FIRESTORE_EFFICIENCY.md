@@ -15,7 +15,7 @@ Registered collections: `jddmBooking2027Venues`, `jddmBooking2027Mail`, `jddmBoo
 ## Unchanged work
 
 - Gmail polling still reads its history and rotates existing drafts to find content edits. Unchanged normalized messages skip Firestore writes; `seenAt` advances when content changes rather than being a per-message heartbeat. Poll health/checkpoints still record checks.
-- Linking reviews fingerprint all source fields except observation time plus the venue directory. Stable input skips per-review locks and writes. Changed input, directory changes, manual decisions and failed publication still use existing review handling.
+- Linking reviews fingerprint all source fields except observation time plus the venue directory. Stable input skips per-review locks and writes. Changed input, directory changes, manual decisions and failed publication still use existing review handling. A deferred retry does no work until due. Obsolete retry flags clear once when the desired card already matches its stored content hash.
 - Email rematching uses the records already fetched and avoids saving unchanged link fields or refreshing a timestamp alone. Transactions still protect manual links.
 - Messenger and Voice re-evaluate matching but acquire per-record locks and write only for actual changes. Discord card reconciliation remains active. Linked venue/date refreshes also check for changes before locking and reread under the lock before saving.
 
