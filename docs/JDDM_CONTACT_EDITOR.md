@@ -43,3 +43,10 @@ One Contact notes box replaces method-specific notes. Migration joins existing p
 Removing a person or an extra method requires confirmation. Closing a dirty editor with X, backdrop or Escape offers Save and close, Keep editing or Discard changes. Failed saves offer retry, keep or discard; they never silently close. Browser navigation also warns while there is an unsaved draft or pending save. An unchanged editor closes without writing.
 
 Save requests include the loaded raw fields. If another editor changed a submitted field, the bridge rejects overwriting it unless the requested value already matches the saved value (safe retry). Reloading after a conflict requires confirmation before discarding the stale draft. New-place retries retain the stable request ID.
+
+
+## Independent edits and conflict recovery (v24)
+
+Existing venues submit only fields changed from the form as it appeared after loading. Comparing with the rendered form avoids treating phone formatting or legacy contact conversion as user edits. Contact records and their four summary fields are submitted together so concurrent contact changes remain protected. A successful save renders the returned spreadsheet row and resets both the visible baseline and raw comparison fields. Clicking Save with no edits performs no write.
+
+Updates to untouched status, follow-up, contacts or notes no longer block unrelated edits. Actual overlapping changes still retain the draft and require review; the message explains that automatic updates can also cause a conflict. Closing after a conflict offers Keep editing, Reload latest (explicitly discarding the draft), or Discard changes instead of repeatedly retrying a stale save. No server conflict checks are bypassed.
