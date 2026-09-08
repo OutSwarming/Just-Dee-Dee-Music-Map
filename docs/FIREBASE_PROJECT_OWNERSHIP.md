@@ -9,7 +9,7 @@ Reviewed September 8, 2026. This is the current ownership guide; dated verificat
 
 Every JDDM cloud function, database record, scheduler job and secret reference must belong to the JDDM project. All JDDM HTTP function URLs begin with `https://us-central1-just-dee-dee-music-map.cloudfunctions.net/`. Do not deploy JDDM functions or rules to Bark Ranger even if an old report gives that command.
 
-The bridge, calendar review, and morning/nightly activity functions run as `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. It has JDDM database access, scoped secret access, and writer permission on the master venue spreadsheet. Its direct Bark Firestore read was denied. Other JDDM functions retain their existing JDDM runtime identity. Bark's default service account no longer has access to the JDDM spreadsheet.
+The bridge, calendar review, morning/nightly activity, and efficiency repair functions run as `jddm-integrations@just-dee-dee-music-map.iam.gserviceaccount.com`. It has JDDM database access, scoped secret access, and writer permission on the master venue spreadsheet. Its direct Bark Firestore read was denied. Other JDDM functions retain their existing JDDM runtime identity. Bark's default service account no longer has access to the JDDM spreadsheet.
 
 ## Deployment safeguards
 
@@ -34,6 +34,12 @@ Venue resolution now caches results by source, review/mapping mode, calendar con
 JDDM routing is disabled in the browser and the getPremiumRoute backend. Trip engines are no longer loaded and saved-route reads are disabled. Address geocoding remains available for venues. Bark routing is unchanged. JDDM and Bark retain separate Secret Manager copies of the same ORS provider credential, so geocoding can still share external provider quota. Do not delete or rotate Bark's key during JDDM cleanup; independent geocoding quota requires a separately provisioned JDDM key/account.
 
 Carter Swarm Commands includes a JDDM reads, writes & stats view. Its analytics identity has monitoring.viewer on JDDM only for aggregate Cloud Monitoring usage. The project ID is pinned to just-dee-dee-music-map; no JDDM venue/database role was granted. Analytics history lives in Carter Swarm's private database. This owner dashboard permission does not connect the two applications' runtime databases.
+
+## September 8 Firestore efficiency
+
+The JDDM release updates 21 existing functions from their own deployed source archives and adds `jddmEfficiencyRepair`. The disabled `getPremiumRoute` deployment stays unchanged. Existing runtime settings, secret references, endpoints and all 11 Cloud Scheduler jobs were verified unchanged; the seven frequent workers still run every five minutes. Local booking workers use the same database wrapper. No Bark resource was changed by this release.
+
+Read `FIRESTORE_EFFICIENCY.md` before adding or changing a database writer. Registered collections now have compact snapshots updated atomically with canonical records, plus an asynchronous repair handler for other writes. The snapshots are private under the existing Firestore rules. `jddmEfficiency/config.enabled=false` disables snapshot reads without changing the canonical data or schedules. Per-process counts are available through `scripts/jddm-io-report.cjs`.
 
 ## Recovery
 
