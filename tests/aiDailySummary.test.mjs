@@ -52,3 +52,22 @@ test('a change at delivery time regenerates, and a generation crossing midnight 
 });
 
 test('linked email conversations share the venue follow-up count',()=>{const result=calculateMetrics({today:'2026-09-07',rows:[{'Place ID':'a','Place Name':'Venue','Next Follow Up':'2026-09-08'}],conversations:[{venueId:'a',status:'followup',followUpDate:'2026-09-08'},{venueId:'a',status:'deedee',followUpDate:'2026-09-08'},{status:'followup',followUpDate:'2026-09-09'}]});assert.equal(result.followUpPlacesThisWeek,1);assert.equal(result.followUpEmailsThisWeek,1);assert.equal(result.waitingOnDeeDee,1);});
+
+import {currentVenueReviews,gatherSources} from '../scripts/jddm-ai-daily-summary.mjs';
+test('current review context separates future dates, overdue locations, and newer resolved outcomes',()=>{
+ const rows=[{'Place ID':'p','Place Name':'Pompatus','Next Follow Up':'2027-03-10',Notes:'Changed approach to music'},{'Place ID':'b','Place Name':'Paninis','City':'Brunswick','Next Follow Up':'2026-10-14',Status:'Booked'},{'Place ID':'t','Place Name':'Paninis','City':'Twinsburg','Next Follow Up':'2026-09-07'},{'Place ID':'w','Place Name':'1875','Next Follow Up':'2027-09-16',Notes:'No musicians at this time'}];
+ const result=currentVenueReviews(rows,[{venueId:'p',status:'venue',lastMessageAt:1},{venueId:'p',status:'rejected',lastMessageAt:2,preview:'Not scheduling music'}],'2026-09-09');
+ assert.deepEqual(result.map(r=>r.followUpDue),[false,false,true,false]);
+ assert.equal(result[0].latestConversation.status,'rejected');assert.equal(result[0].officialFollowUp,'2027-03-10');
+});
+test('recap gathers the live saved dates alongside older email status without treating them as current tasks',async()=>{
+ const input=await gatherSources({now:new Date('2026-09-09T12:05:00Z'),settings:{channels:{}},discord:async()=>[],loadDaily:async()=>({body:'No places are due today.',calendar:{calendars:[]},conversations:[{venueId:'p',status:'venue',subject:'Old inquiry',lastMessageAt:1},{venueId:'p',status:'rejected',subject:'Music decision',lastMessageAt:2}]}),fetchImpl:async()=>({ok:true,text:async()=> 'Place ID,Place Name,City,Status,Next Follow Up,Future Gigs,Notes\np,Pompatus,Chagrin Falls,Contacted - Waiting on Reply,2027-03-10,,No live music'})});
+ const source=input.sources.find(s=>s.label==='Current saved venue review status');assert.ok(source);
+ const [venue]=JSON.parse(source.text);assert.equal(venue.officialFollowUp,'2027-03-10');assert.equal(venue.followUpDue,false);assert.equal(venue.latestConversation.status,'rejected');assert.equal(input.today,'2026-09-09');
+});
+
+test('the current follow-up worklist stays in context even when email history fills the budget',async()=>{
+ const input=await gatherSources({now:new Date('2026-09-09T12:05:00Z'),settings:{channels:{}},discord:async()=>[],loadDaily:async()=>({body:'Today: only current assignments.',calendar:{calendars:[]},conversations:Array.from({length:50},(_,i)=>({status:'venue',subject:'Old outreach '+i,preview:'x'.repeat(2000),lastMessageAt:i}))}),fetchImpl:async()=>({ok:true,text:async()=> 'Place ID,Place Name,Status,Next Follow Up,Future Gigs\np,Postponed,Booked,2026-10-14,'})});
+ assert.ok(input.sources.some(s=>s.label==='Today’s follow-up list'&&s.text==='Today: only current assignments.'));
+ assert.ok(input.sources.some(s=>s.label==='Current saved venue review status'));assert.ok(input.warnings.some(w=>w.includes('omitted')));
+});
