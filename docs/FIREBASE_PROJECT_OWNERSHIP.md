@@ -1,6 +1,6 @@
 # Firebase project ownership
 
-Reviewed September 8, 2026. This is the current ownership guide; dated verification reports preserve historical evidence and are not deployment instructions.
+Reviewed September 9, 2026. This is the current ownership guide; dated verification reports preserve historical evidence and are not deployment instructions.
 
 | Application | Repository | Allowed Firebase project |
 | --- | --- | --- |
@@ -21,9 +21,11 @@ These safeguards protect the documented Firebase CLI workflow. Privileged consol
 
 ## September 8 separation status
 
-The website (GitHub Pages, version 23), live calendar Apps Script deployment (version 41), cloud callers and local workers now use the JDDM endpoint. Four functions and 135 documents across 11 JDDM collections were migrated with backups and field-by-field verification. Bridge read/save, spreadsheet write permission and unchanged calendar mappings were checked. All 24 non-JDDM Bark function configurations matched their original values after cutover.
+The website (GitHub Pages), live calendar Apps Script deployment (version 41), cloud callers and local workers now use the JDDM endpoint. Four functions and 135 documents across 11 JDDM collections were migrated with backups and field-by-field verification. Bridge read/save, spreadsheet write permission and unchanged calendar mappings were checked. All 24 non-JDDM Bark function configurations matched their original values after cutover.
 
-The old four JDDM functions are still deployed in Bark for the rollback window: their HTTP entry points reject public access and their morning/nightly schedules are paused. Old JDDM documents and unused secret copies remain there temporarily. Do not treat their presence or ACTIVE function status as permission to use them. Final retirement is gated on the new nightly September 8 and morning September 9 reports; the follow-up begins after September 9 at 08:10 America/New_York. The private runbook and backups are under `work/project-separation/`. Update this status after verified retirement.
+Final retirement completed September 9 at 08:20 America/New_York. The new September 8 nightly report was sent; the September 9 morning report was intentionally skipped by its normal logic. Both function executions succeeded and the JDDM schedules remain enabled. The four old JDDM functions, two old scheduler jobs and their Pub/Sub topics, 135 unchanged backed-up JDDM documents, and six unused JDDM secret copies were removed from Bark. No old JDDM rollback resources in that allowlist remain active or stored in Bark.
+
+Bark's 24 remaining function configurations and five other scheduler configurations were verified unchanged. Bark's ORS secret metadata and versions are unchanged. All 11 JDDM scheduler configurations remain unchanged; the bridge, recent calendar execution and both public sites passed availability checks. Private backups, deletion receipts and `retirement-complete.json` remain under `work/project-separation/`; never publish those files.
 
 ## Calendar efficiency and routing — September 8 follow-up
 
@@ -37,4 +39,4 @@ Carter Swarm Commands includes a JDDM reads, writes & stats view. Its analytics 
 
 ## Recovery
 
-No migration failure requiring rollback was found in the immediate post-cutover checks; overnight reporting is still pending. Rollback must reconcile new JDDM writes and notification receipts before restoring old callers or schedules. Simply pointing back to the old database can lose changes or duplicate reports. Keep backup data and secret values out of source control.
+Overnight verification and final retirement passed; no migration failure requiring rollback was found. Rollback must reconcile new JDDM writes and notification receipts before restoring old callers or schedules. Simply pointing back to the old database can lose changes or duplicate reports. Keep backup data and secret values out of source control.
