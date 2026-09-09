@@ -42,9 +42,9 @@ test('a stale Discord contact draft cannot overwrite a newer app edit',async()=>
  const s=setup(),t=await s.task(),ctx=await s.context(t);s.rows[0]['Contact Name']='Newer app name';
  await assert.rejects(s.service.mutate(t.id,'contact',{name:'Stale name',emails:'a@example.com',phones:'',notes:'',preferred:''},{...ctx,index:0}),/another window/);assert.equal(s.rows[0]['Contact Name'],'Newer app name');
 });
-test('Done writes a review note, preserves booking/date, turns green and archives without deleting',async()=>{
+test('Done writes a review note, preserves booking/date, turns green and keeps the same chat available',async()=>{
  const s=setup([row('one',{Status:'Booked','Next Follow Up':'2026-10-01'})]),t=await s.task();await s.service.mutate(t.id,'done',{},await s.context(t));const done=await s.service.get(t.id);
- assert.equal(done.state,'done');assert.match(s.rows[0].Notes,/Keep original venue notes/);assert.match(s.rows[0].Notes,/Venue information reviewed/);assert.equal(s.rows[0].Status,'Booked');assert.equal(s.rows[0]['Next Follow Up'],'2026-10-01');assert.equal(s.rows.length,1);assert.equal(s.threads.get(t.threadId).thread_metadata.archived,true);assert.equal(s.messages.get(t.threadId).embeds[0].color,0x2ecc71);
+ assert.equal(done.state,'done');assert.match(s.rows[0].Notes,/Keep original venue notes/);assert.match(s.rows[0].Notes,/Venue information reviewed/);assert.equal(s.rows[0].Status,'Booked');assert.equal(s.rows[0]['Next Follow Up'],'2026-10-01');assert.equal(s.rows.length,1);assert.equal(s.threads.get(t.threadId).thread_metadata.archived,false);assert.equal(s.messages.get(t.threadId).embeds[0].color,0x2ecc71);
 });
 test('Contacted records Eastern date without sending communication or changing an existing booking',async()=>{
  const s=setup([row('one',{Status:'Booked'})]),t=await s.task();await s.service.mutate(t.id,'contacted',{},await s.context(t));assert.equal(s.rows[0]['Last Contacted'],'2026-09-08');assert.equal(s.rows[0].Status,'Booked');assert.ok(!s.calls.some(c=>c.path.includes('gmail')||c.path.includes('voice')));
@@ -125,7 +125,7 @@ test('one signed Done click records review and turns the existing post green wit
  assert.equal(response.code,200);assert.equal((await s.service.get(task.id)).state,'done');
  assert.equal(s.messages.get(task.threadId).embeds[0].color,0x2ecc71);
  assert.deepEqual(s.threads.get(task.threadId).applied_tags,['green']);
- assert.equal(s.threads.get(task.threadId).thread_metadata.archived,true);
+ assert.equal(s.threads.get(task.threadId).thread_metadata.archived,false);
  assert.match(s.rows[0].Notes,/Venue information reviewed 2026-09-08/);
  assert.equal(s.rows[0].Status,'Booked');assert.equal(s.rows[0]['Next Follow Up'],'2026-10-14');
  assert.equal([...s.data.keys()].filter(k=>k.startsWith('jddmVenueWorklistSessions/')).length,0);
@@ -142,4 +142,26 @@ test('single-click Done leaves the post open and blue if the spreadsheet save fa
  assert.equal(s.messages.get(task.threadId).embeds[0].color,0x3498db);
  assert.equal(s.threads.get(task.threadId).thread_metadata.archived,false);
  assert.equal(s.rows[0].Notes,'Keep original venue notes');assert.match(s.calls.at(-1).body.content,/Could not finish: Spreadsheet unavailable/);
+});
+
+test('review again reuses the completed chat and preserves prior review notes across cycles',async()=>{
+ const s=setup(),t=await s.task();
+ await s.service.mutate(t.id,'done',{},await s.context(t));
+ const saved=JSON.stringify(s.rows),done=await s.service.get(t.id);
+ assert.ok(s.messages.get(t.threadId).components[0].components.some(b=>b.label==='Review again'&&b.custom_id===`jddmw:reopen:${t.id}`));
+ // Discord may close an idle thread; the same chat must still be reusable.
+ s.threads.get(t.threadId).thread_metadata.archived=true;
+ s.setDay('2026-10-10');
+ await s.service.mutate(t.id,'reopen',{},await s.context(done));
+ const reopened=await s.service.get(t.id);
+ assert.equal(reopened.threadId,t.threadId);assert.equal(reopened.state,'open');
+ assert.equal(JSON.stringify(s.rows),saved);assert.equal(s.threads.get(t.threadId).thread_metadata.archived,false);
+ await s.service.mutate(t.id,'done',{},await s.context(reopened));
+ assert.match(s.rows[0].Notes,/Venue information reviewed 2026-09-08/);
+ assert.match(s.rows[0].Notes,/Venue information reviewed 2026-10-10/);
+ assert.match(s.rows[0].Notes,/Keep original venue notes/);
+ assert.equal(s.threads.size,1);assert.equal(s.calls.filter(c=>c.method==='POST'&&c.path.endsWith('/threads')).length,1);
+ assert.equal(s.calls.filter(c=>c.method==='DELETE').length,0);
+ assert.deepEqual(s.threads.get(t.threadId).applied_tags,['green']);
+ assert.equal(s.threads.get(t.threadId).thread_metadata.archived,false);
 });

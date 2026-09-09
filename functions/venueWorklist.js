@@ -55,7 +55,7 @@ function card(task,row){
  return {content:`${badge} **${done?'Done — venue information reviewed':deferred?'Rescheduled':queued?'Waiting in the nearest-first queue':'Venue information to review'}**\n${done?'Completed '+task.completedDay:deferred?'Returns '+dateLabel(task.deferUntil):queued?'No information was deleted. This venue will return as closer venues are reviewed.':'Selected '+task.assignedDay+' · Finish this post when you have reviewed the information.'}`,...quiet,
   embeds:[{title:String(row['Place Name']).slice(0,256),url:link(task.venueId),color:done?0x2ecc71:deferred?0xe67e22:queued?0x95a5a6:0x3498db,
    description:[`**Distance:** ${distanceLabel(row)}`,`**Address:** ${esc([row.Address,row.City,row.State,row.Zip].filter(Boolean).join(', '))||'Not recorded'}`,`**Spreadsheet status:** ${esc(row.Status)||'Not set'}`,`**Last contacted:** ${dateLabel(row['Last Contacted'])}`,`**Official follow-up:** ${dateLabel(row['Next Follow Up'])}`,`**Still missing:** ${needs.join(', ')||'No basic contact gaps'}`,'',detail].join('\n').slice(0,4096),footer:{text:'Existing spreadsheet row • Missing information can stay blank • All dates Eastern'}}],
-  components:queued?[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'reopen','Work on this venue'),button(task.id,'refresh','Refresh from spreadsheet')]}]:[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'contacts','Edit contacts',1),button(task.id,'contacted','Contacted'),button(task.id,'date','Reschedule'),button(task.id,done?'reopen':'done',done?'Reopen':'Done',done?2:3)]},
+  components:queued?[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'reopen','Work on this venue'),button(task.id,'refresh','Refresh from spreadsheet')]}]:[{type:1,components:[{type:2,style:5,label:'Open venue',url:link(task.venueId)},button(task.id,'contacts','Edit contacts',1),button(task.id,'contacted','Contacted'),button(task.id,'date','Reschedule'),button(task.id,done?'reopen':'done',done?'Review again':'Done',done?2:3)]},
    {type:1,components:[{type:3,custom_id:`jddmw:status:${task.id}`,placeholder:'Change the official spreadsheet status',options:STATUSES.map(value=>({label:value,value,default:value===row.Status}))}]},
    {type:1,components:[button(task.id,'refresh','Refresh from spreadsheet'),button(task.id,'notes','Edit venue notes')]}]};
 }
@@ -95,7 +95,7 @@ function createService({db,discord,sheet,now=()=>new Date(),prefix='jddmVenueWor
   if(thread.thread_metadata?.archived)await discord('PATCH',`/channels/${threadId}`,{archived:false});
   await discord('PATCH',`/channels/${threadId}/messages/${threadId}`,body);
   const name=String(row['Place Name']).slice(0,100);
-  const tags=[cfg.tags[t.state]].filter(Boolean),archive=t.state==='done'||t.state==='queued';
+  const tags=[cfg.tags[t.state]].filter(Boolean),archive=t.state==='queued';
   if(thread.name!==name||JSON.stringify(thread.applied_tags||[])!==JSON.stringify(tags)||archive)await discord('PATCH',`/channels/${threadId}`,{...(thread.name!==name?{name}:{}),applied_tags:tags,...(archive?{archived:true}:{})});
   const update={threadId,messageHash:digest,name:row['Place Name'],missing:missingInfo(row),followUpDate:calendarDate(row['Next Follow Up']),updatedAt:now().toISOString()};await taskRef(t.id).set(update,{merge:true});return {...t,...update};
  }
@@ -150,7 +150,7 @@ function createService({db,discord,sheet,now=()=>new Date(),prefix='jddmVenueWor
   for(const [k,v]of Object.entries(fields)){if(CONTACT_HEADERS.includes(k))continue;if(String(fresh[k]||'')!==String(v))throw Error('The saved value changed again. Refresh this post before continuing.');}
   if(fields['Booking Contact']&&JSON.stringify(personData(fresh).contacts)!==JSON.stringify(personData(fields).contacts))throw Error('Contact save verification failed. Refresh before retrying.');
   const changes={state,lastActor:actor,updatedAt:now().toISOString(),...(state==='done'?{completedDay:dayKey(now())}:{}),...(kind==='date'?{deferUntil:calendarDate(fresh['Next Follow Up'])}:{})};await taskRef(id).set(changes,{merge:true});t=await publish({...t,...changes},fresh);
-  return {task:t,message:kind==='done'?'🟢 Done! The review was recorded in the spreadsheet. This post is green and archived; the next morning fills its open slot.':kind==='date'?`🟠 Official spreadsheet follow-up saved: ${dateLabel(fresh['Next Follow Up'])}. This venue returns to the worklist on or after that date.`:'Saved to the official spreadsheet. The venue post has been refreshed.'};
+  return {task:t,message:kind==='done'?'🟢 Done! The review was recorded in the spreadsheet. This chat stays available under Done with its history. Use Review again whenever the information needs another check; the next morning fills its open slot.':kind==='date'?`🟠 Official spreadsheet follow-up saved: ${dateLabel(fresh['Next Follow Up'])}. This venue returns to the worklist on or after that date.`:'Saved to the official spreadsheet. The venue post has been refreshed.'};
  });}
  return {get,all,config,fill,refresh,prepare,session,mutate,publish};
 }

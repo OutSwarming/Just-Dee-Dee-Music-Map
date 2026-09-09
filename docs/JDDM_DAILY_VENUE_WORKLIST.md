@@ -18,7 +18,7 @@ Each venue gets one reusable forum post:
 - **Edit contacts** selects an existing person or adds a contact. Name, email, and phone may independently be blank. Phone-only and email-only people stay separate. US phone numbers are formatted. Notes are stored once per contact. A second menu edits websites, other contact methods, and the preferred method.
 - **Contacted** asks for confirmation, writes today's Eastern Last Contacted date, and sets Waiting on Reply only from a lead/review status. Existing Booked, Played, Open Microphone and rejected statuses are preserved. No email or text is sent by this button.
 - **Reschedule** saves the official spreadsheet Next Follow Up date, sets the post orange, and pauses it until that date. Due rescheduled posts have priority for the available morning slots, ordered by due date then distance. App-side date changes remain authoritative.
-- **Done** takes one click: it appends a dated review note in the existing Notes column, turns the post green and archives it after the save succeeds. Missing information can remain blank. Booking status and follow-up dates are preserved. Reopen is available when there is capacity. Existing Done buttons work immediately with this behavior; previously opened confirmation buttons remain compatible.
+- **Done** takes one click: it appends a dated review note in the existing Notes column, turns the post green and assigns the Done tag after the save succeeds. The same chat stays available with all replies. Missing information can remain blank. Booking status and follow-up dates are preserved. Review again reopens the same venue chat when there is capacity; previous dated review notes stay in the spreadsheet. Existing Done buttons work immediately with this behavior; previously opened confirmation buttons remain compatible.
 - The **status dropdown** changes the official spreadsheet status after confirmation.
 - **Refresh from spreadsheet** and **Edit venue notes** are also available.
 
@@ -39,7 +39,7 @@ The 8 AM daily follow-up digest links the open worklist posts. The forum message
 - A common per-venue write lock serializes app and Discord writes at the canonical bridge. Expected-field checks catch stale drafts.
 - Worklist writes are signed with `JDDM_WORKLIST_EDIT_KEY`. Only verified signatures can credit those saves to the manual activity counter. Automatic syncs still do not count.
 - Discord's original interaction signature, guild, post, user and expiring session are validated before edits.
-- Completed posts are archived, not deleted. Unstarted random assignments from the nearest-first rollout are queued and archived in gray; they reuse their original thread when selected later. Queuing does not write a fake completion or change spreadsheet dates. Post delivery records and source links allow recovery after an interrupted creation.
+- Completed posts stay in the forum under Done; the bot does not archive or delete them. To review filters the active assignments, while Done shows completed chats. Discord may automatically close idle threads, but their history stays available and Review again reuses the same thread. Unstarted random assignments from the nearest-first rollout are queued and archived in gray; they reuse their original thread when selected later. Queuing does not write a fake completion or change spreadsheet dates. Post delivery records and source links allow recovery after an interrupted creation.
 
 ## Validation
 
