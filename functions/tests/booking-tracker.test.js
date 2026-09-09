@@ -159,3 +159,31 @@ test('a due follow-up draft stays in the shared morning digest, while an initial
  const load=()=>require('../followUpDigest').loadDigest({db:f.db,fetchImpl,today:'2026-09-16',cache:false});assert.equal((await load()).bookingFollowUps,0);
  f.messages.delete('draft');f.put({id:'sent',labels:['SENT']});await f.service.poll();f.clock('2026-09-16T12:00Z');f.put({id:'followdraft',labels:['DRAFT']});await f.service.poll();assert.equal((await f.task()).state,'draft');assert.equal((await load()).bookingFollowUps,1);
 });
+
+test('trash and permanent deletion preserve sent evidence, but discarded drafts stay discarded',async()=>{
+ const s=msg('sent',{sent:true,deleted:true}),discarded=msg('discarded',{deleted:true});
+ const v=derive([s,discarded]);assert.equal(v.due,'2026-09-08');assert.equal(v.sent.length,1);assert.equal(v.drafts.length,0);assert.equal(v.history.length,1);
+ const f=require('./helpers/bookingFixture').fixture();f.put({id:'sent',labels:['SENT','TRASH']});let options;const list=f.gmail.users.messages.list;f.gmail.users.messages.list=async o=>{options=o;return list(o)};
+ await f.service.poll();assert.equal(options.includeSpamTrash,true);assert.equal((await f.task()).lastSentAt,Date.parse('2026-09-09T12:00:00Z'));
+ f.messages.delete('sent');await f.db.doc(b.PREFIX+'/gmail').set({pending:['sent']},{merge:true});await f.service.poll();assert.equal((await f.task()).state,'venue');assert.ok((await f.task()).lastSentAt);
+});
+test('trashed bounces and venue replies still stop automatic outreach',()=>{
+ const s=msg('s',{sent:true,deleted:true}),bounce=msg('bounce',{delivery:true,deleted:true,from:['mailer-daemon@googlemail.com'],at:T+DAY,failedRecipients:['booking@example.com']});
+ assert.equal(derive([s,bounce]).state,'invalid');
+ const reply=msg('reply',{deleted:true,from:['booking@example.com'],at:T+DAY});assert.equal(derive([s,reply]).state,'deedee');
+ assert.equal(derive([s,reply,msg('answer',{sent:true,at:T+2*DAY})]).canAutoDraft,false);
+});
+test('corrected contact without a replacement send does not start a normal follow-up clock',()=>{
+ const s=msg('s',{sent:true,deleted:true}),bounce=msg('bounce',{delivery:true,deleted:true,from:['mailer-daemon@googlemail.com'],at:T+DAY,failedRecipients:['booking@example.com']}),task={dismissedDeliveryId:'bounce',blockedRecipients:['booking@example.com']};
+ const v=derive([s,bounce],{},task);assert.equal(v.state,'ready');assert.equal(v.due,'');assert.equal(v.canAutoDraft,false);assert.equal(v.sent.length,1);assert.deepEqual(v.invalidRecipients,['booking@example.com']);assert.match(v.reason,/no replacement email/);
+ const draft=msg('newdraft',{draft:true,at:T+2*DAY,to:['new@example.com']});assert.equal(derive([s,bounce,draft],{},task).state,'draft');
+});
+test('replacement after a bounced initial email does not consume a follow-up attempt',()=>{
+ const s=msg('s',{sent:true}),bounce=msg('bounce',{delivery:true,from:['mailer-daemon@googlemail.com'],at:T+60001,failedRecipients:['booking@example.com']}),replacement=msg('replacement',{sent:true,at:T+120002,to:['new@example.com']});
+ const v=derive([s,bounce,replacement]);assert.equal(v.followupSends,0);assert.equal(v.sent.length,2);
+ const follow=msg('follow',{sent:true,at:T+7*DAY,to:['new@example.com']});assert.equal(derive([s,bounce,replacement,follow]).followupSends,1);
+ const partial=msg('partial',{sent:true,to:['booking@example.com','other@example.com']});assert.equal(derive([partial,bounce,replacement]).followupSends,1);
+});
+test('a separate-thread reply can match a venue whose sent email is in Trash',async()=>{
+ const f=require('./helpers/bookingFixture').fixture();f.put({id:'sent',labels:['SENT','TRASH']});await f.service.poll();f.put({id:'reply',threadId:'separate',from:'booking@example.com',to:b.MAILBOX,subject:'Music availability',body:'Can you play in January?',at:Date.parse('2026-09-09T12:01Z')});await f.service.poll();assert.equal((await f.task()).state,'deedee');assert.equal(f.store.get(b.PREFIX+'Mail/reply').venueId,f.rows[0]['Place ID']);
+});

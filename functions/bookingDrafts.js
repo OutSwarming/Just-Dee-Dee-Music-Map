@@ -1,6 +1,6 @@
 'use strict';
 // A restricted writer: drafts.create only. Never grant this worker a send action.
-const { PREFIX, MAILBOX, emails, people, normalizeMessage, derive, hash } = require('./bookingTracker');
+const { PREFIX, MAILBOX, emails, people, normalizeMessage, derive, hash, campaignEvidence } = require('./bookingTracker');
 const { dayKey } = require('./appActivity');
 function validate(proposal, row, view, job) {
   const recipient = String(proposal.recipient || '').trim().toLowerCase();
@@ -38,7 +38,7 @@ function createWriter({ db, gmail, sheet, service }) {
     const row = await sheet.get(job.venueId);
     // Re-fetch every known campaign thread immediately before drafting to catch recent replies.
     const relevant = s.mail.filter(m => m.venueId === job.venueId), byId = new Map(relevant.map(m => [m.id, m]));
-    const earliest = relevant.filter(m => !m.deleted).reduce((n, m) => Math.min(n, m.at), Infinity);
+    const earliest = relevant.filter(campaignEvidence).reduce((n, m) => Math.min(n, m.at), Infinity);
     for (const threadId of new Set(relevant.map(m => m.threadId))) {
       let result;
       try { result = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' }); }

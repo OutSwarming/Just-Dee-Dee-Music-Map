@@ -42,9 +42,12 @@ function normalizeMessage(m) {
     failedRecipients: delivery ? emails(deliveryText.match(/(?:Final-Recipient:[^\n]+|Original-Recipient:[^\n]+|(?:address|recipient) [^\n]{0,200}|(?:problem delivering your message to|Your message (?:wasn't delivered|couldn't be delivered) to)\s+[^\s<>]+)/gi)?.join('\n') || '') : [] };
 }
 function datePlus(day, n) { const d = new Date(day + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+// Mailbox cleanup does not undo a verified send, a delivery failure, or a venue reply.
+// Deleted unsent drafts remain discarded, including legacy records with draft:false.
+const campaignEvidence = m => !m.ignored && (!m.deleted || m.sent || m.delivery || (!m.draft && m.from?.some(e => e !== MAILBOX)));
 function derive(task, row, messages, signals = [], today = dayKey(new Date())) {
   const campaignStart = Math.min(...messages.filter(m => (m.sent || m.draft) && /\b2027\b/.test(m.subject + ' ' + m.body)).map(m => m.at));
-  const live = messages.filter(m => !m.deleted && (!Number.isFinite(campaignStart) || m.at >= campaignStart)).sort((a, b) => a.at - b.at);
+  const live = messages.filter(m => campaignEvidence(m) && (!Number.isFinite(campaignStart) || m.at >= campaignStart)).sort((a, b) => a.at - b.at);
   const drafts = live.filter(m => m.draft), sent = live.filter(m => m.sent);
   const firstSent = sent[0], lastSent = sent.at(-1);
   // Unrelated messages, delivery notices and automatic acknowledgments are not human replies.
@@ -55,14 +58,17 @@ function derive(task, row, messages, signals = [], today = dayKey(new Date())) {
   const cross = signals.filter(s => s.at >= (firstSent?.at || Date.now() + 1) && (s.platform !== 'Gmail' || s.status === 'deedee')).sort((a, b) => a.at - b.at).at(-1);
   const hasReply = lastReply && lastReply.at >= (lastSent?.at || 0);
   const failedNow = failed && failed.id !== task.dismissedDeliveryId && failed.at >= (lastSent?.at || 0);
+  const replacementNeeded = failed && failed.id === task.dismissedDeliveryId && failed.at >= (lastSent?.at || 0);
   const changedChannel = cross && cross.at > (lastSent?.at || 0);
   const bookedDates = [...new Set([String(row['Next Booked'] || ''), ...String(row['Future Gigs'] || '').split(/[;,\n]/)].map(calendarDate).filter(d => d?.startsWith('2027-')))];
   const stopNote = /\b(?:do not contact|do not email|don.t (?:contact|email)|unsubscribed|no longer (?:offer(?:ing)?|host(?:ing)?|do(?:ing)?) (?:any )?(?:live )?music|aren.t doing live music)[\s\S]*/i.test([row.Notes, ...people(row).map(p => p.notes)].join('\n'));
   const autoPaused = stopNote || /Told No|Closed|No Music/i.test(row.Status || '');
-  let state = task.outcome && task.outcome !== 'auto' ? task.outcome === 'yes' && bookedDates.length ? 'booked' : task.outcome : bookedDates.length ? 'booked' : failedNow ? 'invalid' : hasReply || changedChannel ? 'deedee' : autoPaused ? 'paused' : drafts.length ? 'draft' : lastSent ? 'venue' : 'ready';
+  let state = task.outcome && task.outcome !== 'auto' ? task.outcome === 'yes' && bookedDates.length ? 'booked' : task.outcome : bookedDates.length ? 'booked' : failedNow ? 'invalid' : hasReply || changedChannel ? 'deedee' : autoPaused ? 'paused' : drafts.length ? 'draft' : replacementNeeded ? 'ready' : lastSent ? 'venue' : 'ready';
   let reason = '', due = '', canAutoDraft = false;
   const official = calendarDate(row['Next Follow Up']);
-  const followupSends = Math.max(0, sent.filter((m, i, a) => i === 0 || m.at - a[i - 1].at > 60000).length - 1);
+  // A corrected resend after a permanent failure is still the initial outreach.
+  const deliveredAttempts = sent.filter((m, i) => !live.some(f => f.delivery && !f.temporaryDelivery && f.at >= m.at && f.at < (sent[i + 1]?.at || Infinity) && m.to.length && m.to.every(e => f.failedRecipients?.includes(e))));
+  const followupSends = Math.max(0, deliveredAttempts.filter((m, i, a) => i === 0 || m.at - a[i - 1].at > 60000).length - 1);
   const priorReply = replies.some(m => firstSent && m.at > firstSent.at);
   if (task.outcome && task.outcome !== 'auto') reason = 'Campaign outcome set by a person. Automatic outreach is paused.';
   else if (bookedDates.length) reason = 'The official spreadsheet calendar has 2027 gigs: ' + bookedDates.join(', ') + '. Automatic booking outreach is paused.';
@@ -71,6 +77,7 @@ function derive(task, row, messages, signals = [], today = dayKey(new Date())) {
   else if (changedChannel) reason = `There is newer ${cross.platform} activity. Review it before following up by email.`;
   else if (autoPaused) reason = 'The saved venue status or contact notes say no music, declined, or do not contact. Outreach is paused; review the source details in Open venue.';
   else if (drafts.length) reason = 'A Gmail draft is waiting for Dee Dee. No follow-up clock runs until she sends it.';
+  else if (replacementNeeded) reason = 'The previous email bounced. A corrected contact was saved, but no replacement email has been verified as sent. Review the saved contact and draft history before requesting another draft.';
   else if (!lastSent) reason = 'No sent 2027 booking email has been verified. Request a draft or use a saved contact method.';
   else if (deliveryDelay && deliveryDelay.at >= lastSent.at) reason = 'Gmail reported a delivery delay. Wait for the delivery result before trying again.';
   else if (/Told No|Closed|No Music/i.test(row.Status || '')) reason = 'The spreadsheet says no / closed / no music. Review the venue before more outreach.';
@@ -162,7 +169,7 @@ function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
     }
     if (!old.historyId || !cursor) {
       // Enumerating the SENT label avoids competing with the research worker's full-text search quota.
-      let token; do { const d = (await gmail.users.messages.list({ userId: 'me', labelIds: ['SENT'], maxResults: 50, ...(token ? { pageToken: token } : {}) })).data; (d.messages || []).forEach(m => ids.add(m.id)); token = d.nextPageToken; } while (token);
+      let token; do { const d = (await gmail.users.messages.list({ userId: 'me', labelIds: ['SENT'], includeSpamTrash: true, maxResults: 50, ...(token ? { pageToken: token } : {}) })).data; (d.messages || []).forEach(m => ids.add(m.id)); token = d.nextPageToken; } while (token);
     }
     // Persist the entire backlog before advancing the Gmail history cursor.
     await checkpoint.set({ historyId: profile.historyId, pending: [...ids], draftOffset: sorted.length ? (offset + 35) % sorted.length : 0, checkedAt: now().toISOString() });
@@ -175,8 +182,8 @@ function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
       catch (e) { if (Number(e.code || e.response?.status) !== 404) throw e; const existing = saved.find(x => x.id === id); if (existing && (!existing.deleted || existing.draft)) await db.doc(PREFIX + 'Mail/' + id).set({ deleted: true, draft: false }, { merge: true }); ids.delete(id); processed++; continue; }
       const candidates = new Set(byMessage.get(id) || byThread.get(m.threadId) || []);
       if (!candidates.size && ((m.draft || m.sent) && /\b2027\b/.test(m.subject + ' ' + m.body))) for (const e of [...m.to, ...m.cc]) for (const v of byEmail.get(e) || []) candidates.add(v);
-      if (!candidates.size && m.delivery) for (const e of m.failedRecipients) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && !x.deleted && x.at <= m.at)) candidates.add(v);
-      if (!candidates.size && !m.sent && !m.draft && !m.delivery && !m.from.includes(MAILBOX)) for (const e of m.from) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && !x.deleted && x.at <= m.at)) candidates.add(v);
+      if (!candidates.size && m.delivery) for (const e of m.failedRecipients) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && x.at <= m.at)) candidates.add(v);
+      if (!candidates.size && !m.sent && !m.draft && !m.delivery && !m.from.includes(MAILBOX)) for (const e of m.from) for (const v of byEmail.get(e) || []) if ([...observed.values()].some(x => x.venueId === v && x.sent && x.at <= m.at)) candidates.add(v);
       if (candidates.size === 1) {
         m.venueId = [...candidates][0]; m.draftId = draftMap.get(id) || ''; m.seenAt = now().toISOString();
         await saveMail(id,m); add(byThread, m.threadId, m.venueId); matched++;
@@ -273,7 +280,7 @@ function createService({ db, gmail, discord, sheet, now = () => new Date() }) {
     const s = await snapshot(), ids = new Map(); s.rows.forEach(r => ids.set(r['Place ID'], (ids.get(r['Place ID']) || 0) + 1));
     const eligible = s.rows.filter(r => r['Place ID'] && ids.get(r['Place ID']) === 1 && r['Place Name'] && !/^jddm-e2e-/.test(r['Place ID']) && hasContact(r));
     // Show existing drafts first, then contacted campaigns, then the remaining contactable venues.
-    eligible.sort((a, b) => Number(s.mail.some(m => m.venueId === b['Place ID'] && !m.deleted)) - Number(s.mail.some(m => m.venueId === a['Place ID'] && !m.deleted)) || a['Place Name'].localeCompare(b['Place Name']));
+    eligible.sort((a, b) => Number(s.mail.some(m => m.venueId === b['Place ID'] && campaignEvidence(m))) - Number(s.mail.some(m => m.venueId === a['Place ID'] && campaignEvidence(m))) || a['Place Name'].localeCompare(b['Place Name']));
     let updated = 0, queued = 0; const errors = [];
     for (const row of eligible) {
       const id = hash(row['Place ID']); let t = s.tasks.find(x => x.id === id);
@@ -338,4 +345,4 @@ function createInteractions({ service, discord, publicKey }) { return async (req
   } catch (e) { await discord('PATCH', `/webhooks/${i.application_id}/${i.token}/messages/@original`, { content: clip('Could not finish: ' + e.message, 1900), components: [], allowed_mentions: { parse: [] } }); }
   return res.status(200).send('Handled');
 }; }
-module.exports = { GUILD, CATEGORY, MAILBOX, YEAR, PREFIX, STATES, OUTCOMES, quiet, hash, emails, people, hasContact, normalizeMessage, derive, card, gmailLink, createService, createInteractions, createDiscordClient };
+module.exports = { campaignEvidence, GUILD, CATEGORY, MAILBOX, YEAR, PREFIX, STATES, OUTCOMES, quiet, hash, emails, people, hasContact, normalizeMessage, derive, card, gmailLink, createService, createInteractions, createDiscordClient };

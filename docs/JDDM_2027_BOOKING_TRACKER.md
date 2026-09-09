@@ -57,3 +57,9 @@ The fake-mail integration test uses in-memory Gmail and spreadsheet adapters wit
 Regression coverage also includes a sent message retaining its former draft ID, a separate-thread bounce arriving in the same poll as the send, a prepared follow-up draft remaining in the morning digest, returning venues with explicit dates, Eastern midnight/DST, automatic acknowledgments, stale forms and failed-recipient blocking.
 
 A venue’s natural-language yes/no or “wrong person” reply is shown as a reply requiring Dee Dee’s review; it is not automatically classified as a campaign outcome. No-response timing cannot prove that a recipient read or ignored the email. Alternative contact methods are recommendations, never automatic calls or social messages.
+
+### Mailbox cleanup and follow-up reconciliation
+
+Verified sent mail remains campaign history even after it is moved to Trash or permanently removed from Gmail. Saved delivery failures and venue replies also remain evidence; mailbox cleanup cannot turn a bounced or answered campaign into fresh outreach. Deleted unsent drafts stay discarded. Fresh draft checks refetch the known conversations using the same evidence boundary.
+
+A resend to a corrected address after a verified permanent failure does not consume a follow-up attempt. Saving a corrected contact or dismissing a bounce does not prove a replacement was sent: that campaign has no routine email follow-up clock until Gmail verifies the replacement send. Official venue dates and manual outcomes remain authoritative.
