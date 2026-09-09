@@ -18,7 +18,7 @@ Each venue gets one reusable forum post:
 - **Edit contacts** selects an existing person or adds a contact. Name, email, and phone may independently be blank. Phone-only and email-only people stay separate. US phone numbers are formatted. Notes are stored once per contact. A second menu edits websites, other contact methods, and the preferred method.
 - **Contacted** asks for confirmation, writes today's Eastern Last Contacted date, and sets Waiting on Reply only from a lead/review status. Existing Booked, Played, Open Microphone and rejected statuses are preserved. No email or text is sent by this button.
 - **Reschedule** saves the official spreadsheet Next Follow Up date, sets the post orange, and pauses it until that date. Due rescheduled posts have priority for the available morning slots, ordered by due date then distance. App-side date changes remain authoritative.
-- **Done** asks for confirmation, appends a dated review note in the existing Notes column, and turns the post green and archives it. Missing information can remain blank. Booking status and follow-up dates are preserved. Reopen is available when there is capacity.
+- **Done** takes one click: it appends a dated review note in the existing Notes column, turns the post green and archives it after the save succeeds. Missing information can remain blank. Booking status and follow-up dates are preserved. Reopen is available when there is capacity. Existing Done buttons work immediately with this behavior; previously opened confirmation buttons remain compatible.
 - The **status dropdown** changes the official spreadsheet status after confirmation.
 - **Refresh from spreadsheet** and **Edit venue notes** are also available.
 

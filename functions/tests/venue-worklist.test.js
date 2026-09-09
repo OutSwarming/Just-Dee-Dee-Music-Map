@@ -107,3 +107,39 @@ test('queued posts preserve their thread and row, archive honestly, and reopen w
  s.setDay('2026-09-09');await s.service.fill();const reopened=await s.service.get(t.id);
  assert.equal(reopened.state,'open');assert.equal(reopened.threadId,t.threadId);assert.equal(s.threads.size,1);assert.equal(s.threads.get(t.threadId).thread_metadata.archived,false);assert.equal(JSON.stringify(s.rows),before);
 });
+
+function signedWorklistClick(s, task) {
+ const keys=crypto.generateKeyPairSync('ed25519'),publicKey=keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex');
+ const handler=w.createInteractions({...s,publicKey:()=>publicKey});let counter=0;
+ return async(action,requestId='done-click-'+(++counter))=>{
+  const body={id:requestId,type:3,guild_id:w.GUILD,channel_id:task.threadId,application_id:'app',token:'test-interaction',member:{user:{id:'user',username:'Tester'}},data:{custom_id:'jddmw:'+action+':'+task.id}};
+  const rawBody=Buffer.from(JSON.stringify(body)),stamp=String(Math.floor(Date.now()/1000));
+  const signature=crypto.sign(null,Buffer.concat([Buffer.from(stamp),rawBody]),keys.privateKey).toString('hex');
+  const res={status(n){this.code=n;return this;},json(v){this.body=v;return this;},send(v){this.body=v;return this;}};
+  await handler({body,rawBody,get:key=>key==='X-Signature-Ed25519'?signature:stamp},res);return res;
+ };
+}
+test('one signed Done click records review and turns the existing post green without a second prompt',async()=>{
+ const s=setup([row('one',{Status:'Booked','Next Follow Up':'2026-10-14'})]),task=await s.task();
+ const click=signedWorklistClick(s,task),response=await click('done','single-done');
+ assert.equal(response.code,200);assert.equal((await s.service.get(task.id)).state,'done');
+ assert.equal(s.messages.get(task.threadId).embeds[0].color,0x2ecc71);
+ assert.deepEqual(s.threads.get(task.threadId).applied_tags,['green']);
+ assert.equal(s.threads.get(task.threadId).thread_metadata.archived,true);
+ assert.match(s.rows[0].Notes,/Venue information reviewed 2026-09-08/);
+ assert.equal(s.rows[0].Status,'Booked');assert.equal(s.rows[0]['Next Follow Up'],'2026-10-14');
+ assert.equal([...s.data.keys()].filter(k=>k.startsWith('jddmVenueWorklistSessions/')).length,0);
+ assert.match(s.calls.at(-1).body.content,/Done!/);assert.deepEqual(s.calls.at(-1).body.components,[]);
+ const saved=JSON.stringify(s.rows),post=JSON.stringify(s.messages.get(task.threadId));
+ await click('done','single-done');await click('done','second-done');
+ assert.equal(JSON.stringify(s.rows),saved);assert.equal(JSON.stringify(s.messages.get(task.threadId)),post);
+ assert.match(s.calls.at(-1).body.content,/already complete/);
+});
+test('single-click Done leaves the post open and blue if the spreadsheet save fails',async()=>{
+ const s=setup(),task=await s.task();s.sheet.save=async()=>{throw Error('Spreadsheet unavailable');};
+ await signedWorklistClick(s,task)('done');
+ assert.equal((await s.service.get(task.id)).state,'open');
+ assert.equal(s.messages.get(task.threadId).embeds[0].color,0x3498db);
+ assert.equal(s.threads.get(task.threadId).thread_metadata.archived,false);
+ assert.equal(s.rows[0].Notes,'Keep original venue notes');assert.match(s.calls.at(-1).body.content,/Could not finish: Spreadsheet unavailable/);
+});

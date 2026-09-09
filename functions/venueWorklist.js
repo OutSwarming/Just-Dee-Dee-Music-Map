@@ -177,7 +177,11 @@ function createInteractions({db,discord,service,publicKey}){return async(req,res
  const receipt=db.doc('jddmWorklistActions/'+i.id);
  const claimed=await db.runTransaction(async tx=>{const s=await tx.get(receipt);if(s.exists)return false;tx.set(receipt,{state:'started',at:new Date().toISOString()});return true;});if(!claimed)return res.status(202).send('Already handled');
  try{let content,components=[];
-  if(['contacts','date','notes','contacted','status','done'].includes(action)){
+  if(action==='done'){
+   // Done is a single action. mutate reads the current row under its lock and
+   // preserves booking/contact details; no prepared confirmation form is needed.
+   const result=await service.mutate(id,'done',{},{user,actor,channel:i.channel_id,requestId:i.id});content=result.message;
+  }else if(['contacts','date','notes','contacted','status'].includes(action)){
    const prepared=await service.prepare(id,user,i.channel_id),{row,sid:newSid}=prepared;
    if(action==='contacts'){
     const people=personData(row).contacts;
@@ -193,8 +197,8 @@ function createInteractions({db,discord,service,publicKey}){return async(req,res
     const status=i.data.values?.[0];if(!STATUSES.includes(status))throw Error('Invalid status');content=`Change **${esc(row['Place Name'])}** from **${esc(row.Status)}** to **${esc(status)}**?`;
     components=[{type:1,components:[button(id,'status-confirm','Save status',1,{custom_id:`jddmw:status-confirm:${id}:${newSid}:${STATUSES.indexOf(status)}`})]}];
    }else{
-    content=action==='contacted'?`Mark **${esc(row['Place Name'])}** contacted today? This records today as Last Contacted; it does not send an email or text.`:`Finish reviewing **${esc(row['Place Name'])}**? A dated review note will be saved in the spreadsheet and this post will turn green. Missing details may stay blank; booking status is kept.`;
-    components=[{type:1,components:[button(id,action+'-confirm',action==='done'?'Yes, done':'Yes, contacted',3,{custom_id:`jddmw:${action}-confirm:${id}:${newSid}:0`})]}];
+    content=`Mark **${esc(row['Place Name'])}** contacted today? This records today as Last Contacted; it does not send an email or text.`;
+    components=[{type:1,components:[button(id,'contacted-confirm','Yes, contacted',3,{custom_id:`jddmw:contacted-confirm:${id}:${newSid}:0`})]}];
    }
   }else if(action==='refresh'){
    const p=await service.prepare(id,user,i.channel_id);await service.publish(p.t,p.row);content='Refreshed from the official spreadsheet.';
