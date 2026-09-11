@@ -281,3 +281,13 @@ test('manual refresh queues behind an in-flight background sheet request', async
     pending.shift()({ ok: true, url: calls[1], text: async () => csv });
     assert.equal(await manual, true);
 });
+
+test('live spreadsheet contact-date column names survive CSV loading', async () => {
+    const csv = 'Place ID,Place Name,Latitude,Longitude,Status,Last Contacted,Next Follow Up,Future Gigs\nvenue-date-test,Date Test,41.2,-81.5,Sent,2026-09-10,2026-09-12,2026-09-13\n';
+    const bark = loadDataService({fetchImpl: async () => ({ok: true, text: async () => csv})});
+    assert.equal(await bark.loadData(), true);
+    const row = bark.__getPublishedPoints()[0];
+    assert.equal(row.nextFollowUpDate, '2026-09-12');
+    assert.equal(row.lastContactedDate, '2026-09-10');
+    assert.equal(row.calendarFutureGigEvents, '2026-09-13');
+});

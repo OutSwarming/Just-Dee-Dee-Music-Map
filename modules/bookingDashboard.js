@@ -31,9 +31,9 @@
     ]);
 
     const AGENDA_SECTIONS = Object.freeze([
-        { id: 'catchUp', label: 'Catch Up' },
-        { id: 'newPlaces', label: 'New Places' },
-        { id: 'dataReview', label: 'Data Review' }
+        { id: 'today', label: 'Today' },
+        { id: 'tomorrow', label: 'Tomorrow' },
+        { id: 'dayAfter', label: 'In 2 Days' }
     ]);
 
     const EXPECTED_SPREADSHEET_SCHEMA_VERSION = '2026-08-31-firebase-shared-bridge';
@@ -59,7 +59,7 @@
 
     let activeTab = STATE_TAB_ID;
     let activeStatusState = '';
-    let activeAgendaSection = 'catchUp';
+    let activeAgendaSection = 'today';
     let unsubscribeRepo = null;
     let searchQuery = '';
     let bridgeHealth = {
@@ -302,7 +302,7 @@
         const sections = getAgendaSections(data);
         const ids = new Set(sections.map(section => section.id));
         if (ids.has(activeAgendaSection)) return;
-        activeAgendaSection = (sections.find(section => section.items.length) || sections[0] || {}).id || 'catchUp';
+        activeAgendaSection = (sections.find(section => section.items.length) || sections[0] || {}).id || 'today';
     }
 
     function getVenueForAgendaItem(item, data = {}) {
@@ -1405,7 +1405,7 @@
                         <h3>All clear right now</h3>
                     </div>
                 </div>
-                <p class="booking-agenda-empty">No urgent booking actions are due.</p>
+                <p class="booking-agenda-empty">No scheduled gigs or follow-ups for today or the next two days.</p>
             `;
             return;
         }
@@ -1414,7 +1414,7 @@
             <div class="booking-agenda-header">
                 <div>
                     <p class="booking-kicker">Priority Cards</p>
-                    <h3>Daily booking deck</h3>
+                    <h3>Today + next 2 days (Eastern)</h3>
                 </div>
                 <span>${totalItems}</span>
             </div>
@@ -1443,7 +1443,7 @@
 
         agenda.querySelectorAll('[data-agenda-section]').forEach(button => {
             button.addEventListener('click', () => {
-                activeAgendaSection = button.dataset.agendaSection || 'catchUp';
+                activeAgendaSection = button.dataset.agendaSection || 'today';
                 updateAgendaDeck(agenda);
             });
         });

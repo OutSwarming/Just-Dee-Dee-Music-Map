@@ -128,7 +128,17 @@
         }
 
         const parsed = new Date(text);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
+        if (Number.isNaN(parsed.getTime())) return null;
+        // Zoned spreadsheet timestamps describe an Eastern calendar day, even
+        // when the person viewing the app is traveling in another timezone.
+        if (/GMT|UTC|T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(parsed);
+            const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+            return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
+        }
+        return parsed;
     }
 
     function toIsoDate(date) {
@@ -218,8 +228,11 @@
     }
 
     function startOfToday() {
-        const now = new Date();
-        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(new Date());
+        const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        return new Date(Number(values.year), Number(values.month) - 1, Number(values.day));
     }
 
     function isBeforeToday(value) {
@@ -627,7 +640,7 @@
         });
 
         const notDnc = normalized.filter(venue => !venue.booking.doNotContact);
-        const followUps = notDnc.filter(venue => venue.booking.isFollowUpDue);
+        const followUps = notDnc.filter(venue => venue.booking.isFollowUpDue && !isBeforeToday(venue.booking.nextFollowUpDate));
         const newProspects = notDnc.filter(venue => venue.booking.isNewProspect);
         const interested = notDnc.filter(venue => venue.booking.isRespondedNeedsAction);
         const booked = normalized.filter(venue => venue.booking.isBooked);
@@ -642,16 +655,8 @@
         const doNotContact = normalized.filter(venue => venue.booking.doNotContact);
         const statusGroups = buildStatusGroups(normalized);
         const stateSummary = buildStateSummary(statusGroups);
-        const today = [
-            ...postGigFollowUps,
-            ...followUps,
-            ...interested.filter(venue => !followUps.includes(venue)),
-            ...priorityLeads.filter(venue => !followUps.includes(venue) && !interested.includes(venue)).slice(0, 10),
-            ...newProspects.filter(venue => !followUps.includes(venue)).slice(0, 20),
-            ...missingInfo.filter(venue => !followUps.includes(venue)).slice(0, 10)
-        ];
         const groups = {
-            today,
+            today: [],
             followUps,
             newProspects,
             interested,
@@ -670,183 +675,56 @@
 
         groups.dailyAgenda = buildDailyAgendaFromGroups(groups);
         groups.dailyAgendaSections = buildDailyAgendaSectionsFromGroups(groups);
+        const todayIds = new Set(groups.dailyAgendaSections[0].items.map(item => item.venueId));
+        groups.today = normalized.filter(venue => todayIds.has(venue.id));
         return groups;
     }
 
-    function buildDailyAgendaFromGroups(groups = {}, limit = 6) {
-        const agenda = [];
-        const seen = new Set();
-
-        function add(venues, reason, suggestedAction, type) {
-            (venues || []).forEach(venue => {
-                if (!venue || !venue.id || seen.has(venue.id) || agenda.length >= limit) return;
-                seen.add(venue.id);
-                agenda.push(makeAgendaItem(venue, reason(venue), suggestedAction(venue), type));
+    // The agenda is a read-only three-day view. Historical dates remain in the
+    // spreadsheet and full venue lists; they must never be cleared by a filter.
+    function buildDailyAgendaSectionsFromGroups(groups = {}, sectionLimit = 8) {
+        const sections = ['Today', 'Tomorrow', 'In 2 Days'].map((label, offset) => {
+            const date = startOfToday();
+            date.setDate(date.getDate() + offset);
+            return { id: ['today', 'tomorrow', 'dayAfter'][offset], label, date: toIsoDate(date), items: [] };
+        });
+        const byDate = new Map(sections.map(section => [section.date, section]));
+        const venues = [...(groups.all || [])].sort(compareVenuePriority);
+        const add = (venue, dateValue, type, reason, action) => {
+            const parsed = parseLocalDate(dateValue);
+            const date = parsed ? toIsoDate(parsed) : '';
+            const section = byDate.get(date);
+            if (!section || section.items.length >= sectionLimit) return;
+            section.items.push(makeAgendaItem(venue, reason, action, type, {
+                sectionId: section.id, agendaDate: date
+            }));
+        };
+        // Gigs appear first; follow-ups are a separate action even at that venue.
+        venues.filter(venue => venue.id && !venue.booking.doNotContact && !venue.booking.isNotAFit)
+            .forEach(venue => {
+                const dates = new Set(getVenueGigStats(venue).futureDates);
+                if (venue.booking.isBooked && venue.booking.eventDate) {
+                    const event = parseLocalDate(venue.booking.eventDate);
+                    if (event) dates.add(toIsoDate(event));
+                }
+                [...dates].sort().forEach(date => {
+                    const event = { ...venue, booking: { ...venue.booking, eventDate: date,
+                        eventTime: date === venue.booking.eventDate ? venue.booking.eventTime : '' } };
+                    add(event, date, 'upcomingGig', `Booked gig: ${date}`, 'Confirm details and prepare set');
+                });
             });
-        }
-
-        const followUps = [...(groups.followUps || [])].sort(compareFollowUpDate);
-        const interestedDue = followUps.filter(venue => venue.booking.isRespondedNeedsAction);
-        const overdueFollowUps = followUps.filter(venue => !venue.booking.isRespondedNeedsAction);
-        const interested = [...(groups.interested || [])]
-            .filter(venue => !seen.has(venue.id))
-            .sort(compareFollowUpDate);
-        const postGigFollowUps = [...(groups.postGigFollowUps || [])].sort(compareEventDate);
-        const upcomingGigs = [...(groups.upcomingGigs || [])].sort(compareEventDate);
-        const priorityLeads = [...(groups.priorityLeads || [])].sort(compareVenuePriority);
-        const newProspects = [...(groups.newProspects || [])].sort(compareVenuePriority);
-        const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
-
-        add(
-            postGigFollowUps,
-            venue => `Booked gig needs thank-you${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
-            () => 'Send thank-you, then set rebooking follow-up',
-            'postGigFollowUp'
-        );
-        add(
-            interestedDue,
-            venue => `Response follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
-            () => 'Send response follow-up or mark booked',
-            'interestedDue'
-        );
-        add(
-            overdueFollowUps,
-            venue => `Follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
-            () => 'Send follow-up email',
-            'followUpDue'
-        );
-        add(
-            interested,
-            () => 'Response needs a next step',
-            () => 'Set follow-up date or mark booked',
-            'interested'
-        );
-        add(
-            upcomingGigs,
-            venue => `Upcoming booked gig${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
-            () => 'Confirm details and prepare set',
-            'upcomingGig'
-        );
-        add(
-            priorityLeads,
-            venue => `High-fit booking lead: priority ${venue.booking.priority}, fit ${venue.booking.bestFitScore}`,
-            () => 'Choose next outreach action',
-            'priorityLead'
-        );
-        add(
-            newProspects,
-            () => 'New venue ready for first outreach',
-            () => 'Copy first outreach email',
-            'newProspect'
-        );
-        add(
-            missingInfo,
-            () => 'Missing email or booking link',
-            () => 'Research contact info',
-            'missingInfo'
-        );
-
-        return agenda;
+        venues.filter(venue => venue.id && !venue.booking.doNotContact &&
+            !venue.booking.isNotAFit && !venue.booking.isOpenMicrophone)
+            .forEach(venue => add(venue, venue.booking.nextFollowUpDate,
+                venue.booking.isRespondedNeedsAction ? 'interestedDue' : 'followUpDue',
+                `Follow-up: ${venue.booking.nextFollowUpDate}`,
+                venue.booking.isRespondedNeedsAction ? 'Send response follow-up or mark booked' : 'Send follow-up email'));
+        return sections;
     }
 
-    function buildDailyAgendaSectionsFromGroups(groups = {}, sectionLimit = 8) {
-        const makeSection = (id, label) => ({ id, label, items: [] });
-        const sections = [
-            makeSection('catchUp', 'Catch Up'),
-            makeSection('newPlaces', 'New Places'),
-            makeSection('dataReview', 'Data Review')
-        ];
-        const seenBySection = new Map(sections.map(section => [section.id, new Set()]));
-
-        function add(section, venues, reason, suggestedAction, type) {
-            const seen = seenBySection.get(section.id);
-            (venues || []).forEach(venue => {
-                if (!venue || !venue.id || seen.has(venue.id) || section.items.length >= sectionLimit) return;
-                seen.add(venue.id);
-                section.items.push(makeAgendaItem(venue, reason(venue), suggestedAction(venue), type, {
-                    sectionId: section.id
-                }));
-            });
-        }
-
-        const catchUp = sections[0];
-        const newPlaces = sections[1];
-        const dataReview = sections[2];
-        const followUps = [...(groups.followUps || [])].sort(compareFollowUpDate);
-        const interestedDue = followUps.filter(venue => venue.booking.isRespondedNeedsAction);
-        const overdueFollowUps = followUps.filter(venue => !venue.booking.isRespondedNeedsAction);
-        const interested = [...(groups.interested || [])].sort(compareFollowUpDate);
-        const postGigFollowUps = [...(groups.postGigFollowUps || [])].sort(compareEventDate);
-        const upcomingGigs = [...(groups.upcomingGigs || [])].sort(compareEventDate);
-        const priorityLeads = [...(groups.priorityLeads || [])]
-            .filter(venue => [
-                CONTACT_STATUS.NOT_CONTACTED,
-                CONTACT_STATUS.DRAFT_READY
-            ].includes(venue.booking.contactStatus))
-            .sort(compareNewProspect);
-        const newProspects = [...(groups.newProspects || [])].sort(compareNewProspect);
-        const missingInfo = [...(groups.missingInfo || [])].sort(compareVenuePriority);
-
-        add(
-            catchUp,
-            postGigFollowUps,
-            venue => `Booked gig needs thank-you${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
-            () => 'Send thank-you, then set rebooking follow-up',
-            'postGigFollowUp'
-        );
-        add(
-            catchUp,
-            interestedDue,
-            venue => `Response follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
-            () => 'Send response follow-up or mark booked',
-            'interestedDue'
-        );
-        add(
-            catchUp,
-            overdueFollowUps,
-            venue => `Follow-up due${venue.booking.nextFollowUpDate ? `: ${venue.booking.nextFollowUpDate}` : ''}`,
-            () => 'Send follow-up email',
-            'followUpDue'
-        );
-        add(
-            catchUp,
-            interested,
-            () => 'Response needs a next step',
-            () => 'Set follow-up date or mark booked',
-            'interested'
-        );
-        add(
-            catchUp,
-            upcomingGigs,
-            venue => `Upcoming booked gig${venue.booking.eventDate ? `: ${venue.booking.eventDate}` : ''}`,
-            () => 'Confirm details and prepare set',
-            'upcomingGig'
-        );
-
-        add(
-            newPlaces,
-            priorityLeads,
-            venue => `Strong new lead: priority ${venue.booking.priority}, fit ${venue.booking.bestFitScore}`,
-            () => 'Choose first outreach action',
-            'priorityLead'
-        );
-        add(
-            newPlaces,
-            newProspects,
-            () => 'New venue ready for first outreach',
-            () => 'Copy first outreach email',
-            'newProspect'
-        );
-
-        add(
-            dataReview,
-            missingInfo,
-            () => 'Contact data needs review',
-            () => 'Fill the missing contact fields',
-            'missingInfo'
-        );
-
-        return sections;
+    function buildDailyAgendaFromGroups(groups = {}, limit = 6) {
+        return buildDailyAgendaSectionsFromGroups(groups, limit)
+            .flatMap(section => section.items).slice(0, limit);
     }
 
     function getDailyAgenda(venues = [], limit = 6) {
