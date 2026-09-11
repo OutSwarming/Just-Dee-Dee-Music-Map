@@ -6,10 +6,13 @@ const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 
-function loadBookingSchema() {
+function loadBookingSchema(now) {
+    const Clock = now ? class extends Date {
+        constructor(...args) { super(...(args.length ? args : [now])); }
+    } : Date;
     const context = {
         console,
-        Date,
+        Date: Clock,
         Map,
         Set,
         Promise,
@@ -279,7 +282,8 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
         }
     ]);
 
-    assert.deepEqual(ids(groups.followUps), ['follow-up']);
+    assert.deepEqual(ids(groups.followUps), []);
+    assert.equal(groups.all.find(v => v.id === 'follow-up').booking.nextFollowUpDate, '2000-01-01');
     assert.deepEqual(ids(groups.newProspects), ['prospect']);
     assert.deepEqual(ids(groups.interested), ['interested']);
     assert.deepEqual(ids(groups.priorityLeads), ['priority']);
@@ -289,7 +293,7 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.deepEqual(ids(groups.notAFit), ['not-fit', 'dnc']);
     assert.deepEqual(ids(groups.missingInfo), ['missing']);
     assert.deepEqual(ids(groups.doNotContact), ['not-fit', 'dnc']);
-    assert.deepEqual(ids(groups.today), ['post-gig', 'follow-up', 'interested', 'priority', 'prospect', 'missing']);
+    assert.deepEqual(ids(groups.today), []);
     assert.equal(groups.stateSummary.length, schema.CONTACT_STATUS_VALUES.length);
     assert.deepEqual(Array.from(groups.stateSummary.slice(0, 4), item => item.status), [
         schema.CONTACT_STATUS.RESPONDED_NEEDS_ACTION,
@@ -303,122 +307,43 @@ test('getDashboardGroups separates today, follow-ups, prospects, booked, and do-
     assert.equal(groups.stateSummary.reduce((sum, item) => sum + item.count, 0), groups.all.length);
 });
 
-test('daily agenda includes post-gig follow-through before upcoming gigs and prospects', () => {
-    const schema = loadBookingSchema();
-    const agenda = schema.getDailyAgenda([
-        {
-            id: 'prospect',
-            name: 'New Prospect Cafe',
-            contactStatus: 'Not Contacted',
-            contactEmail: 'hello@example.com'
-        },
-        {
-            id: 'upcoming',
-            name: 'Upcoming Festival',
-            contactStatus: 'Booked',
-            eventDate: '2099-07-04'
-        },
-        {
-            id: 'post-gig',
-            name: 'Past Gig Room',
-            contactStatus: 'Booked',
-            eventDate: '2000-07-04'
-        }
-    ], 3);
-
-    assert.deepEqual(Array.from(agenda, item => item.venueId), ['post-gig', 'upcoming', 'prospect']);
-    assert.equal(agenda[0].type, 'postGigFollowUp');
-    assert.match(agenda[0].suggestedAction, /thank-you/i);
-    assert.equal(agenda[1].type, 'upcomingGig');
+test('agenda shows only today and next two Eastern days without changing source dates', () => {
+    const schema = loadBookingSchema('2026-09-12T02:00:00Z'); // Still Sep 11 Eastern.
+    const row = (id, date, status = 'Sent') => ({id, name: id, contactStatus: status, nextFollowUpDate: date});
+    const rows = [row('old', '2026-09-10'), row('today', '2026-09-11'),
+        row('tomorrow', '2026-09-12'), row('day2', '2026-09-13', 'Interested'),
+        row('later', '2026-09-14'), row('undated', ''), row('closed', '2026-09-11', 'Told No / Closed / No Music'),
+        {id: 'gig', name: 'Gig', contactStatus: 'Booked', eventDate: '2026-09-12'},
+        {id: 'old-gig', name: 'Past Gig', contactStatus: 'Booked', eventDate: '2026-09-10'}];
+    const before = JSON.stringify(rows);
+    const groups = schema.getDashboardGroups(rows);
+    assert.deepEqual(Array.from(groups.dailyAgendaSections, s => s.id), ['today', 'tomorrow', 'dayAfter']);
+    assert.deepEqual(Array.from(groups.dailyAgenda, x => x.venueId), ['today', 'gig', 'tomorrow', 'day2']);
+    assert.equal(groups.dailyAgenda.at(-1).type, 'interestedDue');
+    assert.equal(JSON.stringify(rows), before);
+    assert.equal(groups.all.find(v => v.id === 'old').booking.nextFollowUpDate, '2026-09-10');
+    assert.equal(groups.followUps.some(v => v.id === 'old'), false);
+    assert.equal(schema.getAgendaTargetIds(rows).has('old'), false);
 });
 
-test('daily agenda prioritizes interested follow-ups, due follow-ups, prospects, and missing info', () => {
-    const schema = loadBookingSchema();
-    const agenda = schema.getDailyAgenda([
-        {
-            id: 'prospect-low',
-            name: 'Low Fit Cafe',
-            contactStatus: 'Not Contacted',
-            contactEmail: 'low@example.com',
-            priority: 1
-        },
-        {
-            id: 'missing',
-            name: 'Mystery Pub',
-            contactStatus: 'Not Contacted'
-        },
-        {
-            id: 'follow-up',
-            name: 'Sent Brewery',
-            contactStatus: 'Sent',
-            nextFollowUpDate: '2000-01-01',
-            contactEmail: 'sent@example.com'
-        },
-        {
-            id: 'interested-due',
-            name: 'Interested Winery',
-            contactStatus: 'Interested',
-            nextFollowUpDate: '2000-01-02',
-            contactEmail: 'wine@example.com'
-        },
-        {
-            id: 'prospect-high',
-            name: 'High Fit Room',
-            contactStatus: 'Not Contacted',
-            contactEmail: 'high@example.com',
-            priority: 9
-        },
-        {
-            id: 'interested',
-            name: 'Interested Gallery',
-            contactStatus: 'Interested',
-            contactEmail: 'gallery@example.com'
-        }
-    ], 6);
-
-    assert.deepEqual(Array.from(agenda, item => item.venueId), [
-        'interested-due',
-        'follow-up',
-        'interested',
-        'prospect-high',
-        'prospect-low',
-        'missing'
-    ]);
-    assert.equal(agenda[0].type, 'interestedDue');
-    assert.match(agenda[0].suggestedAction, /mark booked/i);
-    assert.equal(agenda[3].type, 'priorityLead');
-    assert.match(agenda[3].reason, /priority 9/i);
-    assert.equal(agenda[5].suggestedAction, 'Research contact info');
+test('agenda advances through month end and Eastern daylight-saving changes', () => {
+    for (const [now, dates] of [
+        ['2026-12-31T17:00:00Z', ['2026-12-31', '2027-01-01', '2027-01-02']],
+        ['2026-11-01T04:30:00Z', ['2026-11-01', '2026-11-02', '2026-11-03']],
+        ['2026-03-08T05:30:00Z', ['2026-03-08', '2026-03-09', '2026-03-10']]
+    ]) {
+        const schema = loadBookingSchema(now);
+        const sections = schema.getDailyAgendaSections(dates.map((date, i) => ({id: String(i), contactStatus: 'Sent', nextFollowUpDate: date})));
+        assert.deepEqual(Array.from(sections, s => s.date), dates);
+        assert.deepEqual(Array.from(sections, s => s.items.length), [1, 1, 1]);
+    }
 });
 
-test('daily agenda sections split catch-up, new places, and data review cards', () => {
-    const schema = loadBookingSchema();
-    const sections = schema.getDailyAgendaSections([
-        {
-            id: 'follow-up',
-            name: 'Sent Brewery',
-            contactStatus: 'Sent',
-            nextFollowUpDate: '2000-01-01',
-            contactEmail: 'sent@example.com'
-        },
-        {
-            id: 'new-place',
-            name: 'New Prospect Cafe',
-            contactStatus: 'Not Contacted',
-            contactEmail: 'hello@example.com',
-            priority: 8
-        },
-        {
-            id: 'review',
-            name: 'Needs Data Pub',
-            contactStatus: 'Needs Review'
-        }
-    ]);
-
-    assert.deepEqual(Array.from(sections, section => section.id), ['catchUp', 'newPlaces', 'dataReview']);
-    assert.deepEqual(Array.from(sections[0].items, item => item.venueId), ['follow-up']);
-    assert.deepEqual(Array.from(sections[1].items, item => item.venueId), ['new-place']);
-    assert.deepEqual(Array.from(sections[2].items, item => item.venueId), ['review']);
+test('agenda keeps a gig and a scheduled follow-up at the same venue as separate tasks', () => {
+    const schema = loadBookingSchema('2026-09-11T14:00:00Z');
+    const rows = [{id: 'both', name: 'Both', contactStatus: 'Booked', eventDate: '2026-09-11', nextFollowUpDate: '2026-09-12'}];
+    assert.deepEqual(Array.from(schema.getDailyAgenda(rows), x => x.type), ['upcomingGig', 'followUpDue']);
+    assert.equal(schema.getDailyAgenda(rows, 1).length, 1);
 });
 
 test('filterVenues searches venue, location, contact, and booking status terms', () => {
@@ -455,3 +380,12 @@ test('filterVenues searches venue, location, contact, and booking status terms',
     assert.deepEqual(ids(schema.filterVenues(venues, 'missing')), []);
     assert.equal(schema.filterVenues(venues, '').length, 3);
 });
+
+ test('agenda includes saved Future Gigs even without the legacy event-date column', () => {
+    const schema = loadBookingSchema('2026-09-11T14:00:00Z');
+    const rows = [{id: 'calendar', name: 'Calendar venue', contactStatus: 'Played in the Past',
+        calendarFutureGigEvents: '2026-09-11; 2026-09-13; 2026-09-20'}];
+    const agenda = schema.getDailyAgenda(rows);
+    assert.deepEqual(Array.from(agenda, x => x.eventDate), ['2026-09-11', '2026-09-13']);
+    assert.deepEqual(Array.from(agenda, x => x.venue.booking.eventDate), ['2026-09-11', '2026-09-13']);
+ });
